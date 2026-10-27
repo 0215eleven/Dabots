@@ -1,0 +1,25 @@
+{
+  "name": "ds-bot-relay",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0-codex.4",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "start": "node bin.mjs"
+  },
+  "dependencies": {
+    "ws": "8.22.0"
+  },
+  "bin": {
+    "ds-bot-relay": "bin.mjs"
+  },
+  "files": [
+    "bin.mjs",
+    "server.mjs",
+    "README.md"
+  ]
+}

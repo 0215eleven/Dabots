@@ -1,0 +1,708 @@
+import { ChatHeader } from "../components/ChatHeader";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { dateLocale } from "../i18n";
+import { DesktopBrowser } from "../components/DesktopBrowser";
+import { tr } from "../i18n";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FlatList,
+  Keyboard,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { KeyboardAvoidingView, KeyboardStickyView, useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
+import Reanimated, { useAnimatedStyle } from "react-native-reanimated";
+import { AnimatedPressable as Pressable } from "../components/Motion";
+import * as Speech from "expo-speech";
+import {
+  Attachment,
+  Conversation,
+  Message,
+  MobileClient,
+} from "@ds-bot/mobile-sdk";
+import {
+  Button,
+  Card,
+  Field,
+  Label,
+  Notice,
+  Sheet,
+  styles,
+  IconButton,
+  Icon,
+} from "../components/UI";
+import { MediaComposer } from "../components/MediaComposer";
+import { Glass } from "../components/Glass";
+import { MessageBubble } from "../components/MessageBubble";
+import { QuestionCard } from "../components/QuestionCard";
+import { useConversation } from "../hooks/useConversation";
+import { Host } from "../storage";
+import { errorText, TeamState } from "../types";
+import { useTheme } from "../theme";
+import { BotAvatar, RoomAvatar } from "../components/BotAvatar";
+import { GroupProgress } from "../components/GroupProgress";
+import { WorkCapsule } from "../components/WorkCapsule";
+import { type GroupRound, mergeGroupProgress, ownBotWork, workDescription } from "../logic/group-work";
+import { ConversationExport } from "../components/ConversationExport";
+import { VoiceMode } from "../components/VoiceMode";
+import { HistorySearchPanel, ConversationPartsPanel } from "../features/HistoryPanels";
+import { ApprovalCards } from "../components/ApprovalCards";
+import { SkillsPanel } from "../host-settings/SkillsPanel";
+import { SecretRequestCards } from "../host-settings/SecretsPanel";
+import { MentionMenu } from "../components/MentionMenu";
+import { ReferencePicker, ReferenceChat } from "../components/ReferencePicker";
+import { combineTurnReasoning } from "../logic/reasoning";
+import { mobileActionAllowed, mobilePanelAllowed, mobileMediaAllowed, mobileCancelAllowed, BRIDGE_UNAVAILABLE } from "../logic/mobile-access";
+import { supportsMobileAction } from "../logic/mobile-capabilities";
+import { ThinkingLevelPicker } from "../components/ThinkingLevelPicker";
+import { chatTailVersion, createChatScrollController, hasVisibleChatContent } from "../logic/chat-scroll";
+import { hideQuestionReceipt } from "../logic/tool-results";
+import { composeReferenceDraft, mentionCandidates, mentionQuery, referenceDraft, sessionMention } from "../logic/composer";
+
+// Fabric prepares its native anchor using the old props and adjusts using the
+// new props in one mount. Toggling this during a drag can reuse a stale anchor.
+const HISTORY_ANCHOR = { minIndexForVisible: 0 };
+
+function messageDate(message?: Message) {
+  const value = message?.createdAt;
+  if (value === undefined || value === null || (typeof value === "string" && !value.trim())
+    || (typeof value === "number" && (!Number.isFinite(value) || value <= 0))) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function dayLabel(date: Date) {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const day = date.toDateString();
+  if (day === today.toDateString()) return tr("Today");
+  if (day === yesterday.toDateString()) return tr("Yesterday");
+  return date.toLocaleDateString(dateLocale(), { month: "short", day: "numeric", ...(date.getFullYear() !== today.getFullYear() ? { year: "numeric" as const } : {}) });
+}
+
+export function ChatScreen({
+  client,
+  host,
+  conversation,
+  conversations,
+  select,
+  team,
+  refresh,
+  online,
+  transcription,
+  onOpenNavigation,
+  onOpenDetails,
+  active = true,
+  openRevision = 0,
+}: {
+  client: MobileClient;
+  host: Host;
+  conversation: Conversation;
+  conversations: Conversation[];
+  select: (id: string) => void;
+  team: TeamState;
+  refresh: () => Promise<void>;
+  online: boolean;
+  transcription: boolean;
+  onOpenNavigation?: () => void;
+  onOpenDetails?: () => void;
+  active?: boolean;
+  openRevision?: number;
+}) {
+  const t = useTheme();
+  const insets = useSafeAreaInsets();
+  const chat = useConversation(client, host, conversation.id, team.mobileCapabilities);
+  const allows = (action: string) => mobileActionAllowed(team.mobileCapabilities, action);
+  const canCancel = mobileCancelAllowed(team.mobileCapabilities);
+  const [previousSends, setPreviousSends] = useState(false);
+  const [search, setSearch] = useState(false);
+  const [parts, setParts] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [voice, setVoice] = useState(false);
+  const [skills, setSkills] = useState(false);
+  const [browser, setBrowser] = useState(false);
+  const [context, setContext] = useState<Message[] | null>(null);
+  const [contextBusy, setContextBusy] = useState(false);
+  const [contextCursor, setContextCursor] = useState<string | null>(null);
+  const [contextSession, setContextSession] = useState("");
+  const [contextError, setContextError] = useState("");
+  const contextGeneration = useRef(0);
+  const [removeQueue, setRemoveQueue] = useState<string | null>(null);
+  useEffect(
+    () => () => {
+      Speech.stop();
+      contextGeneration.current++;
+    },
+    [],
+  );
+  const [options, setOptions] = useState(false);
+  const [picker, setPicker] = useState(false);
+  const [models, setModels] = useState(false);
+  const [modelQuery, setModelQuery] = useState("");
+  const [modelBusy, setModelBusy] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [referencePicker, setReferencePicker] = useState(false);
+  const [composerFocused, setComposerFocused] = useState(false);
+  const keyboard = useReanimatedKeyboardAnimation();
+  const [dockHeight, setDockHeight] = useState(88);
+  const historyDockInset = useAnimatedStyle(() => ({
+    paddingBottom: dockHeight - insets.bottom * keyboard.progress.value,
+  }), [dockHeight, insets.bottom]);
+  const [inputHeight, setInputHeight] = useState(44);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
+  const [dismissedMention, setDismissedMention] = useState("");
+  const list = useRef<FlatList<Message>>(null);
+  const input = useRef<TextInput>(null);
+  const [progress, setProgress] = useState<{id: string; rounds: GroupRound[]}>({id:"",rounds:[]});
+  const receiveProgress = useCallback((rounds: GroupRound[]) => setProgress({id:conversation.id,rounds}), [conversation.id]);
+  useEffect(() => setProgress({id:"",rounds:[]}), [conversation.id]);
+  const composer = useMemo(() => referenceDraft(chat.draft), [chat.draft]);
+  useEffect(() => {
+    const hidden = Keyboard.addListener("keyboardDidHide", () => setComposerFocused(false));
+    const shown = Keyboard.addListener("keyboardDidShow", () => { if (input.current?.isFocused()) setComposerFocused(true); });
+    return () => { hidden.remove(); shown.remove(); };
+  }, []);
+  const [newMessages, setNewMessages] = useState(false);
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
+  const scroll = useMemo(() => createChatScrollController({
+    inverted: true,
+    scrollToEnd: animated => list.current?.scrollToOffset({ offset: 0, animated }),
+    unreadChanged: setNewMessages,
+    awayFromBottomChanged: setAwayFromBottom,
+    frame: callback => { const id = requestAnimationFrame(callback); return () => cancelAnimationFrame(id); },
+    delay: (callback, milliseconds) => { const id = setTimeout(callback, milliseconds); return () => clearTimeout(id); },
+  }), [conversation.id, openRevision]);
+  useEffect(() => {
+    setNewMessages(false);
+    setAwayFromBottom(false);
+    return () => scroll.dispose();
+  }, [scroll]);
+  const bot = team.bots.find(
+    (item) =>
+      item.sessionId === conversation.sessionId ||
+      item.id === conversation.id ||
+      `bot:${item.id}` === conversation.id,
+  );
+  const room = team.rooms.find(item => item.id === conversation.id || `room:${item.id}` === conversation.id);
+  const ownWork = bot && ownBotWork(bot.id, team);
+  const displayMessages = useMemo(() => combineTurnReasoning(room && progress.id === conversation.id ? mergeGroupProgress(chat.messages, progress.rounds, room, team) : chat.messages)
+    .filter(message => hasVisibleChatContent(message) && !(message.role === "tool" && message.tool && hideQuestionReceipt(message.tool))), [chat.messages, room, team, progress, conversation.id]);
+  const tailVersion = chatTailVersion(displayMessages);
+  const newestFirstMessages = useMemo(() => [...displayMessages].reverse(), [displayMessages]);
+  useEffect(() => { scroll.tailChanged(tailVersion); }, [scroll, tailVersion]);
+  useEffect(() => {
+    if (active) scroll.resume(); else scroll.pause();
+  }, [scroll, active]);
+  const questionOwners = new Set([conversation.id, bot?.id, room?.id]);
+  const questions = Object.entries(team.questions ?? {})
+    .filter(([sessionId, question]) => question.conversationId
+      ? questionOwners.has(question.conversationId)
+      : (question.sessionId ?? sessionId) === conversation.sessionId)
+    .map(([sessionId, question]) => ({ question, sessionId: question.sessionId ?? sessionId }));
+  const writable = online && !team.readOnly && chat.status !== "unauthorized" && team.mobileCapabilities?.send === true && (!room || team.mobileCapabilities?.groups === true);
+  const mention = (bot || room) && composerFocused && writable && !chat.pending && !chat.busy ? mentionQuery(composer.text, selection) : null;
+  const mentionKey = `${chat.draft}:${selection.start}`;
+  const mentionRows = mention && dismissedMention !== mentionKey ? mentionCandidates(team.bots, bot?.id, room, mention.query, tr("Everyone")) : [];
+  function setComposerText(text: string) { chat.setDraft(composeReferenceDraft(text, composer.references)); }
+  function pickMention(name: string) {
+    if (!mention) return;
+    const insert = `@${name} `;
+    setComposerText(composer.text.slice(0, mention.start) + insert + composer.text.slice(mention.end));
+    const position = mention.start + insert.length;
+    setSelection({ start: position, end: position });
+    requestAnimationFrame(() => {input.current?.focus();input.current?.setNativeProps({selection:{start:position,end:position}});});
+  }
+  function pickReference(chatReference: ReferenceChat) {
+    setReferencePicker(false);
+    if (composer.references.some(ref => ref.sessionId === chatReference.sessionId)) return;
+    if (composer.references.length >= 3) { chat.setError(tr("Use up to three chat references.")); return; }
+    chat.setError("");
+    chat.setDraft(composeReferenceDraft(composer.text, [...composer.references, {sessionId:chatReference.sessionId,label:chatReference.label,mention:sessionMention(chatReference.sessionId,chatReference.label)}]));
+  }
+  function authorBot(message: Message) {
+    const id = typeof message.author === "object" ? message.author?.id : undefined;
+    const name = typeof message.author === "string" ? message.author : message.author?.name;
+    return team.bots.find(value => value.id === id || value.sessionId === id || (name && value.name === name)) || bot;
+  }
+  // Stable handlers keep memoized message bubbles from re-rendering while typing.
+  const handlers = useRef({ reply, openBot });
+  handlers.current = { reply, openBot };
+  const replyToMessage = useCallback((text: string) => handlers.current.reply(text), []);
+  const openBotChat = useCallback((id: string) => handlers.current.openBot(id), []);
+  function openBot(id: string) {
+    const target = conversations.find(value => value.id === id || value.id === `bot:${id}`);
+    if (target) select(target.id);
+  }
+  function reply(text: string) {
+    if (chat.pending || chat.busy) return;
+    const excerpt = text.replace(/\s+/g, " ").trim();
+    chat.setDraft(`${chat.draft}${chat.draft ? "\n\n" : ""}> ${excerpt.length > 200 ? `${excerpt.slice(0, 200)}…` : excerpt}\n\n`);
+    input.current?.focus();
+  }
+  async function openContext(message: Message) {
+    const generation = ++contextGeneration.current;
+    setSearch(false);
+    setContext([message]);
+    setContextSession(message.sessionId);
+    setContextCursor(null);
+    setContextError("");
+    setContextBusy(true);
+    try {
+      const page = await client.action<{ messages: Message[]; cursor: string | null }>("context", { conversationId: conversation.id, sessionId: message.sessionId, seq: message.seq, limit: 30 });
+      if (generation !== contextGeneration.current) return;
+      setContext(page.messages);
+      setContextCursor(page.cursor);
+    } catch (err) { if (generation === contextGeneration.current) setContextError(errorText(err)); }
+    finally { if (generation === contextGeneration.current) setContextBusy(false); }
+  }
+  async function openPart(sessionId: string) {
+    const generation = ++contextGeneration.current;
+    setParts(false);
+    setContext([]);
+    setContextSession(sessionId);
+    setContextCursor(null);
+    setContextError("");
+    setContextBusy(true);
+    try {
+      const view = await client.action<{ parts: { sessionId: string; cursor: string }[] }>("parts", { conversationId: conversation.id });
+      const part = view.parts.find(item => item.sessionId === sessionId);
+      if (!part) throw new Error("This conversation part is no longer available.");
+      const page = await client.messages(conversation.id, { cursor: part.cursor, limit: 60 });
+      if (generation !== contextGeneration.current) return;
+      setContext(page.messages);
+      setContextCursor(page.cursor);
+    } catch (err) { if (generation === contextGeneration.current) setContextError(errorText(err)); }
+    finally { if (generation === contextGeneration.current) setContextBusy(false); }
+  }
+  async function earlierContext() {
+    if (!contextCursor || contextBusy) return;
+    const generation = contextGeneration.current;
+    setContextBusy(true);
+    try {
+      const page = await client.messages(conversation.id, { cursor: contextCursor });
+      if (generation !== contextGeneration.current) return;
+      const samePart = page.messages.filter(message => message.sessionId === contextSession);
+      setContext(previous => [...samePart.filter(message => !previous?.some(item => item.id === message.id)), ...(previous || [])]);
+      setContextCursor(page.sessionId === contextSession ? page.cursor : null);
+    } catch (err) { if (generation === contextGeneration.current) setContextError(errorText(err)); }
+    finally { if (generation === contextGeneration.current) setContextBusy(false); }
+  }
+  async function chooseModel(model: string) {
+    if (!bot || modelBusy || !writable || !supportsMobileAction(team.mobileCapabilities, "update-bot", "modelSelection")) return;
+    setModelBusy(true);
+    try {
+      await client.action("update-bot", { id: bot.id, model, effort: null });
+      await refresh();
+      setModels(false);
+    } catch (err) {
+      chat.setError(errorText(err));
+    } finally {
+      setModelBusy(false);
+    }
+  }
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
+      <View pointerEvents="box-none" style={{ position: "absolute", top: 16, left: 20, right: 20, zIndex: 10 }}>
+        <ChatHeader name={conversation.name} avatar={room ? <RoomAvatar room={room} team={team} size={30}/> : <BotAvatar bot={bot || {id:conversation.id,name:conversation.name}} size={30}/>}
+          onBack={onOpenNavigation || (()=>setPicker(true))} onDetails={onOpenDetails || (()=>setPicker(true))} onMore={()=>setOptions(true)}/>
+
+      </View>
+      {/* Resize the history independently; the composer must not be clipped by it. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "web" ? undefined : "padding"} keyboardVerticalOffset={insets.top}>
+      <FlatList
+        key={`${conversation.id}:${openRevision}`}
+        ref={list}
+        inverted
+        style={{ flex: 1 }}
+        data={newestFirstMessages}
+        keyExtractor={(item) => item.id}
+        // Markdown bubbles are costly to mount; render about five screens around the viewport.
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        windowSize={11}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: 82,
+          flexGrow: 1,
+        }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        onLayout={event => { const { width, height } = event.nativeEvent.layout; scroll.resize("viewport", width, height); }}
+        scrollIndicatorInsets={{ top: dockHeight, bottom: 76 }}
+        maintainVisibleContentPosition={HISTORY_ANCHOR}
+        onScrollBeginDrag={() => { scroll.beginDrag(); Keyboard.dismiss(); }}
+        onScrollEndDrag={() => scroll.endDrag()}
+        onMomentumScrollBegin={() => scroll.momentumStart()}
+        onMomentumScrollEnd={() => scroll.momentumEnd()}
+        onTouchStart={() => scroll.touchStart()}
+        onTouchEnd={() => scroll.touchEnd()}
+        onTouchCancel={() => scroll.touchEnd()}
+        {...(Platform.OS === "web"
+          ? { onWheel: () => { scroll.beginDrag(); scroll.endDrag(); } }
+          : {})}
+        onScroll={(event) => {
+          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+          scroll.scroll(contentOffset.y, contentSize.height, layoutMeasurement.height);
+        }}
+        scrollEventThrottle={16}
+        onContentSizeChange={(width, height) => scroll.resize("content", width, height)}
+        ListFooterComponent={
+          <View style={{ gap: 8 }}>
+          {team.readOnly ? <Notice text={team.readOnly} /> : null}
+          {chat.cursor ? (
+            <Button
+              title={chat.busy ? tr("Loading…") : tr("Load earlier messages")}
+              secondary
+              disabled={chat.busy || !online}
+              onPress={() => { scroll.loadOlder(); void chat.older(); }}
+            />
+          ) : null}
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={{ flex: 1, justifyContent: "flex-end", paddingVertical: 22, gap: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
+              {room && <RoomAvatar room={room} team={team} size={24} />}
+              <View style={{ flex: 1, backgroundColor: t.bubble, borderRadius: 18, paddingVertical: 9, paddingHorizontal: 12 }}>
+                <Text style={{ color: t.ink, fontSize: 14, lineHeight: 22 }}>{bot?.waiting ? tr("Hi, I'm ") + bot.name + tr(". Pick a model for me first. You can change it later in my details.") : room ? tr("Message the group, or @mention a Bot to bring it into the conversation.") : tr("Message ") + conversation.name + tr(" to get started.")}</Text>
+              </View>
+            </View>
+            {bot?.waiting && supportsMobileAction(team.mobileCapabilities, "update-bot", "modelSelection") ? <View style={{ marginLeft: 32, gap: 8 }}>
+              {Array.from(new Set(team.models.map(model => model.providerName || "Models"))).map(provider => <View key={provider} style={{ gap: 5 }}>
+                <Text style={{ color: t.muted, fontSize: 12 }}>{provider}</Text>
+                <View style={[styles.row, { flexWrap: "wrap", gap: 6 }]}>{team.models.filter(model => (model.providerName || "Models") === provider).map(model => <Button key={model.ref} compact secondary title={model.name} disabled={!writable || modelBusy} onPress={() => void chooseModel(model.ref)} />)}</View>
+              </View>)}
+              {!team.models.length ? <Notice text={tr("Add a model provider in Harness settings, then refresh.")} /> : null}
+            </View> : null}
+          </View>
+        }
+        renderItem={({ item, index }) => {
+          if(item.role==="assistant" && !item.text && !item.reasoning && !item.attachments?.length && !item.pending)return null;
+          const previous = newestFirstMessages[index + 1];
+          const date = messageDate(item);
+          const before = messageDate(previous);
+          const changedDay = date && (!before || date.toDateString() !== before.toDateString());
+          const changedPart = previous && item.sessionId && previous.sessionId && item.sessionId !== previous.sessionId;
+          return <View testID={`chat-message:${item.id}`}>
+            {changedPart ? <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 14 }}>
+              <View style={{ height: 1, flex: 1, backgroundColor: t.line }} />
+              <Text style={{ color: t.muted, fontSize: 12 }}>{tr("New conversation part")}</Text>
+              <View style={{ height: 1, flex: 1, backgroundColor: t.line }} />
+            </View> : null}
+            {changedDay ? <Text style={{ color: t.muted, fontSize: 12, lineHeight: 18, textAlign: "center", marginVertical: 12 }}>{dayLabel(date)}</Text> : null}
+            <MessageBubble
+            message={item}
+            capabilities={team.mobileCapabilities}
+            client={client}
+            conversationId={conversation.id}
+            serverId={host.serverId}
+            bot={authorBot(item)}
+            showAuthor={!!room}
+            bots={team.bots}
+            onReply={writable && !chat.pending ? replyToMessage : undefined}
+            onOpenBot={openBotChat}
+            />
+          </View>;
+        }}
+        ListHeaderComponent={
+          <Reanimated.View style={historyDockInset}>
+            {supportsMobileAction(team.mobileCapabilities, 'approvals', 'approvals') && <ApprovalCards client={client} conversationId={conversation.id} online={online} messages={chat.messages} canResolve={writable && allows("approval-resolve")} />}
+            {bot && mobilePanelAllowed(team.mobileCapabilities, "secrets") ? <SecretRequestCards botId={bot.id} client={client} team={team} online={writable} refresh={refresh} /> : null}
+            {chat.queue.map((item) => (
+              <Card key={item.id}>
+                <Label muted>
+                  {tr("Queued ·")}{" "}
+                  {item.target === "next-step" ? tr("next step") : tr("next turn")}
+                </Label>
+                <Label>{item.text || tr("Attachment message")}</Label>
+                <Button
+                  secondary
+                  title={tr("Remove queued message")}
+                  disabled={!online || !allows("queue-remove")}
+                  onPress={() => setRemoveQueue(item.id)}
+                />
+              </Card>
+            ))}
+            {questions.map(({ question, sessionId }) => (
+              <QuestionCard
+                key={`${sessionId}:${question.id}`}
+                question={question}
+                sessionId={sessionId}
+                client={client}
+                refresh={refresh}
+                disabled={!writable || !allows("answer-question")}
+                allowDismiss={allows("dismiss-question")}
+              />
+            ))}
+          </Reanimated.View>
+        }
+      />
+      </KeyboardAvoidingView>
+      <KeyboardStickyView offset={{ opened: insets.bottom }} style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 10 }}>
+      {awayFromBottom && (
+        <View pointerEvents="box-none" style={{ position: "absolute", bottom: dockHeight + 8, left: 0, right: 0, zIndex: 11, alignItems: "center" }}>
+          <Glass radius={22}>
+            <Pressable accessibilityRole="button" accessibilityLabel={tr("Back to bottom")} accessibilityHint={newMessages ? tr("New messages") : undefined}
+              onPress={() => scroll.jumpToBottom()} style={({pressed}) => ({ width:44,height:44,borderRadius:22,alignItems:"center",justifyContent:"center",
+                backgroundColor:pressed ? t.hover : undefined })}>
+              <Icon name="down" size={22} color={newMessages ? t.accent : t.ink}/>
+            </Pressable>
+          </Glass>
+        </View>
+      )}
+      <View pointerEvents="box-none"
+        onLayout={event => { const height = Math.ceil(event.nativeEvent.layout.height); setDockHeight(previous => Math.abs(previous - height) > 1 ? height : previous); }}
+        style={{ zIndex: 10, backgroundColor: t.bg }}>
+      {room && <GroupProgress client={client} room={room} team={team} running={chat.running} online={online && chat.status === "connected"} onOpenDetails={onOpenDetails} onProgress={receiveProgress} />}
+      {ownWork && online && chat.status === "connected" && <WorkCapsule label={ownWork.switching ? tr("Moving to a fresh conversation") : workDescription(ownWork) || tr("Working")} onPress={onOpenDetails}/>}
+      <View
+        pointerEvents="box-none"
+        style={{
+          paddingHorizontal: 20,
+          paddingTop: 6,
+          paddingBottom: insets.bottom + 8,
+          gap: 9,
+        }}
+      >
+        {chat.status === "unauthorized" ? <Notice capsule error text={tr("This device no longer has access. Open Settings, disconnect, then pair again.")} /> : !online ? <Notice capsule text={tr("Host offline. Cached messages and drafts are available. Keep your computer awake, then reconnect to send.")} /> : team.mobileCapabilities?.history !== true && team.mobileCapabilities?.stream !== true ? <Notice capsule text={BRIDGE_UNAVAILABLE} /> : chat.status !== "connected" ? <Notice capsule text={tr(chat.status === "connecting" ? "Connecting…" : "Reconnecting…")} />
+          // A DSH Agent asks for tool approval on the computer only; say so while it works.
+          : conversation.kind === "agent" && chat.running ? <Notice capsule text={tr("If the Agent asks to approve a tool, approve it on the computer.")} /> : null}
+        <Notice capsule error text={chat.error} />
+        <MentionMenu rows={mentionRows} pick={pickMention} close={() => setDismissedMention(mentionKey)} />
+        {!!composer.references.length && <View pointerEvents="box-none" style={{flexDirection:"row",flexWrap:"wrap",gap:8}}>{composer.references.map(ref=><View key={ref.sessionId} style={{flexDirection:"row",alignItems:"center",backgroundColor:t.surface,borderColor:t.line,borderWidth:1,borderRadius:999,paddingLeft:14,gap:8}}>
+          <Icon name="chat" size={16}/><Text numberOfLines={1} style={{color:t.ink,fontSize:13,maxWidth:180}}>{ref.label}</Text><IconButton name="close" size={44} label={tr("Remove reference {name}",{name:ref.label})} disabled={!!chat.pending || chat.busy} onPress={()=>chat.setDraft(composeReferenceDraft(composer.text,composer.references.filter(item=>item.sessionId!==ref.sessionId)))}/>
+        </View>)}</View>}
+        {bot?.waiting && <Notice capsule text={tr("This Bot is waiting for your answer. Open its latest message and answer the question.")} />}
+        {chat.receipt && (
+          <View style={{alignSelf:"flex-start",borderRadius:999,backgroundColor:t.surface,paddingHorizontal:16,paddingVertical:8}}><Text style={{ color: t.muted, fontSize: 11 }}>{tr(chat.receipt)}</Text></View>
+        )}
+        <MediaComposer
+          client={client}
+          conversationId={conversation.id}
+          attachments={attachments}
+          setAttachments={setAttachments}
+          onTranscript={(text) => {
+            setComposerText(composer.text ? `${composer.text}\n${text}` : text);
+          }}
+          onReferenceChat={allows("reference-chats") ? () => setReferencePicker(true) : undefined}
+          images={mobileMediaAllowed(team.mobileCapabilities, "images")}
+          files={mobileMediaAllowed(team.mobileCapabilities, "files")}
+          disabled={
+            !writable ||
+            chat.status === "unauthorized" ||
+            chat.busy ||
+            !!chat.pending
+          }
+          transcription={transcription && mobileMediaAllowed(team.mobileCapabilities, "transcription")}
+          onVoiceChat={transcription && canCancel ? () => setVoice(true) : undefined}
+          voiceChatDisabled={!!chat.draft.trim() || !!attachments.length || chat.running || !!bot?.waiting || chat.status !== "connected"}
+        >
+          <TextInput
+            ref={input}
+            accessibilityLabel={tr("Message")}
+            multiline
+            maxLength={Math.max(0,100000-(chat.draft.length-composer.text.length))}
+            placeholder={chat.outgoing || chat.pending ? tr("Write your next message") : tr("Ask {p0}", { p0: String(conversation.name) })}
+            value={composer.text}
+            editable={writable}
+            onChangeText={setComposerText}
+            onSelectionChange={event => setSelection(event.nativeEvent.selection)}
+            onFocus={() => setComposerFocused(true)}
+            onBlur={() => setComposerFocused(false)}
+            onContentSizeChange={event => {
+              const height = Math.max(44, Math.min(150, Math.ceil(event.nativeEvent.contentSize.height)));
+              setInputHeight(previous => Math.abs(previous - height) > 1 ? height : previous);
+            }}
+            scrollEnabled={inputHeight >= 150}
+            underlineColorAndroid="transparent"
+            placeholderTextColor={t.muted}
+            style={{
+              flex: 1,
+              color: t.ink,
+              backgroundColor: "transparent",
+              borderColor: t.line,
+              borderWidth: 0,
+              textAlignVertical: "top",
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              fontSize: 17,
+              lineHeight: 24,
+              includeFontPadding: false,
+              minHeight: 44,
+              maxHeight: 150,
+              // Wrapped placeholders must not make an empty composer grow.
+              height: composer.text.length === 0 ? 44 : undefined,
+            }}
+          />
+          <IconButton primary size={44}
+            name="send"
+            label={tr("Send")}
+            disabled={
+              chat.previousDevice ||
+              !writable ||
+              chat.status === "unauthorized" ||
+              chat.busy ||
+              !!chat.outgoing ||
+              !!chat.pending ||
+              (!chat.draft.trim() && !attachments.length) ||
+              !!bot?.waiting
+            }
+            onPress={() => {
+              const operation = chat.beginSend(attachments, attachments[0]?.sessionId);
+              if (!operation) return;
+              setAttachments([]);
+              scroll.sent();
+              void operation;
+            }}
+          />
+
+        </MediaComposer>
+        {(chat.previousDevice || !!chat.archived.length) && (
+          <Button
+            secondary
+            title={tr("Review previous pairing sends")}
+            onPress={() => setPreviousSends(true)}
+          />
+        )}
+        {chat.outgoing && !chat.busy && (
+          <Notice capsule
+            text={
+              chat.previousDevice
+                ? tr("This unconfirmed send belongs to a previous pairing and cannot be retried. Review it on your host before starting a new message.")
+                : tr("A previous send needs confirmation. Retry checks its original receipt before sending again.")
+            }
+          />
+        )}
+        {chat.outgoing && !chat.busy && !chat.rejected && !chat.previousDevice && <Button secondary title={tr("Check send status")} onPress={() => { void chat.retry(); }} />}
+        {chat.rejected && (
+          <Button
+            secondary
+            title={tr("Keep draft and prepare again")}
+            onPress={async () => { const restored = await chat.recompose(); if (restored) setAttachments(restored); }}
+          />
+        )}
+
+      </View>
+      </View>
+      </KeyboardStickyView>
+      {voice ? <VoiceMode client={client} conversation={conversation} bot={bot} room={room} team={team} messages={chat.messages} running={chat.running} enabled={writable && chat.status === "connected" && !bot?.waiting} onSend={text => !writable || chat.pending || chat.busy || attachments.length ? Promise.resolve(null) : chat.sendVoice(text)} onStop={chat.cancel} onClose={() => setVoice(false)} /> : null}
+      <Sheet title={tr("Conversation options")} visible={options} onClose={() => setOptions(false)}>
+        {chat.running && canCancel && <Button secondary title={tr("Stop")} disabled={!writable || chat.busy} onPress={() => {setOptions(false);void chat.cancel();}}/>}
+        {(!allows("search") || !allows("parts") || !mobilePanelAllowed(team.mobileCapabilities, "skills")) && <Notice text={BRIDGE_UNAVAILABLE + " 仅显示当前桥接支持的操作。"}/>}
+        {allows("search") && allows("context") && <Button secondary title={tr("Search conversation")} onPress={() => {setOptions(false);setSearch(true);}}/>}
+        {allows("parts") && <Button secondary title={tr("Conversation history")} onPress={() => {setOptions(false);setParts(true);}}/>}
+        {mobilePanelAllowed(team.mobileCapabilities, "skills") && <Button secondary title={tr("Skills")} disabled={!online || !!chat.pending || chat.busy} onPress={() => {setOptions(false);setSkills(true);}}/>}
+        {!!bot && allows("browser-pages") && allows("browser-control") && <Button secondary title={tr("Desktop browser")} disabled={!online} onPress={() => {setOptions(false);setBrowser(true);}}/>}
+        {!!bot && supportsMobileAction(team.mobileCapabilities, 'update-bot', 'modelSelection') && <Button secondary title={tr("Choose a model")} disabled={!writable} onPress={() => {setOptions(false);setModels(true);}}/>}
+      </Sheet>
+      <Sheet title={tr("Desktop browser")} visible={browser} onClose={() => setBrowser(false)}>{browser && bot && allows("browser-pages") && allows("browser-control") && <DesktopBrowser client={client} botId={bot.id} online={online} />}</Sheet>
+      <Sheet title={tr("Skills")} visible={skills} onClose={() => setSkills(false)}>{skills && mobilePanelAllowed(team.mobileCapabilities, "skills") && <SkillsPanel client={client} team={team} online={online} refresh={refresh} conversationId={conversation.id} onChoose={name => { chat.setDraft(`/${name}${chat.draft ? " " + chat.draft : " "}`); setSkills(false); input.current?.focus(); }} />}</Sheet>
+      <Sheet
+        title={tr("Previous pairing sends")}
+        visible={previousSends}
+        onClose={() => setPreviousSends(false)}
+      >
+        <Label muted>
+          {tr("These sends were created under a different device credential. Check the conversation on your computer to determine whether they ran. This app will not replay them.")}</Label>
+        {[
+          ...chat.archived,
+          ...(chat.previousDevice && chat.pending ? [chat.pending] : []),
+        ].map((item) => (
+          <Card key={item.requestId}>
+            <Label>{item.text || tr("Attachment message")}</Label>
+            <Text selectable style={{ color: t.muted, fontSize: 12 }}>
+              {tr("Request:")}{item.requestId}
+            </Text>
+          </Card>
+        ))}
+        {chat.previousDevice && (
+          <Button
+            title={tr("Archive and start an empty draft")}
+            onPress={async () => {
+              try {
+                await chat.archivePrevious();
+                setPreviousSends(false);
+              } catch (error) {
+                chat.setError(errorText(error));
+              }
+            }}
+          />
+        )}
+      </Sheet>
+      <Sheet title={exporting ? tr("Export conversation") : context !== null ? tr("Conversation part") : parts ? tr("Conversation history") : tr("Search conversation")} visible={search || parts || exporting || context !== null} onClose={() => {
+        contextGeneration.current++; setSearch(false); setParts(false); setExporting(false); setContext(null);
+      }}>
+        {exporting ? <ConversationExport client={client} conversation={conversation} online={online} /> : search ? <HistorySearchPanel client={client} conversation={conversation} online={online} onSelectMessage={message => void openContext(message)} /> : parts ? <><Button title={tr("Export conversation")} secondary disabled={!online} onPress={() => { setParts(false); setExporting(true); }} /><ConversationPartsPanel client={client} conversation={conversation} online={online} onSelectPart={sessionId => void openPart(sessionId)} /></> : <>
+          <Notice error text={contextError} />
+          {contextBusy ? <Label muted>{tr("Loading conversation…")}</Label> : null}
+          {contextCursor ? <Button title={tr("Load earlier in this part")} secondary disabled={contextBusy || !online} onPress={() => void earlierContext()} /> : null}
+          {context?.map(message => <MessageBubble key={message.id} capabilities={team.mobileCapabilities} message={message} client={client} conversationId={conversation.id} serverId={host.serverId} bot={authorBot(message)} bots={team.bots} showAuthor={!!room} onReply={writable && !chat.pending ? text => { contextGeneration.current++; setContext(null); reply(text); } : undefined} />)}
+          {!contextBusy && !contextError && !context?.length ? <Label muted>{tr("No messages in this part.")}</Label> : null}
+        </>}
+      </Sheet>
+      <Sheet
+        title={tr("Remove queued message")}
+        visible={!!removeQueue}
+        onClose={() => setRemoveQueue(null)}
+      >
+        <Label>
+          {tr("Remove this waiting message from the host's queue? This does not cancel the current reply.")}</Label>
+        <Button
+          danger
+          title={tr("Remove from queue")}
+          onPress={async () => {
+            if (removeQueue) await chat.removeQueued(removeQueue);
+            setRemoveQueue(null);
+          }}
+        />
+      </Sheet>
+      <Sheet
+        title={tr("Conversations")}
+        visible={picker}
+        onClose={() => setPicker(false)}
+      >
+        {conversations.filter(item => !item.hidden || item.id === conversation.id).map((item) => (
+          <Button
+            secondary={item.id !== conversation.id}
+            key={item.id}
+            title={`${item.kind === "room" ? "○ " : ""}${item.name}`}
+            onPress={() => {
+              setPicker(false);
+              select(item.id);
+            }}
+          />
+        ))}
+      </Sheet>
+      <Sheet
+        title={tr("Choose a model")}
+        visible={models}
+        onClose={() => setModels(false)}
+      >
+        <Label muted>
+          {tr("Models are configured on your host. This changes the selected Bot's model on all devices.")}</Label>
+        <Field label={tr("Search models")} value={modelQuery} onChangeText={setModelQuery} autoCorrect={false} />
+        {bot && supportsMobileAction(team.mobileCapabilities, 'efforts', 'modelSelection') && <ThinkingLevelPicker client={client} model={team.models.find(model=>model.ref===bot.model)} value={bot.effort} disabled={!writable || modelBusy} choose={async effort=>{await client.action("update-bot",{id:bot.id,effort});await refresh();}}/>}
+        {team.models.filter(model => [model.name, model.providerName, model.ref].join(" ").toLowerCase().includes(modelQuery.toLowerCase())).map((model) => (
+          <Button
+            secondary={bot?.model !== model.ref}
+            key={model.ref}
+            title={`${model.name} · ${model.providerName || model.ref}`}
+            disabled={!writable || modelBusy}
+            onPress={() => chooseModel(model.ref)}
+          />
+        ))}
+        {!team.models.length && (
+          <Notice text={tr("Add a model provider in DSH on your computer, then refresh the team.")} />
+        )}
+      </Sheet>
+      <ReferencePicker client={client} conversationId={conversation.id} bots={team.bots} visible={referencePicker} online={writable && !chat.pending && !chat.busy} pick={pickReference} close={() => setReferencePicker(false)}/>
+      </View>
+    </View>
+  );
+}

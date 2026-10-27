@@ -1,0 +1,43 @@
+{
+  "name": "@ds-bot/mobile-sdk",
+  "version": "0.1.1-codex.4",
+  "private": true,
+  "description": "Portable client for the DS Bot self-hosted mobile bridge",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./relay-crypto": {
+      "types": "./relay-crypto.d.ts",
+      "default": "./relay-crypto.js"
+    },
+    "./relay-transport": {
+      "types": "./relay-transport.d.ts",
+      "default": "./relay-transport.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "mentions.js",
+    "relay-crypto.js",
+    "relay-crypto.d.ts",
+    "vendor",
+    "relay-transport.js",
+    "relay-transport.d.ts",
+    "relay-rpc.js"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@noble/hashes": "2.0.1",
+    "@stablelib/base64": "2.0.1",
+    "tweetnacl": "1.0.3"
+  }
+}
