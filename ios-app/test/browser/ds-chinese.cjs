@@ -158,3 +158,58 @@ module.exports.pending = async function pending({page,h,visible,back,capture,che
   await capture('02-chat-history');
   check('Chinese canonical single-chat history and real response replace pending with one submission');
 };
+
+// Focused review follow-up: actual settings feedback plus only the four captures
+// that need replacement. The previously verified canonical chat image stays intact.
+module.exports.settings = async function settings({page,h,visible,back,capture,check,until}) {
+  const language=page.locator('select').filter({has:page.locator('option[value="zh"]')});
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await language.selectOption('zh');await visible('电脑外观').first().waitFor();
+  let lost=false;
+  const lose=async route=>{
+    if(!lost&&route.request().method()==='POST'&&route.request().postDataJSON()?.endpoint==='set-prefs'){
+      const response=await route.fetch();assert.ok(response.status()>=200&&response.status()<300);lost=true;
+      await route.fulfill({response,body:'{',headers:{...response.headers(),'content-length':'1'}});
+    }else await route.continue();
+  };
+  await page.route('**/mobile/v1/actions',lose);
+  try{await page.getByRole('button',{name:'#228866',exact:true}).click();await visible('更改需要确认').waitFor();assert.equal(lost,true);}
+  finally{await page.unroute('**/mobile/v1/actions',lose);}
+  const zhManagement='未收到回复，修改可能已在电脑上生效。请刷新并检查后再进行其他修改。';
+  const enManagement='The reply was lost. The change may already exist on the computer. Refresh and check it before making another change.';
+  await until(async()=>assert.equal(await visible(zhManagement).count(),2));
+  await page.evaluate(()=>{window.__localeSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k.endsWith(',"mobile-preferences"]'))throw Error('isolated preference write denial');return window.__localeSetItem.call(this,k,v);};});
+  try{
+    await language.selectOption('en');
+    await visible('Language changed for this session, but could not be saved on this device.').waitFor();
+    assert.equal(await visible(enManagement).count(),2,'locale failure must retain both current management feedback and its review row');
+  }finally{await page.evaluate(()=>{Storage.prototype.setItem=window.__localeSetItem;delete window.__localeSetItem;});}
+  await language.selectOption('zh');await visible('电脑外观').first().waitFor();
+  await until(async()=>assert.equal(await visible('本次会话的语言已更改，但无法保存到此设备。').count(),0));
+  assert.equal(await visible(zhManagement).count(),2);
+  assert.equal((await h.call('state')).prefs.accent,'#228866');
+  check('current locale failure and successful retry keep mounted localized management feedback');
+  await visible('读取电脑当前状态').click();await visible('我已检查当前状态').click();
+  await page.getByRole('heading',{name:'设置',exact:true}).filter({visible:true}).last().scrollIntoViewIfNeeded();
+  await capture('05-settings');
+  await language.scrollIntoViewIfNeeded();assert.equal(await language.inputValue(),'zh');await capture('06-settings-preferences');
+  await back();const state=await h.call('state'),bot=state.bots[0];await visible(bot.name).click();
+  await page.getByRole('button',{name:`${bot.name} 的信息`,exact:true}).click();
+  await page.getByLabel('机器人名称',{exact:true}).waitFor();await page.getByLabel('颜色',{exact:true}).waitFor();
+  const model=state.models.at(-1),options=await h.call('efforts',{ref:model.ref}),effort=options.efforts.at(-1);
+  await page.getByRole('button',{name:model.name,exact:true}).click();
+  await page.getByRole('button',{name:({Off:'关闭',Low:'低',High:'高',Max:'最高'})[effort.name]??effort.name,exact:true}).click();
+  await visible('模型与推理 · 电脑').scrollIntoViewIfNeeded();await visible(model.ref).waitFor();await capture('03-bot-model');
+  await page.getByRole('button',{name:'保存更改',exact:true}).click();
+  await page.getByRole('button',{name:/保存中|保存更改/}).waitFor({state:'hidden'});
+  await until(async()=>{const b=(await h.call('state')).bots.find(b=>b.id===bot.id);assert.equal(b.model,model.ref);assert.equal(b.effort,effort.id);});
+  await back();await page.getByLabel(`给 ${bot.name} 发消息`,{exact:true}).waitFor();await back();
+  const group=(await h.call('state')).rooms[0];await visible(group.name).click();
+  await page.getByRole('button',{name:`${group.name} 的信息`,exact:true}).click();
+  await page.getByLabel('群组名称',{exact:true}).waitFor();await page.getByRole('button',{name:'管理员',exact:true}).waitFor();
+  await page.getByLabel('公告',{exact:true}).fill('隔离测试群公告');await capture('04-group-edit');
+  await page.getByRole('button',{name:'保存群组',exact:true}).click();
+  await until(async()=>assert.equal((await h.call('state')).rooms.find(g=>g.id===group.id).notice,'隔离测试群公告'));
+  await page.getByLabel(`给 ${group.name} 发消息`,{exact:true}).waitFor();
+  check('four Chinese model/group/settings captures and canonical writes use isolated zh directory');
+};

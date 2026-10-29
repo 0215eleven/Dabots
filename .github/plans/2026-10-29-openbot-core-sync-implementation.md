@@ -96,6 +96,12 @@ Task 4 verification evidence and repeatable commands: `ios-app/docs/isolated-hos
 - [x] Self-review, update provenance/docs/plan, commit and report exact source/gate results. Parent supplies Task5 review and final whole-branch review/push/config draft. Keep native Xcode/IPA/device limitations explicit. Do not push, publish, merge or spawn subagents.
 
 
+### Task 5 review follow-up: R1/R2
+
+- [x] Guard queued locale feedback by the latest intent, keep separate locale status, preserve management errors and original per-host storage, and verify delayed-failure/newer-success plus current failure/retry on actual Settings handlers.
+- [x] Preserve verified Chinese home/chat captures, recapture only the four missing pages, separate en/zh capture destinations, visually inspect all six and record their hashes in the external fix report.
+- [x] Run affected type/locale/actual UI checks; refresh both JS exports on stable runtime source, then refresh production package metadata/source audit from clean committed fix source. Retain unchanged aggregate/native/engine evidence at its prior source point.
+
 ### Parent completion
 
 - [ ] Independent Task 5 review, final whole-branch review, authorized branch push and reusable cloud configuration draft (parent-owned).

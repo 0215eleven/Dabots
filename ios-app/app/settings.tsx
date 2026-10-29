@@ -25,6 +25,8 @@ function Row({title,detail,onPress,destructive,children}:{title:string;detail?:s
 function Settings() {
   const { tr, locale, preference: language } = useI18n();
   const localeSaves = useRef(Promise.resolve());
+  const latestLocaleIntent = useRef(0);
+  const [localeSaveStatus, setLocaleSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const router = useRouter();
@@ -48,15 +50,18 @@ function Settings() {
   const changeMode = (value: ColorMode) => { selectionFeedback(); setColorMode(value); void writeCache("app", "colorMode", value); };
   const changeLanguage = (value: LocalePreference) => {
     selectionFeedback();
+    const intent = ++latestLocaleIntent.current;
     setLocalePreference(value);
-    setMessage('');
+    setLocaleSaveStatus(host ? 'saving' : 'idle');
     if (!host) return;
     // Serialize rapid changes to this computer's existing preference record.
     localeSaves.current = localeSaves.current.catch(() => {}).then(() => saveLocalePreference({
       read: (scope, key) => readCache<Record<string, unknown>>(scope, key, {strict:true}),
       write: writeCache,
-    }, host.serverId, value)).catch(() => {
-      if (active.current) setMessage('Language changed for this session, but could not be saved on this device.');
+    }, host.serverId, value)).then(() => {
+      if (active.current && intent === latestLocaleIntent.current) setLocaleSaveStatus('saved');
+    }).catch(() => {
+      if (active.current && intent === latestLocaleIntent.current) setLocaleSaveStatus('failed');
     });
   };
   const changeIsland = (value: boolean) => { selectionFeedback(); setIsland(value); setLiveActivityEnabled(value); void writeCache("app", "liveActivity", value); };
@@ -73,6 +78,7 @@ function Settings() {
     <LargeTitleScrollView title={tr("Settings")} caption={host?.name} contentContainerClassName="gap-6 px-4 pt-3">
       <Stack.Screen options={{ title: "", headerTransparent: true, headerShadowVisible: false }} />
       {message || session.error ? <Typography.Paragraph className="text-danger-text px-1">{tr(message || session.error)}</Typography.Paragraph> : null}
+      {localeSaveStatus === 'failed' ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-1">{tr('Language changed for this session, but could not be saved on this device.')}</Typography.Paragraph> : null}
       <Group title={tr("Connection")} footer={tr("The app reconnects automatically when you change networks or return to the app.")}>
         <Row title={host?.name || tr("No computer paired")} detail={host ? hostAddress(host) : undefined}>
           <Typography.Paragraph className={session.workspace.online ? "text-success-text" : "text-muted"} style={{ fontSize: 14 }}>{status}</Typography.Paragraph>

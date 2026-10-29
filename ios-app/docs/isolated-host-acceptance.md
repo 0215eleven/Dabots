@@ -40,7 +40,9 @@ only in the test page; console and page errors are still collected.
 
 Optional `DS_TEST_SCREENSHOTS=/tmp/<private-directory>` captures representative 390px
 browser pages with synthetic fixture content, never the pairing page. Output is refused
-inside the checkout. Screenshots and runtime files must not enter Git.
+inside the checkout. English captures always go to the configured root’s `en/`
+subdirectory and Chinese captures to its `zh/` subdirectory, including combined
+runs. Screenshots and runtime files must not enter Git.
 
 The actual browser run does not prove native iOS transport, IME, keyboard, gestures,
 Keychain, installation or upgrade behavior. Web credentials intentionally remain only in
@@ -102,7 +104,9 @@ The existing language preference offers English and 简体中文. Active DS cont
 subscribe to the same locale store and imported language bridge; no second locale
 protocol is introduced. The original per-host `mobile-preferences` record retains
 its identity and unrelated fields. Writes are verified and a failed save is shown
-as session-only. Host/system follow modes and explicit English/Chinese choices
+as session-only. Feedback has its own locale-save status and latest-intent guard:
+an older queued result cannot replace current feedback or clear management errors.
+Host/system follow modes and explicit English/Chinese choices
 retain their existing behavior. DSH model references and effort IDs remain exact;
 known generic effort labels translate for display and unknown host labels fall back
 unchanged. User names, roles, messages and model names remain data.
@@ -120,6 +124,7 @@ the 8-outcome Chinese flow and the focused 3-outcome pending locale/history flow
 DS_TEST_SCENARIO=baseline node ios-app/test/browser/ds-isolated-host.cjs
 DS_TEST_SCENARIO=chinese DS_TEST_SCREENSHOTS=/tmp/<private-directory> node ios-app/test/browser/ds-isolated-host.cjs
 DS_TEST_SCENARIO=pending-locale DS_TEST_SCREENSHOTS=/tmp/<private-directory> node ios-app/test/browser/ds-isolated-host.cjs
+DS_TEST_SCENARIO=chinese-settings DS_TEST_SCREENSHOTS=/tmp/<private-directory> node ios-app/test/browser/ds-isolated-host.cjs
 ```
 
 The Chinese checks include locale changes on mounted settings errors, saved host
@@ -132,7 +137,15 @@ settings POST and truncates only the browser's acknowledgement JSON, then checks
 Chinese/English review and canonical desktop state. The submission-loss proxy
 scenario remains separately targeted to the successful POST and its actual receipt.
 
-Six 390px Chinese screenshots stay outside Git. The chat image waits for canonical
+Chinese captures are retained only under the capture root’s `zh/` directory;
+baseline captures use its sibling `en/` directory. Earlier shared filenames allowed
+English captures to overwrite four Chinese images, so that mixed directory is
+superseded. The reviewed fix preserves the verified Chinese home/canonical-chat
+images byte-for-byte and recaptures only model, group and settings pages through
+`chinese-settings`. The external report identifies the final six-image directory
+and its per-file SHA-256 manifest. All six are visually inspected.
+
+The chat image waits for canonical
 history and test-model reply; the test data and browser-native effect limitations
 remain explicit. They do not establish physical iPhone/Android or native mask,
 keyboard, Keychain or gesture behavior.
@@ -151,3 +164,25 @@ Task 5 source packaging follows a clean implementation commit: production
 Source/archive audit passes3826 records with zero findings. After the evidence
 documentation commit, refresh the package metadata from that clean final HEAD;
 all changed production hashes must still match the verified exports.
+
+## Task 5 review follow-up (R1/R2)
+
+The queued locale-save regression is tested with the actual compiled Settings
+component, its real picker callbacks and the real preference helper. A held zh
+read fails after en is queued; en persists and the obsolete failure cannot publish
+a warning. Current failures remain visible, successful retry clears only locale
+feedback, and mounted management errors retain their current translations. The
+original host key and unrelated fields remain unchanged. Typecheck and the21
+affected locale/binding tests pass; no aggregate engine/root/native suite is
+repeated for this change. The focused actual public-DSH run also verifies that
+locale-save failure/success preserves management feedback through en/zh, then
+captures the four missing Chinese pages and verifies canonical model/group writes.
+The normal preview-disabled app is used; no fixture preview or real user profile
+is involved.
+
+Both web and iOS JavaScript exports are refreshed once after this runtime fix
+stabilizes, with recorded production hashes and the same offline/proxy/cache
+settings above. Final clean package metadata and source/archive audit are recorded
+in the external fix report. Earlier aggregate and native-prebuild evidence keeps
+its original source boundary; native compilation/signing/device checks remain
+unrun. Screenshot recovery alone does not justify another bundle or broad suite.
