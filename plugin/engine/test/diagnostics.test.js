@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import fsp from 'node:fs/promises'
 import { syncBuiltinESMExports } from 'node:module'
 import { homedir, tmpdir } from 'node:os'
@@ -31,6 +31,73 @@ test('cleanText hides standalone credentials it was never given', () => {
     made('eyJ', 'hbGciOiJIUzI1NiJ9', '.', 'eyJzdWIiOiIxIn0', '.', 'dGVzdC1zaWduYXR1cmUtcGFydA'),
   ].join(' '), { home: '' })
   assert.equal(out, '[hidden] [hidden] [hidden] [hidden] [hidden] [hidden]')
+})
+
+test('cleanText hides absolute paths outside the user home and keeps useful frames', () => {
+  const frames = [
+    'at run (/mnt/private-workspace/project/src/main.js:12:3)',
+    'at dependency (/opt/private-install/node_modules/driver/index.js:8:2)',
+    'at other (/home/another-person/project/worker.js:4:9)',
+    String.raw`at windows (D:\Private Workspace\project\handler.js:5:6)`,
+    String.raw`at unc (\\private-server\secret-share\module.js:9:2)`,
+    'at url (file:///srv/private%20checkout/service.js:7:8)',
+  ]
+  const out = cleanText(frames.join('\n'), { home: '/home/current-user' })
+  for (const privatePart of ['private-workspace', 'private-install', 'another-person', 'Private Workspace', 'private-server', 'secret-share', 'private%20checkout']) assert.equal(out.includes(privatePart), false, privatePart)
+  for (const location of ['main.js:12:3', 'index.js:8:2', 'worker.js:4:9', 'handler.js:5:6', 'module.js:9:2', 'service.js:7:8']) assert.ok(out.includes(location), location)
+  assert.match(out, /at run \(/)
+  assert.doesNotMatch(out, /\/mnt\/|\/opt\/|\/home\/|file:\/\/|D:\\|\\\\private/)
+})
+
+test('cleanText hides quoted and JSON-escaped paths without corrupting URLs or relative symbols', () => {
+  const text = String.raw`cannot open "/srv/private project/config file.json" or "E:\\Private Folder\\cache.db"; path=/workspace/secret/code.ts; https://example.invalid/api/v2?token=SECRET123 bot/refused src/module.js node:internal/process/task_queues:105:5 源/模块.js https://例子/路径`
+  const out = cleanText(text, { home: '/home/current-user' })
+  for (const privatePart of ['private project', 'Private Folder', '/workspace/secret', 'SECRET123']) assert.equal(out.includes(privatePart), false, privatePart)
+  assert.match(out, /config file\.json/)
+  assert.match(out, /cache\.db/)
+  assert.match(out, /https:\/\/example\.invalid\/api\/v2\?token=\[hidden\]/)
+  assert.match(out, /bot\/refused src\/module\.js node:internal\/process\/task_queues:105:5/)
+  assert.match(out, /源\/模块\.js https:\/\/例子\/路径/)
+})
+
+test('non-home workspace paths are cleaned before every diagnostic output and after reload', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'ds-bot-diag-'))
+  t.after(() => rmSync(home, { recursive: true, force: true, maxRetries: 5 }))
+  const stderr = [], warnings = []
+  t.mock.method(console, 'error', (...args) => stderr.push(args.join(' ')))
+  const error = new Error('cannot read /srv/private-checkout/secrets/config.json')
+  error.stack = String.raw`Error: ${error.message}
+    at execute (/home/outside-owner/private-checkout/handler.js:13:7)
+    at windows (F:\private-checkout\runner.js:14:8)`
+  const rt = host(home)
+  rt.ctx.logger.warn = (...args) => warnings.push(args.join(' '))
+  rt.warn('ds-bot: %s', error)
+  await rt.stop()
+  const written = readFileSync(join(home, 'logs', 'diagnostics.jsonl'), 'utf8')
+  const again = host(home)
+  const report = await again.diagnostics.report()
+  const outputs = [written, stderr.join('\n'), warnings.join('\n'), report.markdown, JSON.stringify(await again.diagnostics.entries())]
+  for (const out of outputs) {
+    assert.doesNotMatch(out, /private-checkout|outside-owner|\/srv\/|\/home\/|F:\\/)
+    assert.match(out, /config\.json/)
+  }
+  for (const out of outputs.filter((_, index) => index !== 2)) assert.match(out, /handler\.js:13:7/)
+  await again.stop()
+})
+
+test('reload re-cleans legacy diagnostic fields as well as message and stack', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'ds-bot-diag-'))
+  t.after(() => rmSync(home, { recursive: true, force: true, maxRetries: 5 }))
+  const rt = host(home)
+  rt.noteFailure({ text: 'seed' })
+  await rt.stop()
+  writeFileSync(join(home, 'logs', 'diagnostics.jsonl'), JSON.stringify({ time: Date.now(), level: 'error', source: 'host', text: 'legacy failure', bot: '/srv/legacy-private/bot.json', where: String.raw`Z:\legacy-private\task.js:3:2`, code: 'EACCES' }) + '\n')
+  const again = host(home)
+  const report = await again.diagnostics.report()
+  assert.doesNotMatch(JSON.stringify(report), /legacy-private|\/srv\/|Z:\\/)
+  assert.doesNotMatch(await again.diagnostics.logText(), /legacy-private|\/srv\/|Z:\\/)
+  assert.match(report.markdown, /bot\.json/)
+  await again.stop()
 })
 
 // `stop()` runs the cleanups, as the plugin's stop does.

@@ -2,7 +2,7 @@
 // DSH mounts no exporter for ctx.logger once it has started, so warnings would otherwise
 // reach only stderr. Entries are kept in memory and in <home>/logs/diagnostics.jsonl, so
 // a report written after a restart still has them. Every text is cleaned of saved keys,
-// credential-like strings and the home folder before it is kept and again before it is
+// credential-like strings and absolute folders before it is kept and again before it is
 // shown, because the report is meant for a public issue.
 import { readFileSync } from 'node:fs'
 import { appendFile, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
@@ -36,6 +36,16 @@ const CREDENTIALS = [
   [/(["']?(?:api[_-]?key|authorization|x-api-key|password|secret)["']?\s*[:=]\s*["']?)[^\s"',}]{6,}/gi, '$1[hidden]'],
 ]
 
+// A checkout, dependency or another user's profile need not live under homedir().
+// Keep the leaf and line/column for useful frames, but never expose its folders.
+const pathLeaf = value => `[path]/${value.replace(/[\\/]+$/, '').split(/[\\/]+/).at(-1) ?? ''}`
+const cleanPaths = value => value
+  .replace(/\bfile:\/\/[^\s"'<>)]*/gi, pathLeaf)
+  .replace(/(^|\(|\bat\s+)((?:[A-Za-z]:[\\/]|\\\\|\/)[^)\r\n]*:\d+(?::\d+)?)(?=\)?(?:\s|$))/gm, (_, prefix, path) => prefix + pathLeaf(path))
+  .replace(/(["'])((?:[A-Za-z]:[\\/]|\\\\|\/)[^\r\n]*?)\1/g, (_, mark, path) => mark + pathLeaf(path) + mark)
+  // Exclude URL/relative-path prefixes, home '~' and our own '[path]' marker.
+  .replace(/(^|[^\p{L}\p{N}_~.:/\\\]-])((?:[A-Za-z]:[\\/]|\\\\|\/)[^\s"'<>),;]*)/gu, (_, prefix, path) => prefix + pathLeaf(path))
+
 export function cleanText(text, { redact = value => value, home = homedir() } = {}) {
   let out = redact(String(text ?? ''))
   for (const [pattern, replacement] of CREDENTIALS) out = out.replace(pattern, replacement)
@@ -47,6 +57,7 @@ export function cleanText(text, { redact = value => value, home = homedir() } = 
     const doubled = home.replace(/\\/g, '\\\\')
     if (doubled !== home) out = out.replace(new RegExp(quote(doubled), 'g'), '~')
   }
+  out = cleanPaths(out)
   return out.length > TEXT_MAX ? `${out.slice(0, TEXT_MAX)}…` : out
 }
 
@@ -188,11 +199,9 @@ export function install(rt) {
 
   const entries = async () => {
     const old = (await earlier).filter(entry => entry.time > cleared)
-    return [...old, ...fresh].slice(-KEEP).map(entry => ({
-      ...entry,
-      text: clean(entry.text),
-      ...(entry.stack ? { stack: clean(entry.stack) } : {}),
-    }))
+    return [...old, ...fresh].slice(-KEEP).map(entry => Object.fromEntries(
+      Object.entries(entry).map(([key, value]) => [key, typeof value === 'string' ? clean(value) : value]),
+    ))
   }
 
   const facts = () => {
