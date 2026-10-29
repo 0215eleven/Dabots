@@ -53,8 +53,15 @@ The existing final validation chain is `npm run check`, `npm run check:integrati
 `npm run pack:plugin`, and `npm run audit`. Web/iOS Metro exports and iOS prebuild run
 in temporary output; no generated artifacts or new release workflow are committed.
 
-Task 4 runtime baseline `538b6df` passed 17 actual UI/host scenarios plus the browser
-error assertion (desktop rename visible in 7785 ms), production Bridge integration
+Task 4 runtime baseline `538b6df` logged 17 actual UI/host scenarios plus the browser
+error assertion (desktop rename visible in 7785 ms). Review found its lost-ack case
+dropped a missing-receipt GET, so that entry did not prove loss of a successful
+submission response. The corrected scenario below targets only the exact successful
+POST, records its request ID/status, observes the browser itself retrieve the accepted
+receipt for that ID, and asserts one POST and one canonical history/UI item after
+reconnect. Independent SDK/outbox tests do not replace this actual UI check.
+
+Unchanged baseline gates passed: production Bridge integration
 21, TGZ boot 5/migration 6, Bridge delivery 11 and companion delivery 7. Companion
 delivery uses the existing reviewed compatibility fixture; the integration, browser
 and single-package suite use the production engine. The root check passed before
@@ -63,3 +70,23 @@ passed afterward. Baseline web export passed (4476 modules), as did isolated iOS
 prebuild. New user-requested Chinese/home changes are tracked as Task 5: final web
 and iOS exports belong to that stable source, so baseline iOS export was deferred.
 These results do not claim native compilation or physical-device acceptance.
+
+Run only the corrected actual-host acknowledgement scenario against existing normal
+Metro (the script still pairs a fresh disposable production host):
+
+```sh
+DS_TEST_SCENARIO=lost-ack node ios-app/test/browser/ds-isolated-host.cjs
+node --experimental-strip-types --test ios-app/test/ds-presentation.test.ts ios-app/test/isolated-bridge-proxy.test.ts
+```
+
+The proxy validates the resolved target origin and API pathname for HTTP and
+WebSocket forwarding, including plain/encoded dot-segment rejection. Focused tests
+also ensure receipt GETs, other POST endpoints and unsuccessful POST responses
+cannot consume the successful-submission fault. The provider's named avatar palette
+uses resolved theme darkness; System appearance changes invalidate its memo.
+
+Known acceptance boundary: if canonical stream history arrives before receipt
+recovery, the existing local accepted/pending row can remain alongside it until a
+new history/stream reset. The focused loss scenario records the pre-reconnect row
+count and asserts one canonical history item and one visible row after explicit
+reconnect; it does not claim immediate UI deduplication before that refresh.

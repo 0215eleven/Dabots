@@ -62,3 +62,23 @@ test('DS named avatar palette remains canonical in light and dark appearance',()
  const {botAvatarColor}=load('../src/ds/presentation.ts',{'../components/characterData.json':require('../src/components/characterData.json')});const {inks}=require('../src/components/characterData.json');
  for(const [name,colors] of Object.entries(inks) as Array<[string,string[]]>){assert.equal(botAvatarColor({color:name}),colors[0]);assert.equal(botAvatarColor({color:name},true),colors[1]);}
 });
+test('actual DS provider follows resolved System appearance and invalidates its memo on appearance changes',()=>{
+ const view={serverId:'h',bots:[{id:'b',sourceId:'b',serverId:'h',name:'named',color:'deepseek'}],groups:[],conversations:[],capabilities:{actions:[]},work:{}};
+ const core={read:()=>view},session={client:{},host:{serverId:'h'},workspace:{getSnapshot:()=>({}),team:{},conversations:[],online:true}};
+ const store=class{dispose(){}};let dark=true,cursor=0;const memo:Array<{deps:any[];value:any}>=[];const original=react.useMemo;
+ // Preserve React's dependency behavior across provider renders; all host objects and
+ // the preference 'system' stay identical while resolved OS appearance changes.
+ react.useMemo=(factory:any,deps:any[]=[])=>{const index=cursor++,previous=memo[index];if(previous&&deps.every((value,i)=>Object.is(value,previous.deps[i])))return previous.value;const value=factory();memo[index]={deps:[...deps],value};return value;};
+ try {
+  const {DsProvider}=load('../src/ds/provider.tsx',{
+   '../session/SessionProvider':{useSession:()=>session},'./session-binding':{bindSessionCore:()=>core},'./management':{guardManagement:()=>({core})},'./screen-binding':{createScreenCommands:()=>({})},
+   '@/features/workspace/model/conversation-store':{MobileConversationStore:store},'@/features/workspace/model/live-workspace-store':{LiveWorkspaceStore:store},'@/features/channels/model/channel-store':{MobileChannelStore:store},
+   '../theme':{useTheme:()=>({dark}),useColorMode:()=>('system')},'../i18n':{useI18n:()=>({locale:'en'})},
+   './presentation':load('../src/ds/presentation.ts',{'../components/characterData.json':require('../src/components/characterData.json')}),
+  });
+  const render=()=>{cursor=0;return DsProvider({children:null}).props.value.agents;};const colors=require('../src/components/characterData.json').inks.deepseek;
+  const initial=render();assert.equal(initial[0].avatarColor,colors[1]);assert.equal(render(),initial);
+  dark=false;const changed=render();assert.equal(changed[0].avatarColor,colors[0]);assert.notEqual(changed,initial);
+  dark=true;assert.equal(render()[0].avatarColor,colors[1]);
+ }finally{react.useMemo=original;}
+});

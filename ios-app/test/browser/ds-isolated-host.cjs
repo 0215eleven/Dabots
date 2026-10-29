@@ -23,6 +23,32 @@ async function until(run, timeout=10000){const start=Date.now();let last;while(D
  async function capture(name){if(!shotDir)return;assert.ok(resolve(shotDir)!==root&&!resolve(shotDir).startsWith(root+'/'));await mkdir(shotDir,{recursive:true,mode:0o700});await page.screenshot({path:join(shotDir,name+'.png'),style:'#error-toast {visibility:hidden !important}'});}
  const visible=text=>page.getByText(text,{exact:true}).filter({visible:true});
  async function back(){const link=page.getByRole('link',{name:/, back$/}).filter({visible:true});if(await link.count())await link.click();else await page.getByRole('button',{name:'Back',exact:true}).click();}
+ async function lostAcknowledgement(h,bot,name){
+  stage='lost successful POST acknowledgement';const text='Lost acknowledgement message';let submitted;
+  const observe=request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/mobile/v1/submissions'&&request.postDataJSON()?.text===text)submitted=request.postDataJSON();};
+  page.on('request',observe);
+  const recoveredResponse=page.waitForResponse(response=>response.request().method()==='GET'&&response.status()===200&&new URL(response.url()).pathname===`/mobile/v1/submissions/${submitted?.requestId}`,{timeout:30000});
+  recoveredResponse.catch(()=>{});
+  try {
+   h.p.controls.loseNext='/mobile/v1/submissions';
+   await page.getByLabel(`Message ${name}`,{exact:true}).fill(text);
+   await page.getByRole('button',{name:'Send message',exact:true}).click();
+   await until(()=>assert.equal(h.p.controls.dropped,1));
+   assert.ok(submitted?.requestId);const drop=h.p.controls.drops?.[0];
+   assert.equal(drop?.method,'POST','must drop the successful POST, never the pre-submit receipt GET');
+   assert.equal(drop.path,'/mobile/v1/submissions');assert.equal(drop.requestId,submitted.requestId);assert.ok(drop.status>=200&&drop.status<300);
+   const response=await recoveredResponse,receipt=await response.json();
+   assert.equal(receipt.status,'accepted');assert.equal(receipt.requestId,submitted.requestId);assert.equal(receipt.conversationId,bot.id);assert.equal(receipt.sessionId,bot.sessionId);
+   // UI-issued authorization stays only in memory for canonical public readback.
+   const authorization=await response.request().headerValue('authorization');assert.ok(authorization);
+   async function canonical(){const r=await fetch(`${h.p.url}/mobile/v1/conversations/${encodeURIComponent(bot.id)}/messages`,{headers:{authorization}});assert.equal(r.status,200);const history=await r.json();const rows=history.messages.filter(row=>row.requestId===submitted.requestId);assert.equal(rows.length,1);assert.equal(rows[0].text,text);assert.equal(history.messages.filter(row=>row.role==='user'&&row.text===text).length,1);return rows[0];}
+   await until(canonical);const visibleRowsBeforeReconnect=await visible(text).count();
+   const upgrades=h.p.controls.upgrades;h.p.disconnect();await until(()=>assert.ok(h.p.controls.upgrades>upgrades));await until(async()=>assert.equal(await visible(text).count(),1));await canonical();
+   assert.equal(h.p.controls.writes.filter(w=>w.path==='/mobile/v1/submissions'&&w.body.requestId===submitted.requestId).length,1);
+   assert.equal(h.p.controls.writes.filter(w=>w.path==='/mobile/v1/submissions'&&w.body.text===text).length,1);
+   check(stage,{requestId:submitted.requestId,droppedMethod:drop.method,droppedStatus:drop.status,recoveredReceipt:receipt.status,submissions:1,canonicalHistoryItems:1,visibleRowsBeforeReconnect,visibleRowsAfterReconnect:1});
+  }finally{page.off('request',observe);}
+ }
  async function pair(h){const code=await h.op('pairing.create');await page.locator('textarea').fill(JSON.stringify({...code,url:h.p.url}));await page.getByRole('switch').check();await page.getByText('Connect to my host',{exact:true}).click();await until(async()=>{const s=await h.op('status');assert.ok(s.pending.length);await h.op('pairing.approve',{requestId:s.pending[0].requestId??s.pending[0].id})});await visible('Connected').waitFor();}
  await page.goto(app,{timeout:180000});
  // Keep Metro's development-only warning toast from covering product controls;
@@ -30,11 +56,12 @@ async function until(run, timeout=10000){const start=Date.now();let last;while(D
  await page.addStyleTag({content:'#error-toast {pointer-events:none !important}'});await page.getByText('Connect your host',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>Boolean(globalThis.__DS_TEST_FIXTURE__)),false);
  stage='real UI pairing';await pair(h);await visible('Chief').waitFor();await visible('Candidate group').waitFor();check(stage);
  let state=await h.call('state'), bot=state.bots[0];
+ if(process.env.DS_TEST_SCENARIO==='lost-ack'){await visible(bot.name).click();await lostAcknowledgement(h,bot,bot.name);assert.deepEqual(errors,[]);assert.equal(warnings.some(w=>/colorKit|POP_TO_TOP/.test(w)),false);check('zero uncaught browser errors and corrected web warnings');return;}
  stage='desktop edit foreground visibility';const start=Date.now();await h.call('update-bot',{id:bot.id,name:'Desktop Chief'});await visible('Desktop Chief').waitFor({timeout:10000});check(stage,{ms:Date.now()-start});
  stage='desktop existing history';await h.call('bridge.submit',{version:1,conversationId:bot.id,expectedSessionId:bot.sessionId,requestId:'desktop_existing_history',content:[{type:'text',text:'Desktop existing acceptance history'}]});await visible('Desktop Chief').click();await visible('Desktop existing acceptance history').waitFor();check(stage);
  stage='mobile send and desktop public history';await page.getByLabel('Message Desktop Chief',{exact:true}).fill('Mobile acceptance message');await page.getByRole('button',{name:'Send message',exact:true}).click();
  await until(async()=>assert.ok(JSON.stringify(await h.op('test.session-history',{sessionId:bot.sessionId})).includes('Mobile acceptance message')),30000);check(stage);await capture('02-chat-history');
- stage='lost send acknowledgement';h.p.controls.loseNext='/submissions';await page.getByLabel('Message Desktop Chief',{exact:true}).fill('Lost acknowledgement message');await page.getByRole('button',{name:'Send message',exact:true}).click();await until(()=>assert.equal(h.p.controls.dropped,1));await visible('Lost acknowledgement message').waitFor();await until(async()=>assert.ok(JSON.stringify(await h.op('test.session-history',{sessionId:bot.sessionId})).includes('Lost acknowledgement message')));assert.equal(h.p.controls.writes.filter(w=>w.path.endsWith('/submissions')&&w.body.text==='Lost acknowledgement message').length,1);check(stage);
+ await lostAcknowledgement(h,bot,'Desktop Chief');
  stage='reconnect without duplicate history';const before=h.p.controls.upgrades;h.p.disconnect();await until(()=>assert.ok(h.p.controls.upgrades>before));await visible('Mobile acceptance message').waitFor();assert.equal(await visible('Mobile acceptance message').count(),1);check(stage);
  stage='running and stopped states';await page.getByLabel('Message Desktop Chief',{exact:true}).fill('长任务 20 1');await page.getByRole('button',{name:'Send message',exact:true}).click();await page.getByRole('button',{name:'Stop Desktop Chief',exact:true}).waitFor({timeout:10000});await page.getByRole('button',{name:'Stop Desktop Chief',exact:true}).click();await page.getByRole('button',{name:'Stop Desktop Chief',exact:true}).waitFor({state:'hidden',timeout:10000});check(stage);
  stage='edit Bot/model canonical host readback';await page.getByRole('button',{name:'Info for Desktop Chief',exact:true}).click();await page.getByLabel('Bot name',{exact:true}).fill('Phone Chief');state=await h.call('state');const model=state.models.at(-1);await page.getByRole('button',{name:model.name,exact:true}).click();const reasoning=await h.call('efforts',{ref:model.ref});const effort=reasoning.efforts.at(-1);assert.ok(effort);await page.getByRole('button',{name:effort.name,exact:true}).click();await page.getByRole('button',{name:state.models.at(-1).name,exact:true}).scrollIntoViewIfNeeded();await capture('03-bot-model');await page.getByRole('button',{name:'Save changes',exact:true}).click();await until(async()=>{const s=await h.call('state'),b=s.bots.find(b=>b.id===bot.id);assert.equal(b.name,'Phone Chief');assert.equal(b.model,model.ref);assert.equal(b.effort,effort.id)});check(stage);
