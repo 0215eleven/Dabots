@@ -422,8 +422,11 @@ export const ChatComposer = memo(function ChatComposer({
   const restLeadingInset = attachments ? restTextInset : FIELD_INSET;
   // Sized from the placeholder, so the bar carries no empty space. Full width
   // until the measurement lands: a bar that starts narrow would jump open.
+  // DS Bot Mobile: never narrower than 70% of the card, so the resting bar still reads as the message field.
   const restWidth =
-    placeholderWidth > 0 ? Math.min(cardWidth, placeholderWidth + restLeadingInset + restTextInset) : cardWidth;
+    placeholderWidth > 0
+      ? Math.min(cardWidth, Math.max(cardWidth * 0.7, placeholderWidth + restLeadingInset + restTextInset))
+      : cardWidth;
   // The worklets read the resting width from here, so a new placeholder tweens the bar instead of
   // snapping it. The first measurement is taken at once, as before: the bar must not shrink in
   // from full width when the chat opens.
@@ -1106,6 +1109,8 @@ export const ChatComposer = memo(function ChatComposer({
                         lineHeight: 22,
                         paddingVertical: FIELD_VERTICAL_PADDING / 2,
                         textAlignVertical: "top",
+                        // A browser textarea otherwise draws its own resize handle in the corner.
+                        ...(Platform.OS === "web" ? ({ resize: "none", outlineStyle: "none" } as object) : null),
                       }}
                       onSelectionChange={({ nativeEvent }) =>
                         setCursor(

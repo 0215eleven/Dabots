@@ -48,10 +48,10 @@ export function PinnedAgentsGrid({ agents, children }: PropsWithChildren<{ agent
             style={{
               flexDirection: "row",
               flexWrap: "wrap",
-              rowGap: 18,
+              rowGap: 14,
               paddingHorizontal: PINNED_PADDING_X,
-              paddingTop: 14,
-              paddingBottom: 18,
+              paddingTop: 8,
+              paddingBottom: 14,
             }}
           >
             {agents.map((agent) => (
@@ -96,13 +96,13 @@ const PinnedAgentItem = memo(function PinnedAgentItem({ agent }: { agent: Mobile
       style={({ pressed }) => ({ opacity: pressed ? 0.58 : 1 })}
     >
       <ChatZoomSource>
-        <AgentPinAvatar agentId={agent.id} location="pinned" size={64}>
+        <AgentPinAvatar agentId={agent.id} location="pinned" size={56}>
           <BloubAvatar
             agentId={agent.id}
             serverId={agent.serverId}
             hue={agent.avatarHue}
             seed={agent.avatarSeed}
-            size={64}
+            size={56}
             animateIdle={false}
             rings
           />
@@ -118,17 +118,12 @@ const PinnedAgentItem = memo(function PinnedAgentItem({ agent }: { agent: Mobile
       <View className="w-full gap-0.5">
         <Typography.Paragraph
           align="center"
-          className="w-full text-text-secondary"
+          className="w-full font-medium"
           numberOfLines={1}
           style={typeScale.small}
         >
           {agent.name}
         </Typography.Paragraph>
-        {agent.title.trim() ? (
-          <Typography.Paragraph align="center" className="w-full text-muted" numberOfLines={1} style={typeScale.small}>
-            {agent.title.trim()}
-          </Typography.Paragraph>
-        ) : null}
       </View>
       {agentChatPreview.measurer}
     </ChatLinkPressable>

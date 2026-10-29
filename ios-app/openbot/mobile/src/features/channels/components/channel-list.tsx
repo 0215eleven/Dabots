@@ -268,7 +268,7 @@ export const ChannelListRow = memo(function ChannelListRow({
   const openLabel = title
     ? t("mobile.channel.list.openWithTitle", { name: channel.name, title })
     : t("mobile.channel.list.open", { name: channel.name });
-  const size = pinned ? 64 : 54;
+  const size = pinned ? 56 : 48;
   const avatar = (
     <ChatZoomSource>
       <AgentPinAvatar agentId={channel.id} location={pinned ? "pinned" : "row"} size={size}>
@@ -311,33 +311,20 @@ export const ChannelListRow = memo(function ChannelListRow({
         <>
           {avatar}
           <View className="w-full gap-0.5">
-            <Typography.Paragraph
-              align="center"
-              className="w-full text-text-secondary"
-              numberOfLines={1}
-              style={typeScale.small}
-            >
+            <Typography.Paragraph align="center" className="w-full font-medium" numberOfLines={1} style={typeScale.small}>
               {channel.name}
             </Typography.Paragraph>
-            {title ? (
-              <Typography.Paragraph
-                align="center"
-                className="w-full text-muted"
-                numberOfLines={1}
-                style={typeScale.small}
-              >
-                {title}
-              </Typography.Paragraph>
-            ) : null}
           </View>
         </>
       ) : (
         ({ pressed }) => (
           <View
-            className="min-h-20 w-full flex-row items-center gap-3 py-1"
+            className="w-full flex-row items-center gap-3"
             style={{
               backgroundColor: background,
               opacity: pressed ? 0.58 : 1,
+              minHeight: 72,
+              paddingVertical: 10,
               paddingLeft: leftInset,
               paddingRight: rightInset,
             }}
@@ -353,17 +340,12 @@ export const ChannelListRow = memo(function ChannelListRow({
                 >
                   {channel.name}
                 </Typography.Paragraph>
-                <Typography.Paragraph className="text-muted" style={typeScale.caption}>
+                <Typography.Paragraph className="text-muted" style={typeScale.small}>
                   {formatUpdatedAt(channel.lastMessage?.at ?? channel.createdAt, format)}
                 </Typography.Paragraph>
               </View>
-              {title ? (
-                <Typography.Paragraph className="text-muted" numberOfLines={1} style={typeScale.caption}>
-                  {title}
-                </Typography.Paragraph>
-              ) : null}
               <Typography.Paragraph className="text-text-secondary" numberOfLines={1} style={typeScale.preview}>
-                {previewLine}
+                {channel.lastMessage ? previewLine : title || previewLine}
               </Typography.Paragraph>
             </View>
           </View>

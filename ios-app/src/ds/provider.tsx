@@ -1,4 +1,7 @@
-import { botAvatarHue, botAvatarColor } from './presentation';
+import { botAvatarHue, botAvatarColor, fallbackAvatarColor } from './presentation';
+import { usePreviews } from '../home/usePreviews';
+import { conversationTimestamp } from '../logic/conversation-order';
+import { formatUpdatedAt } from '@/shared/lib/format-updated-at';
 import React, { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { Uniwind } from 'uniwind';
@@ -48,15 +51,27 @@ export function DsProvider({ children }: {
     const view = core && session.workspace.getSnapshot() ? core.read() : null;
     const stores = useMemo(() => ({ conversationStore: new MobileConversationStore(flush => { const id = requestAnimationFrame(flush); return () => cancelAnimationFrame(id); }), liveState: new LiveWorkspaceStore(), channelStore: new MobileChannelStore(async () => unsupported('Remote channel protocol')) }), [core]);
     useEffect(() => () => { stores.conversationStore.dispose(); stores.channelStore.dispose(); }, [stores]);
-    const agents = useMemo<MobileAgent[]>(() => view?.bots.map(bot => ({ id: bot.id, serverId: bot.serverId, name: bot.name, title: bot.role ?? '', description: bot.instructions ?? '', preview: String(view.conversations.find(c => c.id === bot.conversationId)?.source.preview ?? ''), updatedLabel: '', avatarSeed: bot.avatar?.shape ?? bot.sourceId, avatarHue: botAvatarHue(bot), avatarColor: botAvatarColor(bot, t.dark), avatarUrl: bot.avatar?.image ?? null })) ?? [], [session.workspace.team, session.workspace.conversations, core, t.dark]);
-    const channels: ChannelSummary[] = view?.groups.map(group => ({ id: group.id, name: group.name, title: '', instructions: group.notice ?? '', members: group.members.map(agentId => ({ agentId })), leadAgentId: group.admin, archived: false, revision: 0, createdAt: '', unreadCount: 0, activeTasks: view.work[group.id]?.phase === 'working' ? 1 : 0, lastMessage: null })) ?? [];
+    // The list shows each chat's latest message and when it arrived, read from the transcript cache and host.
+    const previews = usePreviews(session.workspace.conversations);
+    const lastOf = (conversationId: string | null | undefined) => {
+        const source = view?.conversations.find(c => c.id === conversationId)?.source;
+        const message = source ? previews[source.id] : undefined;
+        const text = message?.text?.trim() || (typeof source?.preview === 'string' ? source.preview : '');
+        const at = Math.max(conversationTimestamp(source?.updatedAt), conversationTimestamp(message?.createdAt));
+        return { text, at: at ? new Date(at).toISOString() : null };
+    };
+    const agents = useMemo<MobileAgent[]>(() => view?.bots.map(bot => { const last = lastOf(bot.conversationId); return { id: bot.id, serverId: bot.serverId, name: bot.name, title: bot.role ?? '', description: bot.instructions ?? '', preview: last.text, updatedLabel: formatUpdatedAt(last.at), avatarSeed: bot.avatar?.shape ?? bot.sourceId, avatarHue: botAvatarHue(bot), avatarColor: botAvatarColor(bot, t.dark) ?? fallbackAvatarColor(bot.sourceId, t.dark), avatarUrl: bot.avatar?.image ?? null }; }) ?? [], [session.workspace.team, session.workspace.conversations, core, t.dark, previews]);
+    const channels: ChannelSummary[] = view?.groups.map(group => ({ id: group.id, name: group.name, title: '', instructions: group.notice ?? '', members: group.members.map(agentId => ({ agentId })), leadAgentId: group.admin, archived: false, revision: 0, createdAt: '', unreadCount: 0, activeTasks: view.work[group.id]?.phase === 'working' ? 1 : 0, lastMessage: (() => { const last = lastOf(group.conversationId); return last.text && last.at ? { authorName: '', text: last.text, at: last.at } : null; })() })) ?? [];
     useLayoutEffect(() => {
         if (!view)
             return;
         stores.channelStore.applyDsSnapshot(view.serverId, channels, view.capabilities.actions.includes('create-room'));
         stores.liveState.update('activityByServer', () => ({ [view.serverId]: Object.fromEntries(Object.entries(view.work).filter(([, w]) => w.phase !== 'idle').map(([id, w]) => [id, { agentId: id, turnId: null, phase: w.phase === 'idle' ? 'working' : w.phase, detail: w.detail }])) }));
     }, [stores, session.workspace.team, session.workspace.conversations, session.workspace.online]);
-    const host: MobileServer = { id: serverId ?? 'unavailable', name: session.host?.name ?? 'DeepSeek Bot Pro', logoKey: null, kind: 'local', state: session.workspace.online ? 'online' : 'offline', initialConnectionPending: session.loading, connectionMessage: session.error || null, address: null, accent: '', publicKey: '', membershipId: '', role: 'member' };
+    const host: MobileServer = { id: serverId ?? 'unavailable', name: session.host?.name ?? 'DeepSeek Bot Pro', logoKey: null, kind: 'local', state: session.workspace.online ? 'online' : 'offline', initialConnectionPending: session.loading,
+        // Until the first answer (or failure) arrives the computer is connecting quietly, not offline, so avatars and
+        // bubbles do not open grey and fade in.
+        resuming: !session.workspace.online && !session.workspace.error, connectionMessage: session.error || null, address: null, accent: '', publicKey: '', membershipId: '', role: 'member' };
     const fail = (error: unknown) => Alert.alert('DeepSeek Bot Pro', tr(mutationProblem(error).message));
     const flag = async (id: string, patch: {
         pinned?: boolean;

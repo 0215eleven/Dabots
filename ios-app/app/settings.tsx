@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, Platform, Pressable, View } from "react-native";
+import CheckIcon from "lucide-react-native/icons/check";
+import { useThemeColor } from "heroui-native/hooks";
 import { Button, Typography } from "heroui-native";
 import { Host as UiHost, Picker, Switch } from "@expo/ui";
 import Constants from "expo-constants";
@@ -20,6 +22,8 @@ import { saveLocalePreference } from "../src/logic/locale-preference";
 import { errorText } from "../src/types";
 
 const Group = SettingsSection;
+// The computer's accent choices, drawn as swatches; `null` is the theme's own accent (DeepSeek blue).
+const ACCENTS: { value: string | null; swatch: string }[] = [{ value: null, swatch: '#4D6BFE' }, { value: '#3b6fd8', swatch: '#3b6fd8' }, { value: '#d97757', swatch: '#d97757' }, { value: '#228866', swatch: '#228866' }];
 function Row({title,detail,onPress,destructive,children}:{title:string;detail?:string;onPress?:()=>void;destructive?:boolean;children?:React.ReactNode}) {return <SettingsRow supportingText={detail} onPress={onPress} trailing={children}><Typography.Paragraph className={destructive?'text-danger-text':undefined}>{title}</Typography.Paragraph></SettingsRow>}
 
 function Settings() {
@@ -37,6 +41,7 @@ function Settings() {
   const saveShared=async(patch:import('../src/ds/contracts').DsPreferences)=>{if(!commands||sharedPending||sharedBlocked)return;setSharedPending(true);try{await commands.setPreferences(patch);setMessage('')}catch(error){const problem=mutationProblem(error);setMessage(problem.message);setSharedBlocked(!problem.retry)}finally{setSharedPending(false)}};
 
   const mode = useColorMode();
+  const [accent, success, muted] = useThemeColor(['accent', 'success', 'muted']);
   const [island, setIsland] = useState(true);
   const [message, setMessage] = useState("");
   const host = session.host;
@@ -81,16 +86,16 @@ function Settings() {
       {localeSaveStatus === 'failed' ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-1">{tr('Language changed for this session, but could not be saved on this device.')}</Typography.Paragraph> : null}
       <Group title={tr("Connection")} footer={tr("The app reconnects automatically when you change networks or return to the app.")}>
         <Row title={host?.name || tr("No computer paired")} detail={host ? hostAddress(host) : undefined}>
-          <Typography.Paragraph className={session.workspace.online ? "text-success-text" : "text-muted"} style={{ fontSize: 14 }}>{status}</Typography.Paragraph>
+          <View className="flex-row items-center gap-1.5"><View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: String(session.workspace.online ? success : muted) }}/><Typography.Paragraph className="text-muted" style={{ fontSize: 15 }}>{status}</Typography.Paragraph></View>
         </Row>
         <Row title={tr("Reconnect now")} onPress={host ? () => { successFeedback(); session.resume(); } : undefined} />
       </Group>
 
       <Group title={tr("Computers")}>
         {session.hosts.map(item => (
-          <Row key={item.slot || item.serverId} title={item.name} detail={hostAddress(item)} onPress={undefined}>
-            {host && item.serverId === host.serverId ? <Typography.Paragraph className="text-accent-text" style={{ fontSize: 14 }}>{tr("Selected")}</Typography.Paragraph>
-              : <View className="flex-row gap-2"><Pressable accessibilityRole="button" accessibilityLabel={tr("Select")} onPress={()=>void session.switchHost(item)}><Typography.Paragraph>{tr("Select")}</Typography.Paragraph></Pressable><Pressable accessibilityRole="button" accessibilityLabel={tr("Forget {p0}?", { p0: item.name })} onPress={() => forget(item)} hitSlop={10}><Typography.Paragraph className="text-danger-text" style={{ fontSize: 14 }}>{tr("Forget")}</Typography.Paragraph></Pressable></View>}
+          <Row key={item.slot || item.serverId} title={item.name} detail={hostAddress(item)} onPress={host && item.serverId === host.serverId ? undefined : () => { selectionFeedback(); void session.switchHost(item); }}>
+            {host && item.serverId === host.serverId ? <CheckIcon accessibilityLabel={tr("Selected")} size={20} color={String(accent)} strokeWidth={2.4}/>
+              : <Pressable accessibilityRole="button" accessibilityLabel={tr("Forget {p0}?", { p0: item.name })} onPress={() => forget(item)} hitSlop={10}><Typography.Paragraph className="text-danger-text" style={{ fontSize: 15 }}>{tr("Forget")}</Typography.Paragraph></Pressable>}
           </Row>
         ))}
         <Row title={tr("Pair a computer")} onPress={() => router.push("/pairing")} />
@@ -103,8 +108,10 @@ function Settings() {
         {reviewed.length ? <Row title={tr("I checked the current state")} onPress={()=>{management.acknowledge(reviewed);setReviewed([]);setSharedBlocked(false);setMessage('')}}/> : null}
       </Group> : null}
       <Group title={tr("Computer appearance")} footer={tr("Synced with the computer; its confirmed settings take effect.")}>
-        <Row title={tr("Theme")} detail={String(view?.preferences.theme??'deepseek')}><UiHost matchContents><Picker enabled={!sharedPending&&!sharedBlocked&&Boolean(view?.capabilities.actions.includes("set-prefs"))} selectedValue={String(view?.preferences.theme??'deepseek')} onValueChange={theme=>void saveShared({theme:String(theme)})}>{Object.entries(THEMES).map(([id,value])=><Picker.Item key={id} label={tr(value.name)} value={id}/>)}</Picker></UiHost></Row>
-        <Row title={tr("Accent")} detail={view?.preferences.accent ? String(view.preferences.accent) : tr('Default')}/><View className="flex-row flex-wrap gap-2 px-4 pb-4">{[null,'#3b6fd8','#d97757','#228866'].map(accent=><Button key={accent??'default'} variant="secondary" isDisabled={sharedPending||sharedBlocked||!view?.capabilities.actions.includes('set-prefs')} onPress={()=>void saveShared({accent})}><Button.Label>{accent??tr('Default')}</Button.Label></Button>)}</View>
+        <Row title={tr("Theme")}><UiHost matchContents><Picker enabled={!sharedPending&&!sharedBlocked&&Boolean(view?.capabilities.actions.includes("set-prefs"))} selectedValue={String(view?.preferences.theme??'deepseek')} onValueChange={theme=>void saveShared({theme:String(theme)})}>{Object.entries(THEMES).map(([id,value])=><Picker.Item key={id} label={tr(value.name)} value={id}/>)}</Picker></UiHost></Row>
+        <Row title={tr("Accent")}>
+          <View className="flex-row items-center gap-2.5">{ACCENTS.map(option => { const selected = (view?.preferences.accent ?? null) === option.value; const disabled = sharedPending || sharedBlocked || !view?.capabilities.actions.includes('set-prefs'); return <Pressable key={option.value ?? 'default'} accessibilityRole="radio" accessibilityState={{ selected, disabled }} accessibilityLabel={option.value ? option.value : tr('Default')} disabled={disabled} hitSlop={4} onPress={() => { selectionFeedback(); void saveShared({ accent: option.value }); }} style={({ pressed }) => ({ width: 30, height: 30, borderRadius: 15, padding: 3, borderWidth: 2, borderColor: selected ? option.swatch : 'transparent', opacity: disabled ? 0.4 : pressed ? 0.7 : 1 })}><View style={{ flex: 1, borderRadius: 12, backgroundColor: option.swatch }}/></Pressable>; })}</View>
+        </Row>
         <Row title={tr("Motion")}><UiHost matchContents><Picker enabled={!sharedPending&&!sharedBlocked&&Boolean(view?.capabilities.actions.includes("set-prefs"))} selectedValue={String(view?.preferences.motion??'normal')} onValueChange={motion=>void saveShared({motion:motion as 'quiet'|'normal'|'lively'})}>{['quiet','normal','lively'].map(value=><Picker.Item key={value} label={tr(value)} value={value}/>)}</Picker></UiHost></Row>
       </Group>
       <Group title={tr("Phone appearance and preferences")}>

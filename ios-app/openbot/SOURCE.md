@@ -158,3 +158,16 @@ Both hidden-Bot native menu branches use the existing reactive
 `mobile.agent.hidden.show` catalog (English “Show”, Chinese “显示”). No user/model
 values are translated. These three adapted files retain their exact upstream
 originals and updated current hashes; original licenses and NOTICE are unchanged.
+
+## Layout polish (DS Bot Mobile)
+
+A later pass adjusts presentation only; transport, data and capability behaviour are unchanged. Home: a
+22 pt brand line with icon actions (create menu, settings) instead of the 34 pt large title, a quiet
+connection line, a labelled pinned section with 56 pt avatars, two-line 72 pt rows (name and time, then the
+latest message) with inset hairline separators, and "show hidden chats" as a footer link shown only when
+something is hidden. Chat: notices above the field are compact cards, an absent or empty computer queue
+shows nothing, the resting field is at least 70% of the width, headers and the composer use Liquid Glass
+where available, and the reader's bubble takes the Bot's DS colour (the accent in groups). Avatars redraw
+when the canonical DS colour arrives after the first frame. The browser preview guards a missing
+reduce-transparency query and hides the textarea resize handle. Each changed upstream file keeps its
+original in `adaptations/original/`, recorded in `provenance.json`.

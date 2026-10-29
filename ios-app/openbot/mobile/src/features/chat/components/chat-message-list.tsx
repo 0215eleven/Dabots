@@ -1013,10 +1013,15 @@ export const ChatMessageList = memo(function ChatMessageList({
   );
   const arrivals = useMessageArrivals(replySession.key, messages, animateMessages && historyState === "ready");
   const agentColorMessages = useAgentColorMessages((state) => state.enabled);
-  const userBubbleColor = getBloubAvatarColor(
-    target.kind === "agent" ? target.avatarSeed : target.id,
-    target.kind === "agent" ? target.avatarHue : null,
-  );
+  // DS Bot Mobile: the reader's bubble takes the Bot's own avatar color in a Bot chat and the app
+  // accent in a group, so a group never shows the reader's messages in the agents' grey.
+  const [accentColor] = useCSSVariable(["--openbot-accent"]);
+  const agentColor = target.kind === "agent" ? agents.find((agent) => agent.id === target.id)?.avatarColor : undefined;
+  const hexColor = (value: unknown) => (typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value : undefined);
+  const userBubbleColor =
+    hexColor(agentColor) ??
+    (target.kind === "channel" ? hexColor(accentColor) : undefined) ??
+    getBloubAvatarColor(target.kind === "agent" ? target.avatarSeed : target.id, target.kind === "agent" ? target.avatarHue : null);
   const appearance = useConnectionAppearance(!canSend);
   const red = Number.parseInt(userBubbleColor.slice(1, 3), 16);
   const green = Number.parseInt(userBubbleColor.slice(3, 5), 16);
@@ -1152,7 +1157,7 @@ export const ChatMessageList = memo(function ChatMessageList({
       foreground,
       userForeground,
       // A channel has no one agent color for the reader's messages.
-      userBubbleStyle: target.kind === "agent" && agentColorMessages ? userBubbleStyle : undefined,
+      userBubbleStyle: agentColorMessages || target.kind === "channel" ? userBubbleStyle : undefined,
       attachmentTint:
         target.kind === "agent" && agentColorMessages
           ? { color: userBubbleColor, foreground: userForeground }

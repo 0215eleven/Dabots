@@ -167,7 +167,7 @@ export const messages = {
   "mobile.chat.liveVoice.elevenLabsPermission": "ElevenLabs 密钥缺少权限。请在“设置 > 语音”中检查。",
   "mobile.chat.liveVoice.networkNeeded": "ElevenLabs 需要网络连接。",
   "mobile.chat.composer.addAttachment": "添加附件",
-  "mobile.chat.composer.ask": "问 {name}",
+  "mobile.chat.composer.ask": "给 {name} 发消息",
   "mobile.chat.composer.stopFailed": "无法停止该助手，它可能已经完成了。",
   "mobile.chat.camera.captureFailed": "无法拍照，请重试。",
   "mobile.chat.camera.startFailed": "无法启动相机，请关闭后重试。",

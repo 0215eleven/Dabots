@@ -2115,8 +2115,12 @@
       "gitBlob": "374d66233e4c330800763fed5563abd8b0473d87",
       "mode": "100644",
       "upstreamSha256": "909039b8fe7d515191dabb23e31c880f3ca1bfbc41ecbde424040d13d0e79498",
-      "importedSha256": "909039b8fe7d515191dabb23e31c880f3ca1bfbc41ecbde424040d13d0e79498",
-      "adaptation": null
+      "importedSha256": "2dea1d047ce29a58233121b1e38d17bc407706a35b38931abb27094da985fd1b",
+      "adaptation": "DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/components/agent-list-row.tsx",
+        "sha256": "909039b8fe7d515191dabb23e31c880f3ca1bfbc41ecbde424040d13d0e79498"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/components/agent-orbit-rings.tsx",
@@ -2280,8 +2284,8 @@
       "gitBlob": "589065843f9d6bf3bbf6c914713f8eeabe4eb639",
       "mode": "100644",
       "upstreamSha256": "f55c912fdceaa7b60d8aedbdfb7cd79dbe92df603c8db581d828685704af8a06",
-      "importedSha256": "69e0362ee2bffb368e4690579c56e7734298c57fa0788078808381a46fc09df7",
-      "adaptation": " Task 4: exact canonical DS avatar color presentation; original retained.",
+      "importedSha256": "ece1376ed144a95e0e94d524cec851c0732cedb1991f0f24d184d821cd7a885d",
+      "adaptation": " Task 4: exact canonical DS avatar color presentation; original retained; plus DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/components/bloub-avatar.tsx",
         "sha256": "f55c912fdceaa7b60d8aedbdfb7cd79dbe92df603c8db581d828685704af8a06"
@@ -2329,8 +2333,12 @@
       "gitBlob": "75742a187c9422080bee43a656a22c7c9c59111f",
       "mode": "100644",
       "upstreamSha256": "a1438687698c0acf0cc68460aedeb0fbcfe77c72736fbbff3df97db5ceede264",
-      "importedSha256": "a1438687698c0acf0cc68460aedeb0fbcfe77c72736fbbff3df97db5ceede264",
-      "adaptation": null
+      "importedSha256": "cb7480089caab18459dbb7cd7c33a64af5df41750068c97df8d66b364843edd9",
+      "adaptation": "DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/components/pinned-agents-grid.tsx",
+        "sha256": "a1438687698c0acf0cc68460aedeb0fbcfe77c72736fbbff3df97db5ceede264"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/components/routine-result-destination.tsx",
@@ -2576,8 +2584,8 @@
       "gitBlob": "2d01145d6d1a652a8acf764a86a03b30f51d9700",
       "mode": "100644",
       "upstreamSha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a",
-      "importedSha256": "12a7547fc5404bbe206d2d735a86eebda000fd468efc7df74bbbc9dc4926c374",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: canonical quiet motion and hidden pinned Bot visibility. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
+      "importedSha256": "d41116c42c1911f5e6330dbcb725c5848f8adb654e4dfb1e61d42b89b0699394",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: canonical quiet motion and hidden pinned Bot visibility. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge; plus DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/connected-screen.tsx",
         "sha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a"
@@ -3109,8 +3117,8 @@
       "gitBlob": "c03edf8dbb35308776c062fe03979db983643770",
       "mode": "100644",
       "upstreamSha256": "05db8a1ed978f46eb5fbe99262f543c4aa99107bc30baa8b32f8aa3df2c86baf",
-      "importedSha256": "457ebb32f559b7022c1d1af9e61a878d3052e37c163ae09a199dbcd8532cb95d",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
+      "importedSha256": "994a97fc0c5138237319b110d1166195a5d58ff2e69aaa3dcee8282399592097",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge; plus DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/channels/components/channel-list.tsx",
         "sha256": "05db8a1ed978f46eb5fbe99262f543c4aa99107bc30baa8b32f8aa3df2c86baf"
@@ -3377,8 +3385,8 @@
       "gitBlob": "b3f57df72a2e90674a2cac5fb6e4c9764a788469",
       "mode": "100644",
       "upstreamSha256": "4ff73009d58d0c6cbc7e7027673f40b70f2d4006474982b77af20c6881397ab9",
-      "importedSha256": "09603fb09b6dbc8e5afe78366d4aa1caaef4e0c4a96f434ccd019fa0cd99821e",
-      "adaptation": " Task 4: commit browser blur through the existing send gate; native onEndEditing unchanged. Task 4: Guard typed web blur text; retain native end-editing commit. Final review I1: independently gate send, keep offline text editing, and reflect asynchronous draft restore in controlled web input; native attributed text retained.",
+      "importedSha256": "2ae8301879637a20f1b9db9bd6c054f3ac9d871362bd65cf361c663ec13b0d60",
+      "adaptation": " Task 4: commit browser blur through the existing send gate; native onEndEditing unchanged. Task 4: Guard typed web blur text; retain native end-editing commit. Final review I1: independently gate send, keep offline text editing, and reflect asynchronous draft restore in controlled web input; native attributed text retained; plus DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/chat/components/chat-composer.tsx",
         "sha256": "4ff73009d58d0c6cbc7e7027673f40b70f2d4006474982b77af20c6881397ab9"
@@ -3489,8 +3497,12 @@
       "gitBlob": "4ceee98db453accb791abcc1ce4c8e57bb7ee39a",
       "mode": "100644",
       "upstreamSha256": "5e5c437b11d16e7558186d04eb97c644c9ee2bde1d4fe417c4b07ddba19cef0c",
-      "importedSha256": "5e5c437b11d16e7558186d04eb97c644c9ee2bde1d4fe417c4b07ddba19cef0c",
-      "adaptation": null
+      "importedSha256": "56e16f915248e15a22be0f45aa49310e25f857917b68decdf2b46a97fc6673f1",
+      "adaptation": "DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/chat/components/chat-message-list.tsx",
+        "sha256": "5e5c437b11d16e7558186d04eb97c644c9ee2bde1d4fe417c4b07ddba19cef0c"
+      }
     },
     {
       "source": "apps/mobile/src/features/chat/components/chat-outbox-status.tsx",
@@ -3570,8 +3582,8 @@
       "gitBlob": "384b75cc6816aafd40f169f74427ecc88ea23494",
       "mode": "100644",
       "upstreamSha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9",
-      "importedSha256": "c1c542f728b5ae061fcb6f106aebee702c75f8c0dec8305e7e92cd3a5aca9b3c",
-      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge. Final review I1/I3: restore original DS drafts, separate local editing, and display read-only host queue distinctly from outbox/current turn.",
+      "importedSha256": "3511ff1cd801734e140eec761c75689905ef86386a80a228077ff45105a0b030",
+      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge. Final review I1/I3: restore original DS drafts, separate local editing, and display read-only host queue distinctly from outbox/current turn; plus DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/chat/components/chat-view.tsx",
         "sha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9"
@@ -7359,8 +7371,12 @@
       "gitBlob": "e6925b769ad657239f57b1b829cec24282d402f1",
       "mode": "100644",
       "upstreamSha256": "c21052401c8338abc28fcbfc6c69f2b3eed35fd516a237a1d0cc971acff470c5",
-      "importedSha256": "c21052401c8338abc28fcbfc6c69f2b3eed35fd516a237a1d0cc971acff470c5",
-      "adaptation": null
+      "importedSha256": "8df867976c6a0354932080cbab452dc2ec21e849ccb9aa3500b04da858be8e32",
+      "adaptation": "DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/shared/lib/use-reduced-transparency.ts",
+        "sha256": "c21052401c8338abc28fcbfc6c69f2b3eed35fd516a237a1d0cc971acff470c5"
+      }
     },
     {
       "source": "apps/mobile/src/shared/lib/use-screen-focused-while.ts",
@@ -22677,8 +22693,12 @@
       "gitBlob": "dd97f0d3a33db31b6663d796213146e0ed93de0a",
       "mode": "100644",
       "upstreamSha256": "eea6e0aa6d235e691273f449d8fcecd03ed947e1041edc7ea7bda8ecd318fb5d",
-      "importedSha256": "eea6e0aa6d235e691273f449d8fcecd03ed947e1041edc7ea7bda8ecd318fb5d",
-      "adaptation": null
+      "importedSha256": "71912a736a1d584df1dfceda93110e3396a92704b340201b895c024cfb9daa8c",
+      "adaptation": "DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/packages/i18n/src/messages/zh/mobile/chat.ts",
+        "sha256": "eea6e0aa6d235e691273f449d8fcecd03ed947e1041edc7ea7bda8ecd318fb5d"
+      }
     },
     {
       "source": "packages/i18n/src/messages/zh/mobile/link.ts",
@@ -23721,7 +23741,7 @@
     "entryPoint": "../app/_layout.tsx",
     "sourceAlias": "@/* -> openbot/mobile/src/*",
     "binding": "../src/ds",
-    "modifiedSourceFiles": 21,
+    "modifiedSourceFiles": 29,
     "preservedOriginals": "adaptations/original",
     "unsupportedServices": "Account, directory, provider configuration, WebRTC and analytics are not activated."
   },

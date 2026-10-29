@@ -18,7 +18,7 @@ function settingsFixture(read: (scope:string,key:string)=>Promise<Record<string,
   const Picker=Object.assign(()=>{}, {Item:'PickerItem'}),Button=Object.assign(()=>{},{Label:'ButtonLabel'});
   const mocks:Record<string,any>={react,
     'react-native':{Platform:{OS:'web'},View:'View',Pressable:'Pressable',Alert:{}},
-    'heroui-native':{Button,Typography:{Paragraph:'Paragraph'}},'@expo/ui':{Host:'UiHost',Picker,Switch:'Switch'},
+    'heroui-native':{Button,Typography:{Paragraph:'Paragraph'}},'heroui-native/hooks':{useThemeColor:(names:any)=>Array.isArray(names)?names.map(()=>'#141414'):'#141414'},'@expo/ui':{Host:'UiHost',Picker,Switch:'Switch'},
     'expo-constants':{expoConfig:{}},'expo-router':{Stack:{Screen:'Screen'},useRouter:()=>({})},
     '@/shared/components/large-title':{LargeTitleScrollView:'LargeTitleScrollView'},
     '@/features/settings/components/settings-content':{SettingsSection:'Section',SettingsRow:'Row'},
@@ -38,7 +38,7 @@ function settingsFixture(read: (scope:string,key:string)=>Promise<Record<string,
   function strings(x:any):string[]{if(Array.isArray(x))return x.flatMap(strings);return typeof x==='string'?[x]:x&&typeof x==='object'?strings(x.props?.children):[];}
   return {
     select:(value:string)=>{const picker=nodes(render()).find(x=>x.type===Picker&&nodes(x).some(c=>c.props?.value==='zh'));assert.ok(picker);picker.props.onValueChange(value);},
-    managementFailure:()=>{const button=nodes(render()).find(x=>x.type===Button&&strings(x).includes('#228866'));assert.ok(button);button.props.onPress();},
+    managementFailure:()=>{const button=nodes(render()).find(x=>x.props?.accessibilityLabel==='#228866'&&typeof x.props.onPress==='function');assert.ok(button);button.props.onPress();},
     texts:()=>strings(render()),
   };
 }
