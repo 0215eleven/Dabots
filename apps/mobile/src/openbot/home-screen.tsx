@@ -7,14 +7,16 @@ import React, { memo, useMemo, useState } from "react";
 import { Pressable, RefreshControl, View } from "react-native";
 import Animated from "react-native-reanimated";
 import type { Conversation, Message } from "@ds-bot/mobile-sdk";
-import { RoomAvatar } from "../components/BotAvatar";
 import { usePreviews } from "../home/usePreviews";
 import { orderConversations } from "../logic/conversation-order";
 import { groupWorkMembers, ownBotWork, workDescription } from "../logic/group-work";
 import { tr } from "../i18n";
 import { useSession } from "../session/SessionProvider";
 import type { TeamState } from "../types";
+import { agentFor } from "./adapters/chat-model";
 import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
+import { ChannelAvatar } from "@/features/channels/components/channel-avatar";
+import type { MobileAgent } from "@/features/workspace/model/workspace-types";
 import { LargeTitle, LargeTitleBar, useLargeTitleScroll } from "@/shared/components/large-title";
 import { haptics } from "@/shared/lib/haptics";
 import { isAndroid, longPressDelay } from "@/shared/lib/platform";
@@ -39,6 +41,7 @@ const Row = memo(function Row({ item, team, preview, serverId, onOpen }: { item:
   const work = bot ? ownBotWork(bot.id, team) : room ? groupWorkMembers(room, team).find((member) => member.work)?.work : undefined;
   const line = waiting ? tr("Waiting for approval") : workDescription(work) || markdownPreviewText(preview?.text ?? "");
   const subtitle = (bot?.role ?? "").trim();
+  const agents = useMemo(() => new Map<string, MobileAgent>(team.bots.map((entry) => [entry.id, agentFor(entry, serverId)])), [team.bots, serverId]);
   return (
     <Pressable
       accessibilityRole="button"
@@ -50,7 +53,7 @@ const Row = memo(function Row({ item, team, preview, serverId, onOpen }: { item:
     >
       {({ pressed }) => (
         <View className="min-h-20 w-full flex-row items-center gap-3 py-1" style={{ backgroundColor: background, opacity: pressed ? 0.58 : 1, paddingLeft: 20, paddingRight: 20 }}>
-          {room ? <RoomAvatar room={room} team={team} size={54} /> : <BloubAvatar agentId={bot?.id ?? item.id} serverId={serverId} seed={bot?.id ?? item.id} size={54} animateIdle={false} />}
+          {room ? <ChannelAvatar channel={{ members: room.members.map((agentId) => ({ agentId })) }} agents={agents} size={54} /> : <BloubAvatar agentId={bot?.id ?? item.id} serverId={serverId} seed={bot?.id ?? item.id} hue={null} size={54} animateIdle={false} rings />}
           <View className="min-w-0 flex-1 gap-0.5">
             <View className="flex-row items-center gap-2">
               <Typography.Paragraph className="font-semibold min-w-0 flex-1" numberOfLines={1} style={typeScale.rowTitle}>{item.name}</Typography.Paragraph>

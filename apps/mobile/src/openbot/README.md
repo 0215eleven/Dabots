@@ -22,9 +22,10 @@ This directory (plus `apps/mobile/assets/openbot/`, `apps/mobile/global.css` and
 | Message/attachment/IPC types and pure helpers | `packages/contracts` | `pkg/contracts` (type and pure-function files only) |
 | English and Chinese UI strings | `packages/i18n` | `pkg/i18n` (other languages dropped; they fall back to English) |
 | Design tokens | `packages/brand/src/tokens*.css` | `brand/` |
+| Bot avatars (bloub shapes, colours, moods, orbit rings), group avatar | `features/agents`, `features/channels/components/channel-avatar.tsx`, `packages/brand/src/bloub-avatar*.ts` | `features/agents`, `features/channels`, `pkg/brand`; uses `@norbert_bodziony/bloub` (MIT) with Solid shims in `shims/` |
 | Fonts (Inter), sounds, splash eyes | `apps/mobile/assets` | `apps/mobile/assets/openbot/` |
 | Dependency patches (masked-view types, keyboard-controller, uitextview) | `patches/` | `apps/mobile/patches/`, applied by `npm run patch` |
 
-Files marked "DS Bot Mobile adapter" are ours: avatar slots draw DS Bot's own characters, `adapters/chat-model.ts` maps SDK messages and the
+Files marked "DS Bot Mobile adapter" are ours: Bot avatars are OpenBot's generated avatars seeded by the Bot id (a photo set in DS Bot still wins), activity and online state come from DS Bot's work status, `adapters/chat-model.ts` maps SDK messages and the
 outbox onto OpenBot's view models, and `chat-screen.tsx`, `home-screen.tsx` and `locale-bridge.tsx` assemble them. Stubs return `null`
 where DS Bot Mobile has no equivalent yet (attachments, voice, TeX, image generation, plans, questions, approval cards).
