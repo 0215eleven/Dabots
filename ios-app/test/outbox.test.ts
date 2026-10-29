@@ -113,3 +113,42 @@ test('unknown host status stays unconfirmed for the user to decide', async () =>
   assert.equal(f.outbox.list()[0].state, 'unconfirmed');
   assert.equal(f.calls.filter(call => call.startsWith('submit')).length, 0);
 });
+
+test('enqueue persistence failure does not report a durable item or submit it', async () => {
+  let submissions=0;
+  const queue=createOutbox({store:{load:async()=>[],save:async()=>{throw new Error('disk full');}},newId:()=> 'durable',
+    transport:()=>({deviceId:async()=> 'device',target:async()=>({sessionId:'s'}),submission:async()=>{throw {status:404};},submit:async()=>{submissions++;return {requestId:'durable',status:'accepted'};}})});
+  try {
+    await assert.rejects(queue.enqueue({conversationId:'c',text:'keep this draft'}),/disk full/);
+    await new Promise(resolve=>setImmediate(resolve));assert.equal(submissions,0);assert.equal(queue.list().length,0);
+  } finally {queue.dispose();}
+});
+
+test('a receipt for a different request, conversation or session cannot accept this send', async () => {
+  for (const mismatch of [{requestId:'another'}, {conversationId:'other'}, {sessionId:'other'}]) {
+    const f=fixture({receipt:id=>({requestId:id,status:'accepted',...mismatch})});
+    await f.outbox.enqueue({conversationId:'chief',text:'hello'});await f.settle();
+    assert.equal(f.outbox.list()[0].state,'unconfirmed');assert.equal(f.calls.some(call=>call.startsWith('submit:')),false);f.outbox.dispose();
+  }
+});
+
+test('a failed durable load cannot overwrite queued sends with a new empty state', async () => {
+  let saved=0;
+  const queue=createOutbox({store:{load:async()=>{throw new Error('storage locked');},save:async()=>{saved++;}},transport:()=>({deviceId:async()=> 'd',target:async()=>({sessionId:'s'}),submission:async()=>({requestId:'x',status:'accepted'}),submit:async()=>({requestId:'x',status:'accepted'})}),newId:()=> 'x'});
+  try {await assert.rejects(queue.enqueue({conversationId:'c',text:'hello'}),/storage locked/);assert.equal(saved,0);}finally{queue.dispose();}
+});
+
+test('disposing the previous host outbox stops delivery after a pending device lookup', async () => {
+  let resolve!: (id:string)=>void,targets=0;
+  const device=new Promise<string>(done=>{resolve=done;});
+  const queue=createOutbox({store:{load:async()=>[],save:async()=>{}},newId:()=> 'x',transport:()=>({deviceId:()=>device,target:async()=>{targets++;return {sessionId:'s'};},submission:async()=>({requestId:'x',status:'accepted'}),submit:async()=>({requestId:'x',status:'accepted'})})});
+  await queue.enqueue({conversationId:'c',text:'hello'});await new Promise(resolve=>setImmediate(resolve));queue.dispose();resolve('device');await new Promise(resolve=>setImmediate(resolve));assert.equal(targets,0);
+});
+
+test('session identity must be persisted before sending to the host', async () => {
+  let submissions=0;
+  const queue=createOutbox({store:{load:async()=>[],save:async items=>{if(items.some(i=>i.sessionId))throw new Error('session disk failure');}},newId:()=> 'x',setTimer:()=>0,clearTimer:()=>{},
+    transport:()=>({deviceId:async()=> 'device',target:async()=>({sessionId:'original-session'}),submission:async()=>{throw {status:404};},submit:async()=>{submissions++;return {requestId:'x',status:'accepted'};}})});
+  await queue.enqueue({conversationId:'c',text:'hello'});await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(submissions,0);assert.notEqual(queue.list()[0].state,'sent');queue.dispose();
+});

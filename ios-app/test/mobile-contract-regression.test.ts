@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { createDsWorkspaceCoordinator } from '../src/ds/workspace.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -26,7 +27,7 @@ function hookRuntime(file: string, mocks: Record<string, unknown>) {
   const compiled = ts.transpileModule(source, {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
   runInNewContext(compiled, {module,exports:module.exports,AbortController,
     setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},
-    require(name: string) { if (name === 'react') return react; if (name in mocks) return mocks[name]; throw Error(name); },
+    require(name: string) { if (name === 'react') return react; if (name === '../ds/workspace.ts') return {createDsWorkspaceCoordinator}; if (name in mocks) return mocks[name]; throw Error(name); },
   });
   function render(...next: any[]) { if (next.length) args = next; cursor = 0; dirty = false; result = module.exports[file](...args); return result; }
   return {render, value:()=>result,
@@ -84,7 +85,7 @@ test('history and stream grants are independent and capability revocation closes
 test('cached capabilities never authorize a fresh connection and a new handshake restores supported operations', async () => {
   const ready = deferred();
   const cached = {bots:[{id:'old'}],rooms:[],models:[],mobileCapabilities:{send:true,history:true,stream:true,actions:['create-bot']}};
-  const client = {state:async()=>({bots:[],rooms:[],models:[]}),conversations:async()=>({conversations:[]}),info:async()=>{await ready.promise;return {capabilities:{send:true,history:true,stream:true,actions:['create-bot']}};}};
+  const client = {state:async()=>({bots:[],rooms:[],models:[]}),conversations:async()=>({conversations:[]}),info:async()=>{await ready.promise;return {serverId:'fixture',capabilities:{send:true,history:true,stream:true,actions:['create-bot']}};}};
   const runtime = hookRuntime('useWorkspace', {'react-native':native,
     '../storage':{readCache:async(_server:string,key:string)=>key==='team'?cached:[],writeCache:async()=>{}},
     '../types':{teamState:(v:any)=>v,errorText:String},
@@ -117,7 +118,7 @@ test('paired credential stores stay bound to their URL even when two computers a
 test('a late cache read cannot replace a successful live snapshot or strip its verified capabilities', async () => {
   const cached = deferred();
   const fresh = {bots:[{id:'fresh'}],rooms:[],models:[]};
-  const client = {state:async()=>fresh,conversations:async()=>({conversations:[{id:'fresh'}]}),info:async()=>({capabilities:{send:true,actions:['create-bot']}})};
+  const client = {state:async()=>fresh,conversations:async()=>({conversations:[{id:'fresh'}]}),info:async()=>({serverId:'fixture',capabilities:{send:true,actions:['create-bot']}})};
   const runtime = hookRuntime('useWorkspace', {'react-native':native,
     '../storage':{readCache:()=>cached.promise,writeCache:async()=>{}},'../types':{teamState:(v:any)=>v,errorText:String},
   });
@@ -135,7 +136,7 @@ test('a late cache read cannot replace a successful live snapshot or strip its v
 test('a refresh after creating something waits out a running poll and returns the new conversation', async () => {
   const held = deferred();
   let lists = 0, created = false;
-  const client = {state:async()=>({bots:[],rooms:[],models:[]}),info:async()=>({capabilities:{}}),
+  const client = {state:async()=>({bots:[],rooms:[],models:[]}),info:async()=>({serverId:'fixture',capabilities:{}}),
     conversations:async()=>{ lists++; if (lists === 2) await held.promise; return {conversations:created ? [{id:'agent:a:s1'}] : []}; }};
   const runtime = hookRuntime('useWorkspace', {'react-native':native,
     '../storage':{readCache:async()=>null,writeCache:async()=>{}},'../types':{teamState:(v:any)=>v,errorText:String},
@@ -150,4 +151,16 @@ test('a refresh after creating something waits out a running poll and returns th
     assert.equal(lists, 3);
     assert.deepEqual(runtime.value().conversations.map((item:any)=>item.id), ['agent:a:s1']);
   } finally {runtime.dispose();}
+});
+
+test('workspace refresh returns a canonical snapshot before React rerender and old hosts cannot return it', async () => {
+  const client={state:async()=>({bots:[{id:'live',name:'Live'}],rooms:[],models:[]}),conversations:async()=>({conversations:[]}),info:async()=>({serverId:'fixture',capabilities:{send:true}})};
+  const runtime=hookRuntime('useWorkspace',{'react-native':native,'../storage':{readCache:async()=>null,writeCache:async()=>{}},'../types':{teamState:(v:any)=>v,errorText:String}});
+  try {
+    runtime.render(client,{serverId:'fixture'});await runtime.flush();
+    const oldRefresh=runtime.value().refreshSnapshot;
+    const canonical=await oldRefresh({fresh:true});assert.equal(canonical?.team.bots[0].id,'live');assert.equal(runtime.value().getSnapshot(),canonical);
+    const other={...client};runtime.render(other,{serverId:'other'});
+    assert.equal(runtime.value().getSnapshot(),null);assert.equal(await oldRefresh({fresh:true}),undefined);
+  }finally{runtime.dispose();}
 });

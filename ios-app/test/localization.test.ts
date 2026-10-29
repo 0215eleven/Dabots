@@ -57,7 +57,8 @@ test("every literal translated control and known error has Chinese catalog cover
       const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
       function visit(node: ts.Node) {
         const literal = ts.isCallExpression(node) && node.expression.getText(source) === "tr" ? node.arguments[0]
-          : ts.isNewExpression(node) && node.expression.getText(source) === "Error" ? node.arguments?.[0] : undefined;
+          : ts.isNewExpression(node) && node.expression.getText(source) === "Error" ? node.arguments?.[0]
+          : ts.isNewExpression(node) && node.expression.getText(source) === "DsCoreError" ? node.arguments?.[1] : undefined;
         if (literal && ts.isStringLiteral(literal) && !Object.hasOwn(catalog, literal.text)) missing.add(literal.text);
         ts.forEachChild(node, visit);
       }

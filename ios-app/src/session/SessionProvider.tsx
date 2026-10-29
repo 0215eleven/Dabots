@@ -7,7 +7,7 @@ import type { Conversation, MobileClient } from "@ds-bot/mobile-sdk";
 import { useWorkspace } from "../hooks/useWorkspace";
 import { useNotifications } from "../hooks/useNotifications";
 import { createConnectionHub } from "../connection/hub";
-import { createOutbox, type Outbox, type OutboxItem } from "../outbox/outbox";
+import { createOutbox, type Outbox } from "../outbox/outbox";
 import { conversationStreams, watchConversationStreamLifecycle } from "../logic/conversation-streams";
 import { activeHost, hostKey, removeHost, restoreHosts, upsertHost } from "../logic/hosts";
 import { endBotActivity, syncBotActivity } from "../liveactivity/controller";
@@ -18,6 +18,7 @@ import { clearCache, Host, readCache, tokenStoreFor, writeCache } from "../stora
 import { setColorMode, setThemePreferences, type ColorMode } from "../theme";
 import { LocalePreference, setHostLocale, setLocalePreference } from "../i18n";
 import { errorText } from "../types";
+import { createDurableOutboxStore } from "../outbox/store";
 import { openHost } from "./open-host";
 import { designPreview, previewClient, previewHosts } from "../preview/preview-session";
 
@@ -54,10 +55,7 @@ export function useSession() {
 }
 
 const newSlot = () => Crypto.randomUUID();
-const ownerStore = (serverId: string) => ({
-  load: async () => (await readCache<OutboxItem[]>(serverId, "outbox")) ?? [],
-  save: (items: OutboxItem[]) => writeCache(serverId, "outbox", items),
-});
+const ownerStore = (serverId: string) => createDurableOutboxStore(serverId, { read: readCache, write: writeCache });
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -159,7 +157,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const resume = useCallback(() => {
     if (client) conversationStreams.reconnectAll(client);
-    void outbox?.resume();
+    void outbox?.resume().catch(err => setError(errorText(err)));
     void workspaceRef.current.refresh();
   }, [client, outbox]);
 

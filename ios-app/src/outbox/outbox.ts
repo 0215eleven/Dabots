@@ -63,6 +63,8 @@ export function createOutbox(options: OutboxOptions) {
   const maxAuto = options.maxAutoAttempts ?? 6;
   const base = options.baseDelayMs ?? 1000, cap = options.maxDelayMs ?? 15000;
   let items: OutboxItem[] = [];
+  let disposed = false;
+  const unpersisted = new Set<string>();
   let loaded: Promise<void> | undefined;
   let timer: unknown;
   let version = 0;
@@ -71,15 +73,16 @@ export function createOutbox(options: OutboxOptions) {
   let writes: Promise<void> = Promise.resolve();
 
   const emit = () => { version++; for (const listener of [...listeners]) listener(); };
-  const persist = () => {
+  const persist = (required = false) => {
     const snapshot = items.map(item => ({ ...item }));
-    writes = writes.then(() => options.store.save(snapshot)).catch(() => {});
-    return writes;
+    const saved = writes.then(() => options.store.save(snapshot));
+    writes = saved.catch(() => {});
+    return required ? saved : writes;
   };
-  const patch = (requestId: string, change: Partial<OutboxItem>) => {
+  const patch = (requestId: string, change: Partial<OutboxItem>, required = false) => {
     items = items.map(item => item.requestId === requestId ? { ...item, ...change } : item);
     emit();
-    return persist();
+    return persist(required);
   };
   const find = (requestId: string) => items.find(item => item.requestId === requestId);
   function load() {
@@ -87,7 +90,7 @@ export function createOutbox(options: OutboxOptions) {
       // Whatever was in flight when the app died is uncertain, not failed: reconcile by receipt.
       items = saved.map(item => item.state === "sending" ? { ...item, state: "queued" as const, retryAt: undefined } : item);
       emit();
-    }).catch(() => { loaded = undefined; });
+    }).catch(error => { loaded = undefined; throw error; });
     return loaded;
   }
   function arm() {
@@ -100,19 +103,26 @@ export function createOutbox(options: OutboxOptions) {
   }
   async function deliver(item: OutboxItem) {
     const transport = options.transport();
-    if (!transport) { await patch(item.requestId, { state: "queued" }); return; }
+    if (!transport || disposed) return false;
     await patch(item.requestId, { state: "sending", error: undefined });
     try {
       const deviceId = await transport.deviceId();
+      if (disposed) return false;
       if (!deviceId) throw Object.assign(new Error("This device is not paired. Reconnect in Settings."), { status: 401 });
       if (item.deviceId && item.deviceId !== deviceId)
         throw Object.assign(new Error("This send belongs to a previous device pairing. Review it on your host."), { status: 409 });
       const sessionId = item.sessionId ?? (await transport.target(item.conversationId)).sessionId;
+      if (disposed) return false;
       const submission = { conversationId: item.conversationId, sessionId, requestId: item.requestId, text: item.text, attachments: item.attachments };
-      await patch(item.requestId, { deviceId, sessionId });
+      await patch(item.requestId, { deviceId, sessionId }, true);
+      if (disposed) return false;
       let receipt: SubmissionReceipt;
       try { receipt = await transport.submission(item.requestId); }
-      catch (error) { if (status(error) !== 404) throw error; receipt = await transport.submit(submission); }
+      catch (error) { if (status(error) !== 404) throw error; if (disposed) return false; receipt = await transport.submit(submission); }
+      if (disposed) return false;
+      if (receipt.requestId !== item.requestId || (receipt.conversationId !== undefined && receipt.conversationId !== item.conversationId) || (receipt.sessionId !== undefined && receipt.sessionId !== sessionId)) {
+        await patch(item.requestId, { state: "unconfirmed", error: "The host receipt did not match this message. Review it on the computer." }); return;
+      }
       if (receipt.status === "rejected") { await patch(item.requestId, { state: "rejected", error: "The host rejected this message." }); return; }
       if (receipt.status !== "accepted") { await patch(item.requestId, { state: "unconfirmed", error: "The host has not confirmed this message yet." }); return; }
       void transport.remember?.(submission, receipt)?.catch(() => {});
@@ -128,15 +138,16 @@ export function createOutbox(options: OutboxOptions) {
     }
   }
   async function pump(conversationId: string) {
-    if (running.has(conversationId)) return;
+    if (disposed || running.has(conversationId)) return;
     running.add(conversationId);
     try {
       for (;;) {
+        if (disposed) return;
         // FIFO: an item that is waiting, unconfirmed or rejected blocks the ones behind it,
         // so messages are never delivered out of order.
         const head = items.find(item => item.conversationId === conversationId && item.state !== "sent");
-        if (!head || head.state !== "queued" || (head.retryAt && head.retryAt > now())) return;
-        await deliver(head);
+        if (!head || unpersisted.has(head.requestId) || head.state !== "queued" || (head.retryAt && head.retryAt > now())) return;
+        if (await deliver(head) === false) return;
       }
     } finally { running.delete(conversationId); }
   }
@@ -156,10 +167,18 @@ export function createOutbox(options: OutboxOptions) {
       const text = input.text.trim(), attachments = input.attachments ?? [];
       if (!text && !attachments.length) return null;
       const item: OutboxItem = { requestId: options.newId(), conversationId: input.conversationId, text, attachments, createdAt: now(), state: "queued", attempts: 0 };
+      if (disposed) throw new Error("This outbox belongs to a previous host connection.");
+      unpersisted.add(item.requestId);
       items = [...items, item];
       emit();
-      await persist();
-      void flush(item.conversationId);
+      try { await persist(true); }
+      catch (error) {
+        items = items.filter(other => other.requestId !== item.requestId);
+        emit();
+        await persist();
+        throw error;
+      } finally { unpersisted.delete(item.requestId); }
+      void flush(item.conversationId).catch(() => {});
       return item;
     },
     /** Manual retry of an unconfirmed item. A rejected item is final; discard it instead. */
@@ -195,7 +214,7 @@ export function createOutbox(options: OutboxOptions) {
       items = items.map(item => item.state === "queued" ? { ...item, retryAt: undefined } : item);
       await flush();
     },
-    dispose() { clearTimer(timer); listeners.clear(); },
+    dispose() { disposed = true; clearTimer(timer); listeners.clear(); },
   };
 }
 export type Outbox = ReturnType<typeof createOutbox>;
