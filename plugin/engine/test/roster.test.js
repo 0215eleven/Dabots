@@ -253,7 +253,7 @@ test('a new team starts with a DeepSeek-blue whale as its Main Bot', async (t) =
   const team = (await call('state', {})).value
   assert.equal(team.mainBotIds.length, 1)
   const main = team.bots.find(bot => bot.id === team.mainBotId)
-  assert.equal(main.name, 'Chief')
+  assert.equal(main.name, 'MyBot')
   assert.equal(main.color, 'deepseek')
   assert.deepEqual(main.avatar, { shape: 'whale' })
 
@@ -748,7 +748,7 @@ test('a non-Main Bot still cannot change another Bot\u2019s thinking level', asy
   const writer = (await call('create-bot', { name: 'Writer', model: 'deepseek/deepseek-v4-flash', effort: 'high' })).value
   await until(() => sent.some(entry => entry.sessionId === writer.id))
   const exec = { agent: { id: writer.id } }
-  assert.match(await ctx.registeredTools.get('update_bot').execute({ bot: 'Chief', effort: 'low' }, exec), /^Only a Main Bot can change another Bot/)
+  assert.match(await ctx.registeredTools.get('update_bot').execute({ bot: 'MyBot', effort: 'low' }, exec), /^Only a Main Bot can change another Bot/)
   // Its own level it may change.
   assert.equal(await ctx.registeredTools.get('update_bot').execute({ effort: 'low' }, exec), 'Updated Writer.')
   assert.equal((await call('state', {})).value.bots.find(bot => bot.id === writer.id).effort, 'low')
@@ -863,7 +863,7 @@ test('a photo that cannot be read changes nothing, and a non-Main Bot cannot set
   await until(() => sent.some(entry => entry.sessionId === writer.id))
   const mine = { agent: { id: writer.id } }
   // Another Bot's photo is a Main Bot's to change, as its other settings are.
-  assert.match(await ctx.registeredTools.get('update_bot').execute({ bot: 'Chief', avatar: PNG_DATA_URL }, mine), /^Only a Main Bot can change another Bot/)
+  assert.match(await ctx.registeredTools.get('update_bot').execute({ bot: 'MyBot', avatar: PNG_DATA_URL }, mine), /^Only a Main Bot can change another Bot/)
   assert.equal((await call('state', {})).value.bots.find(bot => bot.id === chief).avatar?.image, undefined)
   // Its own it may set; a later bad photo leaves the good one alone.
   assert.equal(await ctx.registeredTools.get('update_bot').execute({ avatar: PNG_DATA_URL }, mine), 'Updated Writer.')

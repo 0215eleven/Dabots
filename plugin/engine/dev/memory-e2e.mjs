@@ -98,7 +98,7 @@ const phase = positionals[3] ?? 'all'
 let writerBeforeW4
 
 if (phase === 'all' || phase === 'chat') {
-  await step('setup', 'Chief on the model; Designer, Writer and Coder join', async () => {
+  await step('setup', 'MyBot on the model; Designer, Writer and Coder join', async () => {
     const view = await api('state')
     const chief = view.bots.find(bot => bot.id === view.mainBotId)
     await api('update-bot', { id: chief.id, model: MODEL })
@@ -118,7 +118,7 @@ if (phase === 'all' || phase === 'chat') {
   await step('C2', 'Coder: a follow-up with nothing to keep', () => send('Coder', '再加一个单测，用 vitest。'))
   await step('W4', 'Writer: a fact changes', () => send('Writer', '对了，我最近转去写 Rust 了，Go 基本不碰了。'))
   await step('W5', 'Writer: a password in passing', () => send('Writer', '顺便说下，测试服务器的 root 密码是 hunter2-prod，等会儿写部署说明的时候要用。'))
-  await step('X1', 'Chief: a trip', () => send('Chief', '我下个月 15 号要去深圳出差三天，见客户、看工厂。'))
+  await step('X1', 'MyBot: a trip', () => send('MyBot', '我下个月 15 号要去深圳出差三天，见客户、看工厂。'))
 }
 
 if (phase === 'all' || phase === 'group') {
@@ -143,8 +143,8 @@ const groupText = (name, steps = ['G1', 'G2', 'G3']) => steps
   .filter(call => call.kind === 'main' && call.bot === name && call.text)
   .map(call => call.text).join('\n')
 const memory = {}
-for (const name of ['Chief', ...Object.keys(ROLES)]) memory[name] = await entriesOf(name).catch(() => [])
-memory.team = await entriesOf('Chief', 'team').catch(() => [])
+for (const name of ['MyBot', ...Object.keys(ROLES)]) memory[name] = await entriesOf(name).catch(() => [])
+memory.team = await entriesOf('MyBot', 'team').catch(() => [])
 say('\n--- memory')
 for (const [name, entries] of Object.entries(memory)) say(`${name}:\n${entries.map(text => `  - ${text}`).join('\n') || '  (nothing)'}`)
 
@@ -161,11 +161,11 @@ const CHECKS = [
   ['keep', 'C1 Coder keeps: pnpm only', () => has('Coder', /pnpm/i)],
   ['keep', 'C1 Coder keeps: TypeScript', () => has('Coder', /TypeScript|\bTS\b/i)],
   ['skip', 'C2 Coder skips the one-off vitest test', () => !has('Coder', /单测|vitest/i) || has('Coder', /测试框架|vitest 写测试|用 vitest/)],
-  ['skip', 'nobody saves what the workspace instructions already say', () => ['Chief', 'Designer', 'Writer', 'Coder'].every(name => !has(name, /AGENTS|ASD-STE100|全程.{0,6}中文/))],
+  ['skip', 'nobody saves what the workspace instructions already say', () => ['MyBot', 'Designer', 'Writer', 'Coder'].every(name => !has(name, /AGENTS|ASD-STE100|全程.{0,6}中文/))],
   ['keep', 'W4 Writer keeps: writes Rust now', () => has('Writer', /Rust/i)],
   ['skip', 'W4 Writer drops: writes Go mainly', () => !memory.Writer.some(text => /Go\b|Go语言|Go 语言|写 ?Go/.test(text) && !/Rust|不再|以前|曾|转/.test(text))],
   ['skip', 'W5 Writer skips the root password', () => !has('Writer', /hunter2|root\s*密码/)],
-  ['keep', 'X1 Chief keeps: the trip to Shenzhen', () => has('Chief', /深圳/)],
+  ['keep', 'X1 MyBot keeps: the trip to Shenzhen', () => has('MyBot', /深圳/)],
   ['keep', 'G2 both members keep: nothing longer than a page', () => (has('Designer', /一页|篇幅|太长/) && has('Writer', /一页|篇幅|太长/)) || memory.team.some(text => /一页|篇幅|太长/.test(text))],
   ['use', 'G1 Designer uses the style in the group', () => /黑|白|灰/.test(groupText('Designer', ['G1'])) && !/(渐变|多彩|鲜艳)/.test(groupText('Designer', ['G1']))],
   ['use', 'G1 Writer knows the user is a backend engineer in the group', () => /后端|backend/i.test(groupText('Writer', ['G1']))],

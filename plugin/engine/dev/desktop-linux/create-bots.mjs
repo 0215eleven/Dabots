@@ -1,4 +1,4 @@
-// Ask Chief (mock model) to create two Bots, then wait for them to appear in the sidebar.
+// Ask MyBot (mock model) to create two Bots, then wait for them to appear in the sidebar.
 export default async function (page) {
   const send = async (text) => {
     const box = page.locator('[contenteditable="true"], textarea').last()
