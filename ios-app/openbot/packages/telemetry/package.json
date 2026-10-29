@@ -1,0 +1,23 @@
+{
+  "name": "@openbot/telemetry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./browser": "./src/browser.ts",
+    "./node": "./src/node.ts"
+  },
+  "scripts": {
+    "typecheck": "bun ../../scripts/type-checker.ts --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@openbot/contracts": "file:../contracts",
+    "effect": "4.0.6"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

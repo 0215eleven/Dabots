@@ -1,0 +1,22 @@
+{
+  "name": "@openbot/user-errors",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./reference": "./src/reference.ts"
+  },
+  "scripts": {
+    "typecheck": "bun ../../scripts/type-checker.ts --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@openbot/contracts": "file:../contracts",
+    "@openbot/i18n": "file:../i18n",
+    "@openbot/logging": "file:../logging"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "@types/node": "24.19.2"
+  }
+}

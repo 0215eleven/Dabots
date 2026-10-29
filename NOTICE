@@ -104,3 +104,9 @@ This does not import Happy's account system, database or public services.
 This repository also contains phone UI code and art derived from OpenBot (https://github.com/nightly-labs/openbot, commit c389f4404256e754214b6982503381778d80ed35),
 licensed under the PolyForm Noncommercial License 1.0.0, in ios-app/src/openbot/, ios-app/assets/openbot/, ios-app/global.css and
 ios-app/patches/. That code is not Apache-2.0; see ios-app/src/openbot/README.md and LICENSE.
+
+The complete pinned OpenBot mobile foundation and required shared packages are also
+preserved in ios-app/openbot/ from nightly-labs/openbot commit
+0be0110737e55622f7a92c06a96a8eaaf516f114, under PolyForm Noncommercial 1.0.0.
+See ios-app/openbot/LICENSE, NOTICE, SOURCE.md and provenance.json for the original
+required notices, source inventory and adaptations. This code is not Apache-2.0.

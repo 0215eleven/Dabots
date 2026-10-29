@@ -19,7 +19,7 @@
     "@expo/ui": "~58.0.25",
     "@expo/vector-icons": "^15.0.2",
     "@legendapp/list": "^3.7.0",
-    "@noble/hashes": "2.0.1",
+    "@noble/hashes": "2.4.0",
     "@norbert_bodziony/bloub": "^0.4.1",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@react-navigation/elements": "2.6.5",
@@ -82,15 +82,56 @@
     "tailwindcss": "4.3.3",
     "tweetnacl": "1.0.3",
     "uniwind": "^1.13.0",
-    "zustand": "^5.0.16"
+    "zustand": "^5.0.16",
+    "@openbot/brand": "file:./openbot/packages/brand",
+    "@openbot/contracts": "file:./openbot/packages/contracts",
+    "@openbot/i18n": "file:./openbot/packages/i18n",
+    "@openbot/logging": "file:./openbot/packages/logging",
+    "@openbot/team-client": "file:./openbot/packages/team-client",
+    "@openbot/telemetry": "file:./openbot/packages/telemetry",
+    "@openbot/user-errors": "file:./openbot/packages/user-errors",
+    "@openpanel/react-native": "1.4.2",
+    "@shopify/react-native-skia": "2.14.0",
+    "@tanstack/react-query": "^5.104.5",
+    "effect": "4.0.6",
+    "expo-application": "~58.1.2",
+    "expo-device": "~58.0.5",
+    "expo-keep-awake": "~58.0.3",
+    "expo-local-authentication": "~58.0.2",
+    "expo-media-library": "~58.0.11",
+    "expo-speech-recognition": "58.0.0",
+    "expo-updates": "~58.0.18",
+    "expo-video": "~58.0.12",
+    "expo-web-browser": "~58.0.6",
+    "katex": "0.19.0",
+    "mermaid": "12.2.0",
+    "pdfjs-dist": "6.4.299",
+    "react-native-webview": "14.0.1",
+    "zod": "4.6.7",
+    "solid-js": "2.0.0-rc.18",
+    "@solidjs/web": "2.0.0-rc.18"
   },
   "devDependencies": {
     "@types/markdown-it": "14.2.0",
     "@types/react": "~19.3.0",
     "esbuild": "0.28.2",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "@types/react-dom": "~19.3.0"
   },
   "overrides": {
-    "@react-navigation/elements": "2.6.5"
-  }
+    "@react-navigation/elements": "2.6.5",
+    "@openpanel/react-native": {
+      "expo-application": "$expo-application",
+      "expo-constants": "$expo-constants"
+    }
+  },
+  "workspaces": [
+    "openbot/packages/brand",
+    "openbot/packages/contracts",
+    "openbot/packages/i18n",
+    "openbot/packages/logging",
+    "openbot/packages/team-client",
+    "openbot/packages/telemetry",
+    "openbot/packages/user-errors"
+  ]
 }
