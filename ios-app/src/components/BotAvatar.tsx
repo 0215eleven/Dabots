@@ -50,7 +50,7 @@ export const characterColors = data.colors;
 export const inks = data.inks as Record<string, string[]>;
 export const mainLook = {
   id: "ds-bot",
-  name: "Dbot pro",
+  name: "DeepSeek Bot Pro",
   color: BRAND_BLUE,
   avatar: { shape: "whale" },
 };

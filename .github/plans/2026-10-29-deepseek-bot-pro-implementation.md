@@ -47,11 +47,11 @@
 
 **Interfaces:** Existing `install(rt)` registers `bridge.describe`, `bridge.redact`, `bridge.submit`, `bridge.agent-open`, `bridge.agent-new` through public Connection/Session APIs. Packaging defaults to `plugin/engine`, keeps `ds-bot` identity and rejects absent contracts. Test fixture helpers can select vanilla/reviewed/production implementations explicitly.
 
-- [ ] Add real engine boundary regression checks for advertised contract, redaction scoping, reliable stable-ID submit, stale sessions, membership changes and Agent ownership. Run against unmodified 0.2.0: expected failure because endpoints are missing.
-- [ ] Adapt the existing reviewed 0.1.7 Bridge contract to bundled 0.2.0, without modifying DSH or weakening existing state/error behavior; document provenance.
-- [ ] Run production-engine checks and existing Bridge tests; use the production engine in isolated full-host integration while retaining pristine upstream rejection coverage.
-- [ ] Default production single-package composition to the repository engine and record source/commit/digest; no external source required. Exercise the generated archive and existing migration/boot/packed-delivery checks.
-- [ ] Commit. Expected: one TGZ with real engine, Bridge and UI; no `.dev` fixture fallback or credentials.
+- [x] Add real engine boundary regression checks for advertised contract, redaction scoping, reliable stable-ID submit, stale sessions, membership changes and Agent ownership. Run against unmodified 0.2.0: expected failure because endpoints are missing.
+- [x] Adapt the existing reviewed 0.1.7 Bridge contract to bundled 0.2.0, without modifying DSH or weakening existing state/error behavior; document provenance.
+- [x] Run production-engine checks and existing Bridge tests; use the production engine in isolated full-host integration while retaining pristine upstream rejection coverage.
+- [x] Default production single-package composition to the repository engine and record source/commit/digest; no external source required. Exercise the generated archive and existing migration/boot/packed-delivery checks.
+- [x] Commit. Expected: one TGZ with real engine, Bridge and UI; no `.dev` fixture fallback or credentials.
 
 ### Task 3: Keep iOS-only configuration and safe unsigned packaging
 
@@ -59,11 +59,11 @@
 
 **Interfaces:** `DS_BOT_NO_WIDGETS=1` selects the existing lite build; native project name matches DeepSeek Bot Pro. Build artifact is `DeepSeekBotPro-<version>-lite-unsigned.ipa`, with SHA256SUMS and source commit metadata.
 
-- [ ] Retain App identity while updating display branding and path-sensitive tests; remove Android/EAS-only commands/config/scripts after checking no iOS consumer depends on them.
-- [ ] Add behavioral checks for archive validation: missing/corrupt ZIP, absent Payload app/plist/executable, and valid synthetic archive. Observe failures before implementing validator.
-- [ ] Update macOS workflow paths, Node 24, native workspace/scheme discovery, unsigned archive flags and artifact verification; manual runs default to artifacts and immutable release uploads.
-- [ ] Run App tests/typecheck, iOS prebuild without installation in an isolated output directory when supported, and an iOS Metro bundle. Validate workflow syntax. Record macOS-only compilation as unrun unless Actions can actually be started and observed.
-- [ ] Commit. Expected: no third product entry point and a complete reviewed unsigned IPA workflow.
+- [x] Retain App identity while updating display branding and path-sensitive tests; remove Android/EAS-only commands/config/scripts after checking no iOS consumer depends on them.
+- [x] Add behavioral checks for archive validation: missing/corrupt ZIP, absent Payload app/plist/executable, and valid synthetic archive. Observe failures before implementing validator.
+- [x] Update macOS workflow paths, Node 24, native workspace/scheme discovery, unsigned archive flags and artifact verification; manual runs default to artifacts and immutable release uploads.
+- [x] Run App tests/typecheck, iOS prebuild without installation in an isolated output directory when supported, and an iOS Metro bundle. Validate workflow syntax. Record macOS-only compilation as unrun unless Actions can actually be started and observed.
+- [x] Commit. Expected: no third product entry point and a complete reviewed unsigned IPA workflow.
 
 ### Task 4: Remove unused product trees and make documentation truthful
 

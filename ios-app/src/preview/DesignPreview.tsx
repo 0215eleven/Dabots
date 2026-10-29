@@ -46,7 +46,7 @@ function Preview(){
  const rows=[...bots.map((b,i)=>({id:b.id,name:b.name,avatar:<BotAvatar bot={b} size={52} main={i===0}/>,preview:previews[i]})),{id:room.id,name:room.name,avatar:<RoomAvatar room={room} team={{bots}} size={52}/>,preview:previews[4]}];
  const messages=[...(screen==="group"?group:single),...extra];
  return <View style={{flex:1,backgroundColor:small?t.bg:"#EEF0F3",alignItems:"center",justifyContent:"center",gap:14,padding:small?0:24}}>
-  {!small&&<View style={{width:390,flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><Text style={{fontSize:18,fontWeight:"600",color:"#202124"}}>Dbot pro</Text></View>}
+  {!small&&<View style={{width:390,flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><Text style={{fontSize:18,fontWeight:"600",color:"#202124"}}>DeepSeek Bot Pro</Text></View>}
   <View style={{width:small?"100%":390,height:small?height:Math.min(height-110,820),backgroundColor:t.bg,borderRadius:small?0:34,overflow:"hidden",borderWidth:small?0:1,borderColor:"#D8DBE0",boxShadow:small?undefined:"0 14px 54px rgba(27,35,49,0.09)"}}>
    <View style={{height:38,paddingHorizontal:26,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><Text style={{fontSize:15,fontWeight:"600",color:t.ink}}>9:41</Text><View style={{flexDirection:"row",alignItems:"center",gap:5}}><View style={{width:16,height:9,borderRadius:2,backgroundColor:t.ink}}/><Text style={{fontSize:11,fontWeight:"600",color:t.ink}}>100</Text></View></View>
    {screen==="home"?<View style={{flex:1}}>

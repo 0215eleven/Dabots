@@ -1,24 +1,32 @@
-name: mobile-release
-# Builds the lite phone app for sideloading: an unsigned IPA on macOS, an APK on Linux, and attaches them
-# to a GitHub Release. Signing material never lives in the repository; see apps/mobile/README.md.
+name: products-release
+
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
+      publish:
+        description: Create a new draft Release after both products build
+        type: boolean
+        default: false
       tag:
-        description: Release tag to attach the files to (leave empty to only keep workflow artifacts)
-        required: false
+        description: Existing tag at this exact commit (required when publish is true)
         type: string
+        required: false
+
 permissions:
   contents: read
+
 concurrency:
-  group: mobile-release-${{ github.ref }}
-  cancel-in-progress: true
+  group: products-release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
-  APP_DIR: apps/mobile
+  npm_config_registry: https://registry.npmjs.org
+  npm_config_replace_registry_host: always
+
 jobs:
-  verify:
+  plugin:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,24 +34,29 @@ jobs:
         with:
           node-version: '24'
       - run: npm run setup
-      - run: npm --prefix apps/mobile run typecheck
-      - run: npm --prefix apps/mobile test
-      - run: npm --prefix packages/mobile-sdk test
-      # The Bridge tests import a prepared public DSH / DS Bot fixture (bridge/fixture, not committed).
-      - run: npm --prefix bridge run test:prepare
-      - run: npm --prefix bridge test
+      - run: npm run test:prepare
+      - run: npm run check
+      - run: git diff --exit-code
+      - run: npm --prefix plugin/bridge run test:integration
+      - run: npm run check:suite
+      - run: npm run pack:plugin
+      - run: npm run audit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-plugin
+          path: |
+            artifacts/*.tgz
+            artifacts/plugin-release.json
+            artifacts/SHA256SUMS-plugin
+          if-no-files-found: error
 
   ios:
-    needs: verify
+    needs: plugin
     runs-on: macos-26
     timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        # Only the existing lite variant: no extension or App Group, for free Apple IDs.
-        variant: [lite]
     env:
       DS_BOT_NO_WIDGETS: '1'
+      EXPO_NO_TELEMETRY: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,61 +66,87 @@ jobs:
         with:
           xcode-version: latest-stable
       - run: npm run setup
-      - name: Generate the native project
-        working-directory: ${{ env.APP_DIR }}
+      - name: Generate the lite native project
+        working-directory: ios-app
         run: npx expo prebuild --platform ios --no-install --clean
       - name: Install pods
-        working-directory: ${{ env.APP_DIR }}/ios
+        working-directory: ios-app/ios
         run: pod install
       - name: Archive without signing
-        working-directory: ${{ env.APP_DIR }}/ios
-        run: |
-          set -o pipefail
-          xcodebuild archive \
-            -workspace Dbotpro.xcworkspace -scheme Dbotpro \
-            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/DSBotMobile.xcarchive" \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            | tail -n 40
-      - name: Package the unsigned IPA
+        working-directory: ios-app/ios
         run: |
           set -euo pipefail
-          version=$(node -p "require('./${APP_DIR}/app.json').expo.version")
-          app=$(find "$RUNNER_TEMP/DSBotMobile.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' | head -n 1)
-          test -d "$app"
-          mkdir -p "$RUNNER_TEMP/ipa/Payload" artifacts
-          cp -R "$app" "$RUNNER_TEMP/ipa/Payload/"
-          suffix=$([ "${{ matrix.variant }}" = lite ] && echo "-lite" || echo "")
-          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/artifacts/DSBotMobile-${version}${suffix}-unsigned.ipa" Payload)
-          # An unsigned build must carry no signature; fail loudly if a signing identity slipped in.
-          if codesign --verify "$app" 2>/dev/null; then echo 'IPA is unexpectedly signed' >&2; exit 1; fi
+          project=$(python3 -c 'from pathlib import Path; p=list(Path(".").glob("*.xcodeproj")); assert len(p)==1, "Expected one app project"; print(p[0].stem)')
+          workspace="$project.xcworkspace"
+          test -d "$workspace"
+          xcodebuild -list -json -workspace "$workspace" > "$RUNNER_TEMP/workspace.json"
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert sys.argv[2] in d["workspace"]["schemes"], "Missing app scheme"' "$RUNNER_TEMP/workspace.json" "$project"
+          xcodebuild archive \
+            -workspace "$workspace" -scheme "$project" \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/DeepSeekBotPro.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | tail -n 60
+      - name: Package and verify the unsigned IPA
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./ios-app/app.json').expo.version")
+          bundle_id=$(node -p "require('./ios-app/app.json').expo.ios.bundleIdentifier")
+          app=$(python3 -c 'from pathlib import Path; import sys; a=list((Path(sys.argv[1])/"Products/Applications").glob("*.app")); assert len(a)==1, "Expected one archived app"; print(a[0])' "$RUNNER_TEMP/DeepSeekBotPro.xcarchive")
+          if codesign --display "$app" >/dev/null 2>&1; then
+            echo 'Main application is unexpectedly signed' >&2
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/pro-ipa/Payload" artifacts
+          cp -R "$app" "$RUNNER_TEMP/pro-ipa/Payload/"
+          ipa="$GITHUB_WORKSPACE/artifacts/DeepSeekBotPro-$version-lite-unsigned.ipa"
+          test ! -e "$ipa"
+          (cd "$RUNNER_TEMP/pro-ipa" && zip -qry "$ipa" Payload)
+          python3 ios-app/scripts/verify-ipa.py "$ipa" --bundle-id "$bundle_id" > artifacts/ios-artifact.json
+          node -e 'const fs=require("node:fs"); const p="artifacts/ios-artifact.json"; const d=JSON.parse(fs.readFileSync(p)); d.sourceCommit=process.env.GITHUB_SHA; d.variant="lite"; fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n")'
+          (cd artifacts && shasum -a 256 "DeepSeekBotPro-$version-lite-unsigned.ipa" > SHA256SUMS-ios)
       - uses: actions/upload-artifact@v4
         with:
-          name: ios-${{ matrix.variant }}
-          path: artifacts/*.ipa
+          name: ios-unsigned
+          path: |
+            artifacts/*.ipa
+            artifacts/ios-artifact.json
+            artifacts/SHA256SUMS-ios
           if-no-files-found: error
 
   release:
-    needs: [ios]
+    needs: [plugin, ios]
+    if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || inputs.tag != ''
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
     steps:
+      - uses: actions/checkout@v4
+      - name: Validate immutable release target
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-pro\.[0-9]+)?$ ]] || { echo 'A version tag is required' >&2; exit 1; }
+          git fetch --no-tags origin "refs/tags/$TAG"
+          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$GITHUB_SHA"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release already exists; choose a new version instead of replacing assets' >&2
+            exit 1
+          fi
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-      - name: Checksums
+      - name: Verify artifact checksums
         working-directory: dist
-        run: sha256sum *.ipa | tee SHA256SUMS.txt
-      - name: Attach to the release
         run: |
           set -euo pipefail
-          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes --draft
-          fi
-          gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          sha256sum --check SHA256SUMS-plugin
+          sha256sum --check SHA256SUMS-ios
+          sha256sum -- *.tgz *.ipa > SHA256SUMS.txt
+      - name: Create a new draft release
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --generate-notes --draft

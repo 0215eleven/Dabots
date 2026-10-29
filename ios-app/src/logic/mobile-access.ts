@@ -1,6 +1,6 @@
 import { supportsMobileAction, type MobileCapabilities } from './mobile-capabilities.ts';
 
-export const BRIDGE_UNAVAILABLE = "这台电脑上的 Dbot pro Bridge 版本较旧，暂不支持在手机上使用此功能。请在电脑上更新插件，或直接在电脑端操作。";
+export const BRIDGE_UNAVAILABLE = "这台电脑上的 DeepSeek Bot Pro Bridge 版本较旧，暂不支持在手机上使用此功能。请在电脑上更新插件，或直接在电脑端操作。";
 
 const actionFeatures: Record<string, string> = {
   queue: 'queue', 'queue-remove': 'queue', 'room-progress': 'groupProgress', 'stop-member-work': 'groupManagement',

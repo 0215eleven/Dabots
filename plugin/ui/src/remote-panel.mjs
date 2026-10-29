@@ -16,7 +16,7 @@ export function BridgeSetupNotice({ status }) {
     h('p', null, '此保护状态下不会重新启动连接服务。不要在旧进程仍运行时移除标记；插件不会自动删除标记或终止身份不明的进程。'))
   return h('div', { className: 'dsma-setup' },
     h('h3', null, '准备 App 连接'),
-    h('p', null, '先启用 Dbot pro Bridge，配置独立的绝对存储目录和 loopback 监听；随后可选择服务器中转或自己直连。'),
+    h('p', null, '先启用 DeepSeek Bot Pro Bridge，配置独立的绝对存储目录和 loopback 监听；随后可选择服务器中转或自己直连。'),
     link('https://github.com/0215eleven/ds-bot-mobile-app/blob/main/docs/installation.md', '查看设置指南'))
 }
 

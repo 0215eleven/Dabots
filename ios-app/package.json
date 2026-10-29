@@ -1,17 +1,16 @@
 {
   "name": "@ds-bot/mobile",
-  "version": "0.1.9-codex.1",
+  "version": "0.1.10-pro.1",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start --dev-client",
     "web": "expo start --web",
-    "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:release": "expo run:ios --configuration Release --device",
     "typecheck": "tsc --noEmit",
-    "export": "expo export --platform all",
-    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "export": "expo export --platform ios",
+    "test": "node --experimental-strip-types --test test/*.test.ts && python3 -m unittest discover -s test -p \"test_*.py\"",
     "patch": "node scripts/apply-patches.mjs"
   },
   "dependencies": {

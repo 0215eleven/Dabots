@@ -201,7 +201,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
       let result
       if (method === 'GET' && path === `${PREFIX}/info`) {
         rate(`info:${ip}`, 120)
-        result = { protocolVersion: 1, serverId: auth.data.serverId, name: config.name ?? 'Dbot pro', capabilities: adapter.capabilities?.() ?? {}, compatibility: adapter.compatibility?.() ?? {} }
+        result = { protocolVersion: 1, serverId: auth.data.serverId, name: config.name ?? 'DeepSeek Bot Pro', capabilities: adapter.capabilities?.() ?? {}, compatibility: adapter.compatibility?.() ?? {} }
       } else if (method === 'POST' && path === `${PREFIX}/pairings`) {
         rate(`pair:${ip}`, 10)
         result = auth.beginPairing(await jsonBody(request))

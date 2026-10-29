@@ -37,8 +37,8 @@ class BackgroundNotificationService : Service() {
     BackgroundReceiver.instance = this
     locale = BackgroundReceiver.pending?.locale ?: locale
     if (Build.VERSION.SDK_INT >= 26) {
-      manager.createNotificationChannel(NotificationChannel(STATUS_CHANNEL, text("Dbot pro background connection", "Dbot pro 后台连接"), NotificationManager.IMPORTANCE_LOW))
-      manager.createNotificationChannel(NotificationChannel(ALERT_CHANNEL, "Dbot pro", NotificationManager.IMPORTANCE_HIGH))
+      manager.createNotificationChannel(NotificationChannel(STATUS_CHANNEL, text("DeepSeek Bot Pro background connection", "DeepSeek Bot Pro 后台连接"), NotificationManager.IMPORTANCE_LOW))
+      manager.createNotificationChannel(NotificationChannel(ALERT_CHANNEL, "DeepSeek Bot Pro", NotificationManager.IMPORTANCE_HIGH))
     }
   }
 
@@ -81,7 +81,7 @@ class BackgroundNotificationService : Service() {
 
   fun updateLocale(value: String) {
     locale = if (value == "zh") "zh" else "en"
-    if (Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(NotificationChannel(STATUS_CHANNEL, text("Dbot pro background connection", "Dbot pro 后台连接"), NotificationManager.IMPORTANCE_LOW))
+    if (Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(NotificationChannel(STATUS_CHANNEL, text("DeepSeek Bot Pro background connection", "DeepSeek Bot Pro 后台连接"), NotificationManager.IMPORTANCE_LOW))
     if (config != null) manager.notify(STATUS_ID, statusNotification())
   }
   private fun text(english: String, chinese: String) = if (locale == "zh") chinese else english
@@ -175,11 +175,11 @@ class BackgroundNotificationService : Service() {
   private fun statusNotification(): Notification {
     val stop = PendingIntent.getService(this, 1, Intent(this, javaClass).setAction(STOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     val message = if (state == "reconnecting") text("Connection lost. Reconnecting…", "网络中断，正在重连") else text("Receiving replies, questions and approvals", "后台接收新回复、提问和审批")
-    return builder(STATUS_CHANNEL).setSmallIcon(R.drawable.ds_bot_notification).setContentTitle(text("Dbot pro background reception is on", "Dbot pro 后台通知已开启")).setContentText(message).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(openApp()).addAction(Notification.Action.Builder(null, text("Stop", "停止"), stop).build()).build()
+    return builder(STATUS_CHANNEL).setSmallIcon(R.drawable.ds_bot_notification).setContentTitle(text("DeepSeek Bot Pro background reception is on", "DeepSeek Bot Pro 后台通知已开启")).setContentText(message).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(openApp()).addAction(Notification.Action.Builder(null, text("Stop", "停止"), stop).build()).build()
   }
   private fun showAlert(serverId: String, conversation: String, id: Long, kind: String) {
     val title = when (kind) { "reply" -> text("New reply from your Bot", "Bot 有新回复"); "question" -> text("Your Bot has a question", "Bot 等待你的回答"); "approval" -> text("A tool needs your approval", "工具需要你的确认"); else -> return }
-    val notification = builder(ALERT_CHANNEL).setSmallIcon(R.drawable.ds_bot_notification).setContentTitle(title).setContentText(text("Open Dbot pro to view details", "打开 Dbot pro 查看详情")).setContentIntent(openApp(serverId, conversation, id)).setAutoCancel(true).setCategory(Notification.CATEGORY_MESSAGE).setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE).build()
+    val notification = builder(ALERT_CHANNEL).setSmallIcon(R.drawable.ds_bot_notification).setContentTitle(title).setContentText(text("Open DeepSeek Bot Pro to view details", "打开 DeepSeek Bot Pro 查看详情")).setContentIntent(openApp(serverId, conversation, id)).setAutoCancel(true).setCategory(Notification.CATEGORY_MESSAGE).setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE).build()
     manager.notify("ds-bot:" + serverId + ":" + conversation, (id % Int.MAX_VALUE).toInt(), notification)
   }
   private fun finish(reason: String, epoch: Long) {

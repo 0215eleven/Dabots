@@ -1,0 +1,26 @@
+name: checks
+on:
+  push:
+    branches: ['**']
+  pull_request:
+permissions:
+  contents: read
+env:
+  npm_config_registry: https://registry.npmjs.org
+  npm_config_replace_registry_host: always
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run setup
+      - run: npm run test:prepare
+      - run: npm run check
+      - run: git diff --exit-code
+      - run: npm --prefix plugin/bridge run test:integration
+      - run: npm run check:suite
+      - run: npm run pack:plugin
+      - run: npm run audit

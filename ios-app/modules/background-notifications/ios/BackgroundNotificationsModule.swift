@@ -122,7 +122,7 @@ public class BackgroundNotificationsModule: Module {
     guard let title = titles[kind] else { return }
     let content = UNMutableNotificationContent()
     content.title = title
-    content.body = locale == "zh" ? "打开 Dbot pro 查看详情" : "Open Dbot pro to view details"
+    content.body = locale == "zh" ? "打开 DeepSeek Bot Pro 查看详情" : "Open DeepSeek Bot Pro to view details"
     content.sound = .default
     content.userInfo = ["serverId": serverId, "conversationId": conversation, "notificationId": id]
     UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ds-bot:\(serverId):\(id)", content: content, trigger: nil))

@@ -70,7 +70,7 @@ const pages: {
   { id: "usage", title: "Usage", icon: "usage" },
   { id: "secrets", title: "Secrets", icon: "secrets" },
   { id: "feedback", title: "Feedback", icon: "feedback" },
-  { id: "about", title: "About Dbot pro", icon: "feedback" },
+  { id: "about", title: "About DeepSeek Bot Pro", icon: "feedback" },
   { id: "updates", title: "Plugin updates", icon: "download" },
   { id: "harness", title: "Harness settings", icon: "settings" },
 ];
@@ -220,7 +220,7 @@ export function SettingsScreen({
               <Pressable accessibilityRole="button" accessibilityLabel={tr("Connected host")} onPress={() => setPage("mobile")} style={({pressed}) => ({flexDirection:"row",alignItems:"center",gap:14,minHeight:76,paddingHorizontal:20,paddingVertical:14,backgroundColor:pressed ? t.hover : undefined})}>
                 <View style={{width:44,height:44,borderRadius:22,backgroundColor:t.hover,alignItems:"center",justifyContent:"center"}}><Icon name="server" size={20} color={t.ink}/></View>
                 <View style={{flex:1,gap:3}}>
-                  <Text numberOfLines={1} style={{fontSize:19,fontWeight:"600",color:t.ink}}>{host.name || "Dbot pro"}</Text>
+                  <Text numberOfLines={1} style={{fontSize:19,fontWeight:"600",color:t.ink}}>{host.name || "DeepSeek Bot Pro"}</Text>
                   <ConnectionState online={online}/>
                 </View>
                 <Icon name="chevron" size={16} color={t.faint}/>
@@ -246,13 +246,13 @@ export function SettingsScreen({
               <SettingRow title={tr("Appearance")} onPress={() => setPage("general")}/>
               <SettingRow title={tr("Language")} onPress={() => setPage("general")}/>
               <SettingRow title={tr("Plugin updates")} unavailable={!panelAllowed("updates")} onPress={() => setPage("updates")}/>
-              <SettingRow title={tr("About Dbot pro")} onPress={() => setPage("about")} last/>
+              <SettingRow title={tr("About DeepSeek Bot Pro")} onPress={() => setPage("about")} last/>
             </Section>
-            <Section title={tr("Host")} footer={unavailableHere ? tr("Items marked “On computer” need a newer Dbot pro Bridge on this computer. Until then, open them on the computer.") : undefined}>
+            <Section title={tr("Host")} footer={unavailableHere ? tr("Items marked “On computer” need a newer DeepSeek Bot Pro Bridge on this computer. Until then, open them on the computer.") : undefined}>
               {pages.filter(item => ["connectors","secrets","feedback","harness"].includes(item.id)).map((item,index)=><SettingRow key={item.id} title={tr(item.title)} unavailable={!panelAllowed(item.id)} onPress={() => setPage(item.id as SettingsPage)} last={index===3}/>)}
             </Section>
             <Text style={{ textAlign: "center", fontSize: 12, color: t.faint }}>
-              {tr("Dbot pro")}</Text>
+              {tr("DeepSeek Bot Pro")}</Text>
           </>
         )}
         {activePage === "tools" && <Section title={tr("Tools & skills")}><SettingRow title={tr("Skills")} unavailable={!panelAllowed("skills")} onPress={() => {setToolsChild(true);setPage("skills");}}/><SettingRow title={tr("Plugins")} unavailable={!panelAllowed("plugins")} onPress={() => {setToolsChild(true);setPage("plugins");}}/><SettingRow title={tr("Connectors")} unavailable={!panelAllowed("connectors")} onPress={() => {setToolsChild(true);setPage("connectors");}}/><SettingRow title={tr("Capabilities")} unavailable={!panelAllowed("capabilities")} onPress={() => {setToolsChild(true);setPage("capabilities");}} last/></Section>}
@@ -268,7 +268,7 @@ export function SettingsScreen({
                   accessibilityLabel={tr(label)} onPress={() => chooseColorMode(value)} />
               ))}
             </Section>
-            <Section title={tr("Theme")} footer={allows("set-prefs") ? tr("Colors for the whole team, on every device.") : tr("This computer's Bridge can't change team colors from the phone. Update Dbot pro Bridge, or change them on the computer.")}>
+            <Section title={tr("Theme")} footer={allows("set-prefs") ? tr("Colors for the whole team, on every device.") : tr("This computer's Bridge can't change team colors from the phone. Update DeepSeek Bot Pro Bridge, or change them on the computer.")}>
                 {Object.entries(THEMES).map(([key, theme], index, all) => (
                   <SettingRow
                     key={key}
@@ -502,7 +502,7 @@ export function SettingsScreen({
             <Section
               title={otherDevices.length ? tr("Other paired devices ({count})", { count: otherDevices.length }) : tr("Other paired devices")}
               footer={tr(
-                "Revoking signs a device out right away; it has to be paired again to reconnect. To pair another device, generate pairing data with Dbot pro Bridge on your computer.",
+                "Revoking signs a device out right away; it has to be paired again to reconnect. To pair another device, generate pairing data with DeepSeek Bot Pro Bridge on your computer.",
               )}
             >
               {otherDevices.map((device) => {

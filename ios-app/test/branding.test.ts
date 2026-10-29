@@ -39,23 +39,23 @@ function literals(path: string): string[] {
 const uiFiles = [...files(join(root, "app")), ...files(join(root, "src"))]
   .filter(path => !relative(root, path).replaceAll("\\", "/").startsWith("src/openbot/pkg/"));
 
-test("launcher and web names use Dbot pro while installation and link identities stay compatible", () => {
+test("launcher and web names use DeepSeek Bot Pro while installation and link identities stay compatible", () => {
   const expo = json("app.json").expo;
-  assert.equal(expo.name, "Dbot pro");
-  assert.equal(expo.web.name, "Dbot pro");
+  assert.equal(expo.name, "DeepSeek Bot Pro");
+  assert.equal(expo.web.name, "DeepSeek Bot Pro");
   assert.equal(expo.ios.bundleIdentifier, "app.dsbot.mobile");
   assert.equal(expo.android.package, "app.dsbot.mobile");
   assert.equal(expo.slug, "ds-bot-mobile-app");
   assert.equal(expo.scheme, "dsbot");
   assert.equal(json("package.json").name, "@ds-bot/mobile");
-  assert.match(expo.ios.infoPlist.NSLocalNetworkUsageDescription, /Dbot pro/);
-  assert.equal(notificationTitle("unknown-future-kind"), "Dbot pro");
+  assert.match(expo.ios.infoPlist.NSLocalNetworkUsageDescription, /DeepSeek Bot Pro/);
+  assert.equal(notificationTitle("unknown-future-kind"), "DeepSeek Bot Pro");
 });
 
 test("both settings surfaces, pairing, about and notifications retain the product display name", () => {
   for (const path of ["app/settings.tsx", "src/App.tsx", "src/screens/SettingsScreen.tsx",
     "src/screens/PairingScreen.tsx", "src/host-settings/AboutPanel.tsx", "src/media/notifications.ts"]) {
-    assert.ok(literals(join(root, path)).some(value => value.includes("Dbot pro")), path);
+    assert.ok(literals(join(root, path)).some(value => value.includes("DeepSeek Bot Pro")), path);
   }
   for (const path of uiFiles) {
     assert.deepEqual(literals(path).filter(value => formerAppName.test(value)), [], relative(root, path));
@@ -90,7 +90,7 @@ test("native notification text is branded without renaming channels or native mo
   const ios = read("modules/background-notifications/ios/BackgroundNotificationsModule.swift");
   for (const text of [android, ios]) {
     const strings = [...text.matchAll(/"([^"\n]*)"/g)].map(match => match[1]);
-    assert.ok(strings.some(value => value.includes("Dbot pro")));
+    assert.ok(strings.some(value => value.includes("DeepSeek Bot Pro")));
     assert.deepEqual(strings.filter(value => formerAppName.test(value) || /\bDS Bot\b/.test(value)), []);
   }
   assert.match(android, /STATUS_CHANNEL = "ds-bot-background"/);

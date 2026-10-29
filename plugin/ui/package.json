@@ -1,8 +1,8 @@
 {
   "name": "ds-bot-mobile-app",
-  "version": "0.2.1-codex.5",
+  "version": "0.2.1-pro.1",
   "private": true,
-  "description": "Dbot pro — desktop pairing and device management companion",
+  "description": "DeepSeek Bot Pro — desktop pairing and device management companion",
   "license": "Apache-2.0",
   "type": "module",
   "main": "index.mjs",

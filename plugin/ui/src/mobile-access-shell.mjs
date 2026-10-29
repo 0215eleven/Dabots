@@ -36,7 +36,7 @@ function AccountEntry({ store }) {
       document.querySelector('.bt-account[aria-expanded=true]')?.click()
       store.open()
     },
-  }, h(PhoneIcon), h('span', { className: 'bt-menu-label' }, 'Dbot pro 手机访问')), container)
+  }, h(PhoneIcon), h('span', { className: 'bt-menu-label' }, 'DeepSeek Bot Pro 手机访问')), container)
 }
 
 function ProviderContent({ provider }) { return provider.render() }
@@ -89,8 +89,8 @@ function AccessDialog({ store, state }) {
     className: 'dsb-access-backdrop', onMouseDown(event) { if (event.target === event.currentTarget) store.close() },
   }, h('section', { ref: root, className: 'dsb-access-dialog', role: 'dialog', 'aria-modal': true, 'aria-labelledby': `${uid}-heading`, 'aria-describedby': `${uid}-description` },
     h('header', { className: 'dsb-access-heading' },
-      h('div', null, h(PhoneIcon), h('h1', { id: `${uid}-heading` }, 'Dbot pro 手机访问')),
-      h('button', { ref: closeButton, type: 'button', className: 'dsb-access-close', 'aria-label': '关闭 Dbot pro 手机访问', onClick: () => store.close() },
+      h('div', null, h(PhoneIcon), h('h1', { id: `${uid}-heading` }, 'DeepSeek Bot Pro 手机访问')),
+      h('button', { ref: closeButton, type: 'button', className: 'dsb-access-close', 'aria-label': '关闭 DeepSeek Bot Pro 手机访问', onClick: () => store.close() },
         h('svg', { viewBox: '0 0 24 24', width: 21, height: 21, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, 'aria-hidden': true }, h('path', { d: 'm6 6 12 12M18 6 6 18' })))),
     h('p', { id: `${uid}-description`, className: 'dsb-access-description' }, '在手机上接着聊，继续使用同一支 Bot 团队。'),
     h('div', { ref: tabs, role: 'tablist', 'aria-label': '手机访问方式', className: 'dsb-access-tabs', onKeyDown: onTabKey },

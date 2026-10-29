@@ -26,7 +26,7 @@ export function FeedbackPanel(props: PanelProps) {
   async function load() {
     const next = await props.client.action<Report>("diagnostics", {
       client: {
-        surface: `Dbot pro ${Platform.OS}`,
+        surface: `DeepSeek Bot Pro ${Platform.OS}`,
         language: Intl.DateTimeFormat().resolvedOptions().locale,
         userAgent: `React Native ${String(Platform.Version)}`,
       },
