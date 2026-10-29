@@ -1,5 +1,13 @@
 # Changelog
 
+## Mobile DS 2.0 — branch `ds2` (unreleased, not device-tested)
+
+- Connection: protocol 2 on `/mobile/v1/events` — sequenced events with acknowledgements, heartbeats, cursor catch-up, jittered 15 s backoff, immediate reconnect on network recovery and foreground. Bridge accepts bounded acknowledgements; protocol 1 phones are unchanged.
+- App: Expo SDK 58, Expo Router with native tabs and stack toolbar, `@legendapp/list` chat, `@expo/ui` settings, Reanimated and haptics, durable outbox with send-state bubbles. Previous shell kept as Classic view.
+- iOS Live Activity (Dynamic Island) for Bot run state; `DS_BOT_NO_WIDGETS=1` builds a variant without it.
+- GitHub Actions `mobile-release`: unsigned IPAs (full and lite) on macOS, APK on Linux, attached to a Release. See docs/sideloading.md.
+- Fixes the local Scene lifecycle plugin for the SDK 58 template and keeps the push entitlement out of Personal Team builds.
+
 ## 0.1.7-preview.1 — 2026-10-19
 
 - 修复中文标点、括号和引号相邻时 Markdown 加粗星号原样显示的问题。

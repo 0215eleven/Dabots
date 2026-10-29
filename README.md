@@ -117,6 +117,8 @@ Web 登录码不能用于 App 配对。未使用的配对码两分钟后失效�
 
 ## 文档地图
 
+- [Mobile DS 2.0](docs/mobile-ds2.md) · [自签名安装 IPA / APK](docs/sideloading.md)
+
 从[文档首页](docs/README.md)按目标选择指南，也可以直接进入：
 
 | 目标 | 文档 |

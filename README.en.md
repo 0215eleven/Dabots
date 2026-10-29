@@ -117,6 +117,8 @@ Web sign-in QR codes cannot pair the App. Unused pairing codes expire after two 
 
 ## Documentation map
 
+- [Mobile DS 2.0](docs/mobile-ds2.md) · [Self-signed IPA / APK install](docs/sideloading.md)
+
 Start at the [documentation index](docs/README.md), or choose a guide below. Detailed guides are maintained in Simplified Chinese.
 
 | Goal | Guides |
