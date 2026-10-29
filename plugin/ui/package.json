@@ -36,11 +36,11 @@
     "esbuild": "0.28.2",
     "qrcode": "1.5.4"
   },
-  "homepage": "https://github.com/0215eleven/ds-bot-mobile-app",
+  "homepage": "https://github.com/0215eleven/ds-bot-mobile/tree/main/plugin/ui",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0215eleven/ds-bot-mobile-app.git",
-    "directory": "companion"
+    "url": "git+https://github.com/0215eleven/ds-bot-mobile.git",
+    "directory": "plugin/ui"
   },
   "engines": {
     "node": ">=24"
