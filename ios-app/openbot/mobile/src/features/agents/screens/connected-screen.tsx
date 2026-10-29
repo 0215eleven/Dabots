@@ -1,10 +1,12 @@
 import { useReducedMotion } from '@/shared/lib/motion';
-import { tr } from '@ds/text';
+import { useDsText } from '@ds/text';
 import type { ChannelSummary } from '@openbot/contracts/ipc';
 import { router, Stack } from 'expo-router';
 import { Button, Typography } from 'heroui-native';
 import { memo, useMemo, useState, useLayoutEffect } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import SettingsIcon from 'lucide-react-native/icons/settings';
+import { useThemeColor } from 'heroui-native/hooks';
 import Animated, { cancelAnimation, Easing, FadeIn, LinearTransition, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -110,6 +112,8 @@ function listItemKey(item: MobileSidebarItem) {
 /** Original OpenBot list composition, bound to the selected DS computer. */
 export function ConnectedScreen() {
     const { view, core, online } = useDs();
+    const { tr } = useDsText();
+    const foreground = useThemeColor('foreground');
     const reducedMotion = useReducedMotion();
     const { activeAgents, activeServer, agents, pinnedAgentIds, pinnedChannelIds, hiddenChannelIds } = useMobileWorkspace();
     const channels = useChannels(activeServer.id);
@@ -123,19 +127,19 @@ export function ConnectedScreen() {
     const shownGroups = channels.channels.filter(c => showHidden || !hiddenChannelIds.includes(c.id));
     const items = [...shownAgents.filter(a => !pinnedAgentIds.includes(a.id)).map(agent => ({ id: agent.id, agent })), ...shownGroups.filter(c => !pinnedChannelIds.includes(c.id)).map(channel => ({ id: channel.id, channel }))];
     return <View className="flex-1 bg-background">
-  <Stack.Screen options={{ title: 'DeepSeek Bot Pro', headerTransparent: false, headerRight: () => <Button variant="ghost" onPress={() => router.push('/settings')}><Button.Label>{tr("Settings")}</Button.Label></Button> }}/>
-  <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
-   <LargeTitle scroll={scroll} title={activeServer.name}/>
+  <Stack.Screen options={{ headerShown: false }}/>
+  <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 }} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
+   <View className="flex-row items-center"><View className="flex-1"><LargeTitle scroll={scroll} title="DeepSeek Bot Pro"/></View><Pressable accessibilityRole="button" accessibilityLabel={tr("Settings")} onPress={() => router.push('/settings')} style={{width:44,height:44,alignItems:'center',justifyContent:'center',marginRight:16}}><SettingsIcon size={24} color={foreground}/></Pressable></View>
    <View className="gap-3 px-5 pb-5">
-    <Typography.Paragraph>{online ? 'Connected' : 'Offline · saved desktop state'}</Typography.Paragraph>
-    {view?.readOnly ? <Typography.Paragraph>{view.readOnly}</Typography.Paragraph> : null}
+    <Typography.Paragraph>{tr(online ? 'Connected' : 'Offline · saved desktop state')}</Typography.Paragraph>
+    {view?.readOnly ? <Typography.Paragraph>{tr(view.readOnly)}</Typography.Paragraph> : null}
     <View className="flex-row flex-wrap gap-2">
      {view?.capabilities.actions.includes('create-bot') ? <Button onPress={() => router.push('/add-agent')}><Button.Label>{tr("Add Bot")}</Button.Label></Button> : null}
      {view?.capabilities.actions.includes('create-room') ? <Button variant="secondary" onPress={() => router.push('/add-channel')}><Button.Label>{tr("New group")}</Button.Label></Button> : null}
-     <Button variant="ghost" onPress={() => setShowHidden(!showHidden)}><Button.Label>{showHidden ? 'Hide hidden chats' : 'Show hidden chats'}</Button.Label></Button>
+     <Button variant="ghost" onPress={() => setShowHidden(!showHidden)}><Button.Label>{tr(showHidden ? 'Hide hidden chats' : 'Show hidden chats')}</Button.Label></Button>
     </View>
    </View>
    <PinnedAgentsGrid agents={pinnedAgents}>{shownGroups.filter(c => pinnedChannelIds.includes(c.id)).map(channel => <ChannelListRow key={channel.id} channel={channel} serverId={activeServer.id} agents={channelAgents} pinned/>)}</PinnedAgentsGrid>
-  </>} ListEmptyComponent={<View className="p-5"><Typography.Paragraph>{view ? 'No chats to show.' : 'Reading this computer…'}</Typography.Paragraph></View>}/>
+  </>} ListEmptyComponent={<View className="p-5"><Typography.Paragraph>{tr(view ? 'No chats to show.' : 'Reading this computer…')}</Typography.Paragraph></View>}/>
  </View>;
 }

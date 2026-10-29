@@ -1,3 +1,4 @@
+import { tr } from './text';
 import { useRef, useState } from 'react';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { Alert } from 'react-native';
@@ -7,7 +8,7 @@ export function useDsForm(dirty: boolean) {
     const lock = useRef(false);
     const [saving, setSaving] = useState(false), [finished, setFinished] = useState(false), [blocked, setBlocked] = useState(false), [error, setError] = useState(''), [discarding, setDiscarding] = useState(false);
     usePreventRemove(!discarding && !finished && (dirty || saving), ({ repeat }) => { if (lock.current)
-        return; Alert.alert('Discard changes?', 'Your unsaved edits will be lost.', [{ text: 'Keep editing', style: 'cancel' }, { text: 'Discard', style: 'destructive', onPress: () => { setDiscarding(true); setTimeout(repeat, 0); } }]); });
+        return; Alert.alert(tr('Discard changes?'), tr('Your unsaved edits will be lost.'), [{ text: tr('Keep editing'), style: 'cancel' }, { text: tr('Discard'), style: 'destructive', onPress: () => { setDiscarding(true); setTimeout(repeat, 0); } }]); });
     async function submit(action: () => Promise<unknown>, done?: () => void, finish = true) { if (lock.current || blocked)
         return; lock.current = true; setSaving(true); try {
         await action();

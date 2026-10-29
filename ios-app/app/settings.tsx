@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Alert, Platform, Pressable, View } from "react-native";
 import { Button, Typography } from "heroui-native";
 import { Host as UiHost, Picker, Switch } from "@expo/ui";
@@ -16,13 +16,17 @@ import { SettingsSection, SettingsRow } from "@/features/settings/components/set
 import { useDs } from "../src/ds/provider";
 import { mutationProblem } from "../src/ds/screen-binding";
 import { THEMES } from "../src/theme";
+import { saveLocalePreference } from "../src/logic/locale-preference";
 import { errorText } from "../src/types";
 
 const Group = SettingsSection;
 function Row({title,detail,onPress,destructive,children}:{title:string;detail?:string;onPress?:()=>void;destructive?:boolean;children?:React.ReactNode}) {return <SettingsRow supportingText={detail} onPress={onPress} trailing={children}><Typography.Paragraph className={destructive?'text-danger-text':undefined}>{title}</Typography.Paragraph></SettingsRow>}
 
 function Settings() {
-  const { tr, locale } = useI18n();
+  const { tr, locale, preference: language } = useI18n();
+  const localeSaves = useRef(Promise.resolve());
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const router = useRouter();
   const session = useSession();
   const {view,commands,management}=useDs();
@@ -32,25 +36,28 @@ function Settings() {
 
   const mode = useColorMode();
   const [island, setIsland] = useState(true);
-  const [language, setLanguage] = useState<LocalePreference>("host");
   const [message, setMessage] = useState("");
   const host = session.host;
 
   useEffect(() => {
     void readCache<boolean>("app", "liveActivity").then(value => { const on = value !== false; setIsland(on); setLiveActivityEnabled(on); }).catch(() => {});
   }, []);
-  useEffect(() => {
-    if (!host) return;
-    void readCache<{ locale?: LocalePreference }>(host.serverId, "mobile-preferences").then(value => setLanguage(value?.locale || "host")).catch(() => {});
-  }, [host]);
+
 
   const status = !host ? tr("Not paired") : session.workspace.online ? tr("Connected") : tr("Connecting…");
   const changeMode = (value: ColorMode) => { selectionFeedback(); setColorMode(value); void writeCache("app", "colorMode", value); };
-  const changeLanguage = async (value: LocalePreference) => {
+  const changeLanguage = (value: LocalePreference) => {
     selectionFeedback();
-    setLanguage(value);
     setLocalePreference(value);
-    if (host) await writeCache(host.serverId, "mobile-preferences", { ...((await readCache<object>(host.serverId, "mobile-preferences")) || {}), locale: value });
+    setMessage('');
+    if (!host) return;
+    // Serialize rapid changes to this computer's existing preference record.
+    localeSaves.current = localeSaves.current.catch(() => {}).then(() => saveLocalePreference({
+      read: (scope, key) => readCache<Record<string, unknown>>(scope, key, {strict:true}),
+      write: writeCache,
+    }, host.serverId, value)).catch(() => {
+      if (active.current) setMessage('Language changed for this session, but could not be saved on this device.');
+    });
   };
   const changeIsland = (value: boolean) => { selectionFeedback(); setIsland(value); setLiveActivityEnabled(value); void writeCache("app", "liveActivity", value); };
   const unpair = () => Alert.alert(tr("Unpair this computer?"), tr("Its chats are removed from this phone. Pair again to reconnect."), [
@@ -65,8 +72,8 @@ function Settings() {
   return (
     <LargeTitleScrollView title={tr("Settings")} caption={host?.name} contentContainerClassName="gap-6 px-4 pt-3">
       <Stack.Screen options={{ title: "", headerTransparent: true, headerShadowVisible: false }} />
-      {message || session.error ? <Typography.Paragraph className="text-danger-text px-1">{message || session.error}</Typography.Paragraph> : null}
-      <Group title={tr("Connection")} footer={tr("The app keeps one WebSocket per open chat and resumes from where it stopped after a network change or when it returns from the background.")}>
+      {message || session.error ? <Typography.Paragraph className="text-danger-text px-1">{tr(message || session.error)}</Typography.Paragraph> : null}
+      <Group title={tr("Connection")} footer={tr("The app reconnects automatically when you change networks or return to the app.")}>
         <Row title={host?.name || tr("No computer paired")} detail={host ? hostAddress(host) : undefined}>
           <Typography.Paragraph className={session.workspace.online ? "text-success-text" : "text-muted"} style={{ fontSize: 14 }}>{status}</Typography.Paragraph>
         </Row>
@@ -84,17 +91,17 @@ function Settings() {
       </Group>
 
 
-      {management?.issues().length ? <Group title="Changes need review" footer="Check the current desktop state before allowing another operation.">
-        {management.issues().map(issue=><Row key={issue.key} title={`${({createBot:'Create Bot',updateBot:'Edit Bot',duplicateBot:'Duplicate Bot',deleteBot:'Delete Bot',setMainBot:'Change main Bot',createGroup:'Create group',updateGroup:'Edit group',deleteGroup:'Delete group',setFlags:'Change chat visibility or pin',setPreferences:'Computer appearance',cancel:'Stop response',stopGroupMember:'Stop group member'} as Record<string,string>)[issue.key.split(':')[0]] ?? 'Change'}${[...(view?.bots??[]),...(view?.groups??[])].find(item=>issue.key.includes(item.id))?.name ? ' · '+[...(view?.bots??[]),...(view?.groups??[])].find(item=>issue.key.includes(item.id))!.name : ''}`} detail={issue.message}/>)}
-        <Row title="Read current desktop state" onPress={()=>void management.review().then(setReviewed).catch(error=>setMessage(errorText(error)))}/>
-        {reviewed.length ? <Row title="I checked the current state" onPress={()=>{management.acknowledge(reviewed);setReviewed([]);setSharedBlocked(false);setMessage('')}}/> : null}
+      {management?.issues().length ? <Group title={tr("Changes need review")} footer={tr("Check the current desktop state before allowing another operation.")}>
+        {management.issues().map(issue=><Row key={issue.key} title={`${tr(({createBot:'Create Bot',updateBot:'Edit Bot',duplicateBot:'Duplicate Bot',deleteBot:'Delete Bot',setMainBot:'Change main Bot',createGroup:'Create group',updateGroup:'Edit group',deleteGroup:'Delete group',setFlags:'Change chat visibility or pin',setPreferences:'Computer appearance',cancel:'Stop response',stopGroupMember:'Stop group member'} as Record<string,string>)[issue.key.split(':')[0]] ?? 'Change')}${[...(view?.bots??[]),...(view?.groups??[])].find(item=>issue.key.includes(item.id))?.name ? ' · '+[...(view?.bots??[]),...(view?.groups??[])].find(item=>issue.key.includes(item.id))!.name : ''}`} detail={tr(issue.message)}/>)}
+        <Row title={tr("Read current desktop state")} onPress={()=>void management.review().then(setReviewed).catch(error=>setMessage(errorText(error)))}/>
+        {reviewed.length ? <Row title={tr("I checked the current state")} onPress={()=>{management.acknowledge(reviewed);setReviewed([]);setSharedBlocked(false);setMessage('')}}/> : null}
       </Group> : null}
-      <Group title="Computer appearance" footer="Shared with the computer; values update after desktop acknowledgement and readback.">
-        <Row title="Theme" detail={String(view?.preferences.theme??'deepseek')}><UiHost matchContents><Picker enabled={!sharedPending&&!sharedBlocked&&Boolean(view?.capabilities.actions.includes("set-prefs"))} selectedValue={String(view?.preferences.theme??'deepseek')} onValueChange={theme=>void saveShared({theme:String(theme)})}>{Object.entries(THEMES).map(([id,value])=><Picker.Item key={id} label={value.name} value={id}/>)}</Picker></UiHost></Row>
-        <Row title="Accent" detail={String(view?.preferences.accent??'Default')}/><View className="flex-row flex-wrap gap-2 px-4 pb-4">{[null,'#3b6fd8','#d97757','#228866'].map(accent=><Button key={accent??'default'} variant="secondary" isDisabled={sharedPending||sharedBlocked||!view?.capabilities.actions.includes('set-prefs')} onPress={()=>void saveShared({accent})}><Button.Label>{accent??'Default'}</Button.Label></Button>)}</View>
-        <Row title="Motion"><UiHost matchContents><Picker enabled={!sharedPending&&!sharedBlocked&&Boolean(view?.capabilities.actions.includes("set-prefs"))} selectedValue={String(view?.preferences.motion??'normal')} onValueChange={motion=>void saveShared({motion:motion as 'quiet'|'normal'|'lively'})}>{['quiet','normal','lively'].map(value=><Picker.Item key={value} label={value} value={value}/>)}</Picker></UiHost></Row>
+      <Group title={tr("Computer appearance")} footer={tr("Synced with the computer; its confirmed settings take effect.")}>
+        <Row title={tr("Theme")} detail={String(view?.preferences.theme??'deepseek')}><UiHost matchContents><Picker enabled={!sharedPending&&!sharedBlocked&&Boolean(view?.capabilities.actions.includes("set-prefs"))} selectedValue={String(view?.preferences.theme??'deepseek')} onValueChange={theme=>void saveShared({theme:String(theme)})}>{Object.entries(THEMES).map(([id,value])=><Picker.Item key={id} label={tr(value.name)} value={id}/>)}</Picker></UiHost></Row>
+        <Row title={tr("Accent")} detail={view?.preferences.accent ? String(view.preferences.accent) : tr('Default')}/><View className="flex-row flex-wrap gap-2 px-4 pb-4">{[null,'#3b6fd8','#d97757','#228866'].map(accent=><Button key={accent??'default'} variant="secondary" isDisabled={sharedPending||sharedBlocked||!view?.capabilities.actions.includes('set-prefs')} onPress={()=>void saveShared({accent})}><Button.Label>{accent??tr('Default')}</Button.Label></Button>)}</View>
+        <Row title={tr("Motion")}><UiHost matchContents><Picker enabled={!sharedPending&&!sharedBlocked&&Boolean(view?.capabilities.actions.includes("set-prefs"))} selectedValue={String(view?.preferences.motion??'normal')} onValueChange={motion=>void saveShared({motion:motion as 'quiet'|'normal'|'lively'})}>{['quiet','normal','lively'].map(value=><Picker.Item key={value} label={tr(value)} value={value}/>)}</Picker></UiHost></Row>
       </Group>
-      <Group title="Phone appearance and preferences">
+      <Group title={tr("Phone appearance and preferences")}>
         <Row title={tr("Theme")}>
           <UiHost matchContents>
             <Picker selectedValue={mode} onValueChange={value => changeMode(value as ColorMode)} appearance="menu">
@@ -110,7 +117,7 @@ function Settings() {
               <Picker.Item label={tr("Follow computer")} value="host" />
               <Picker.Item label={tr("System")} value="system" />
               <Picker.Item label="English" value="en" />
-              <Picker.Item label="中文" value="zh" />
+              <Picker.Item label="简体中文" value="zh" />
             </Picker>
           </UiHost>
         </Row>
@@ -122,7 +129,7 @@ function Settings() {
       </Group>
 
       <Group title={tr("More")}>
-        {view?.capabilities.agents?<Row title="DSH Agent" detail="Owner-granted Agent conversations" onPress={() => router.push("/classic")} />:null}
+        {view?.capabilities.agents?<Row title={tr("DSH Agent")} detail={tr("Owner-granted Agent conversations")} onPress={() => router.push("/classic")} />:null}
         {host ? <Row title={tr("Unpair this computer")} destructive onPress={unpair} /> : null}
       </Group>
       <Typography.Paragraph className="text-muted text-center" style={{ fontSize: 12 }}>DeepSeek Bot Pro {Constants.expoConfig?.version} · {locale}</Typography.Paragraph>

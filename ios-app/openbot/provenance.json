@@ -2563,8 +2563,8 @@
       "gitBlob": "3ad18e9e9ab9095d03a1303349eff7f046955510",
       "mode": "100644",
       "upstreamSha256": "3e7abc7adc71284adeebc610db6fa477033def3174fd2649767976375f7edb21",
-      "importedSha256": "4ef007ad13a88434cb09c9842c904091cd760ed9983737a13a4769c3a0562b7d",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "importedSha256": "d9ae44934325b9552714616ea6a65d2c15456f54dd19b18f4f9863a9d197ad25",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/add-agent-screen.tsx",
         "sha256": "3e7abc7adc71284adeebc610db6fa477033def3174fd2649767976375f7edb21"
@@ -2576,8 +2576,8 @@
       "gitBlob": "2d01145d6d1a652a8acf764a86a03b30f51d9700",
       "mode": "100644",
       "upstreamSha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a",
-      "importedSha256": "9c5f76a6e409987ed83b4c45267501b67b3eb270b14d42a851f639741086a6b7",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: canonical quiet motion and hidden pinned Bot visibility.",
+      "importedSha256": "12a7547fc5404bbe206d2d735a86eebda000fd468efc7df74bbbc9dc4926c374",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: canonical quiet motion and hidden pinned Bot visibility. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/connected-screen.tsx",
         "sha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a"
@@ -2589,8 +2589,8 @@
       "gitBlob": "824b30b9e6dab54e3143311a8f628af4082dd3a8",
       "mode": "100644",
       "upstreamSha256": "ecab9baa50ebd77fb901bf59b7350f3b740be7d36ed9f7737d69a1e118fdeb72",
-      "importedSha256": "f50dea27f76206d284446bb2214610576a8af94dfe379f5d56625433afcaca63",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: display DS Bot/avatar colors using the retained OpenBot hue palette. Task 4: exact canonical DS avatar color presentation; original retained. Task 4: retain existing DS light/dark named palette.",
+      "importedSha256": "a78b155972176f1684509b4dcade1ecfa65e9ecf41d877c46c4eda0a0e41782d",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: display DS Bot/avatar colors using the retained OpenBot hue palette. Task 4: exact canonical DS avatar color presentation; original retained. Task 4: retain existing DS light/dark named palette. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/edit-agent-screen.tsx",
         "sha256": "ecab9baa50ebd77fb901bf59b7350f3b740be7d36ed9f7737d69a1e118fdeb72"
@@ -3109,8 +3109,8 @@
       "gitBlob": "c03edf8dbb35308776c062fe03979db983643770",
       "mode": "100644",
       "upstreamSha256": "05db8a1ed978f46eb5fbe99262f543c4aa99107bc30baa8b32f8aa3df2c86baf",
-      "importedSha256": "d8e8752168d7615c3cd9fd95910257568050fc9726fa82bb2fbd18baac60f7d2",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "importedSha256": "457ebb32f559b7022c1d1af9e61a878d3052e37c163ae09a199dbcd8532cb95d",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/channels/components/channel-list.tsx",
         "sha256": "05db8a1ed978f46eb5fbe99262f543c4aa99107bc30baa8b32f8aa3df2c86baf"
@@ -3211,8 +3211,8 @@
       "gitBlob": "39df3ec5fce4795d8eae937998685fef179cf37c",
       "mode": "100644",
       "upstreamSha256": "155add91c7df2c0005a3bad782d5acf74dd3a4e71541ae770e7be9ea259d7acc",
-      "importedSha256": "860ef11762609df2063f9e3f525ec78933357dd6b2bdf77d1b99e8e9830cd5b5",
-      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved.",
+      "importedSha256": "f3fbdcc78c9ebaa915eb7b62d6e8277ed1ad005ad155fff8b3996d8096525e9d",
+      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/channels/screens/channel-form-screen.tsx",
         "sha256": "155add91c7df2c0005a3bad782d5acf74dd3a4e71541ae770e7be9ea259d7acc"
@@ -3570,8 +3570,8 @@
       "gitBlob": "384b75cc6816aafd40f169f74427ecc88ea23494",
       "mode": "100644",
       "upstreamSha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9",
-      "importedSha256": "e32df461a1cec83a6093ec7221f91a454d1e4498a26c614b63227f26aa9c546e",
-      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved.",
+      "importedSha256": "45d37f5de0a6d95c8f9126aba0aacfe191611c52ad2b0c88199b3db93b12f8f3",
+      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/chat/components/chat-view.tsx",
         "sha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9"

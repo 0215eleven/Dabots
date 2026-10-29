@@ -1,4 +1,4 @@
-import { tr } from '@ds/text';
+import { useDsText } from '@ds/text';
 import type { AvatarHue } from '@openbot/contracts/ipc';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Button, Typography } from 'heroui-native';
@@ -51,6 +51,7 @@ function ChannelForm({ group }: {
     group?: DsGroupView;
 }) {
     const { view, commands, online, agents } = useDs();
+    const { tr } = useDsText();
     const [owner] = useState(view?.serverId);
     const [edits, setEdits] = useState<DsGroupPatch>({});
     const current = { name: '', notice: '', mode: 'admin' as const, members: [] as string[], admin: null as string | null, ...group, ...edits };
@@ -67,10 +68,10 @@ function ChannelForm({ group }: {
         await commands.createGroup({ name, members, ...(admin ? { admin } : {}) }); }, () => router.back());
     return <SheetScrollView className="bg-sheet" contentContainerClassName="gap-5 px-5 pb-safe-offset-5" keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled">
   <SheetFormField label={tr("Group name")} value={name} onChangeText={name => change({name})} editable={!form.saving}/>
-  {group ? <><SheetFormField label={tr("Notice")} value={notice} onChangeText={notice => change({notice})} editable={!form.saving} multiline/><SettingsSection title={tr("Who responds")}><View className="flex-row gap-2 p-3">{(['admin', 'everyone'] as const).map(value => <Button key={value} variant={mode === value ? 'primary' : 'secondary'} isDisabled={form.saving} onPress={() => change({mode: value})}><Button.Label>{value}</Button.Label></Button>)}</View></SettingsSection></> : null}
+  {group ? <><SheetFormField label={tr("Notice")} value={notice} onChangeText={notice => change({notice})} editable={!form.saving} multiline/><SettingsSection title={tr("Who responds")}><View className="flex-row gap-2 p-3">{(['admin', 'everyone'] as const).map(value => <Button key={value} variant={mode === value ? 'primary' : 'secondary'} isDisabled={form.saving} onPress={() => change({mode: value})}><Button.Label>{tr(value === 'admin' ? 'Admin' : 'Everyone')}</Button.Label></Button>)}</View></SettingsSection></> : null}
   <SettingsSection title={tr("Members")}>{agents.map(agent => <MemberChoice key={agent.id} id={agent.id} name={agent.name} serverId={agent.serverId} avatarSeed={agent.avatarSeed} avatarHue={agent.avatarHue} selected={members.includes(agent.id)} disabled={form.saving} onToggle={id => { change({members: members.includes(id) ? members.filter(x => x !== id) : [...members, id], ...(admin === id ? {admin: null} : {})}); }}/>)}</SettingsSection>
   <SettingsSection title={tr("Group lead")}><View className="flex-row flex-wrap gap-2 p-3">{agents.filter(a => members.includes(a.id)).map(agent => <Button key={agent.id} variant={admin === agent.id ? 'primary' : 'secondary'} isDisabled={form.saving} onPress={() => change({admin: agent.id})}><Button.Label>{agent.name}</Button.Label></Button>)}</View></SettingsSection>
-  {form.error ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text">{form.error}</Typography.Paragraph> : null}
-  <SheetSaveAction dirty={dirty && !form.finished} canSave={Boolean(available && members.length && !form.blocked)} pending={form.saving} label={group ? 'Save group' : 'Create group'} onSave={submit}/>
+  {form.error ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text">{tr(form.error)}</Typography.Paragraph> : null}
+  <SheetSaveAction dirty={dirty && !form.finished} canSave={Boolean(available && members.length && !form.blocked)} pending={form.saving} label={tr(group ? 'Save group' : 'Create group')} onSave={submit}/>
  </SheetScrollView>;
 }

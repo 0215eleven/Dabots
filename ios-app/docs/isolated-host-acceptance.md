@@ -95,3 +95,53 @@ forced reconnect (one POST, one canonical record, one visible row); a subsequent
 reconnect retained that single row. Core/outbox regression coverage requires no
 second history/stream update, and checks Session mismatch, disposal and owner
 isolation. Evidence is ephemeral; storage and request identities are unchanged.
+
+## Task 5 Chinese core UI and home header
+
+The existing language preference offers English and 简体中文. Active DS controls
+subscribe to the same locale store and imported language bridge; no second locale
+protocol is introduced. The original per-host `mobile-preferences` record retains
+its identity and unrelated fields. Writes are verified and a failed save is shown
+as session-only. Host/system follow modes and explicit English/Chinese choices
+retain their existing behavior. DSH model references and effort IDs remain exact;
+known generic effort labels translate for display and unknown host labels fall back
+unchanged. User names, roles, messages and model names remain data.
+
+Both `/` and `/connected` show one brand heading and an accessible 44pt gear that
+opens real settings. Other pages retain their actual back navigation. Settings,
+management uncertainty/review, Bot/group forms, chat states and model controls use
+existing catalogs. Changes are scoped to copy/reactivity and this home correction.
+
+Task 5 verification uses the same preview-disabled app and disposable public DSH
+with the production engine. The original 18 host scenarios pass separately from
+the 8-outcome Chinese flow and the focused 3-outcome pending locale/history flow:
+
+```sh
+DS_TEST_SCENARIO=baseline node ios-app/test/browser/ds-isolated-host.cjs
+DS_TEST_SCENARIO=chinese DS_TEST_SCREENSHOTS=/tmp/<private-directory> node ios-app/test/browser/ds-isolated-host.cjs
+DS_TEST_SCENARIO=pending-locale DS_TEST_SCREENSHOTS=/tmp/<private-directory> node ios-app/test/browser/ds-isolated-host.cjs
+```
+
+The Chinese checks include locale changes on mounted settings errors, saved host
+preferences, host/system fallback, separate computers, English restoration, both
+home routes and actual gear/back controls. A held real submission verifies that
+`发送中` follows language changes while preserving one request ID/POST; releasing
+it yields canonical history and a real test-model reply. A storage-denial check
+requires visible feedback. The unknown-change check forwards a real successful
+settings POST and truncates only the browser's acknowledgement JSON, then checks
+Chinese/English review and canonical desktop state. The submission-loss proxy
+scenario remains separately targeted to the successful POST and its actual receipt.
+
+Six 390px Chinese screenshots stay outside Git. The chat image waits for canonical
+history and test-model reply; the test data and browser-native effect limitations
+remain explicit. They do not establish physical iPhone/Android or native mask,
+keyboard, Keychain or gesture behavior.
+
+The required root check passed 1374 Node tests with two intentional Windows skips
+and 11 Python tests before the final copy refinements. Stable final mobile source
+passed typecheck, 304 Node tests and 11 Python tests. Final preview-disabled web
+export bundles 4478 modules (19 JS bundles and one CSS bundle); final iOS export
+bundles 4967 iOS modules plus 118 DOM modules, with one Hermes bundle and 37 assets.
+These are Linux JavaScript/export checks. Task 4's unchanged native prebuild,
+engine/Bridge/SDK and packed integration evidence remains at its own source point;
+Xcode compilation, IPA, signing and physical-device behavior remain unrun.

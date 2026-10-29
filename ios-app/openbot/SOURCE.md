@@ -122,3 +122,24 @@ browser large titles use explicit header clearance. Native iOS paths remain inta
 Every adapted upstream file retains an original under `adaptations/original/` and its
 current SHA-256 in `provenance.json`. See `../docs/isolated-host-acceptance.md` for the
 actual-host harness and the browser/native evidence boundaries.
+
+## Task 5 Chinese UI and home header
+
+The active DS screens subscribe to the existing app locale; the existing language
+bridge continues to drive the imported typed catalog. Simplified Chinese and English
+remain the same host-scoped `mobile-preferences` values. Language saves preserve
+other fields and verify readback, showing a session-only warning if storage fails.
+Core states, uncertain-change review and navigation labels translate at render time;
+user names/messages, model names/references and effort IDs remain original DSH data.
+
+Both home routes hide only their native stack header and keep one existing in-content
+brand heading with an accessible 44pt gear. This is the narrow authorized home
+exception to native chrome: retaining a second native title/action caused duplicated
+branding. Insets come from the existing safe-area hook. Other screens retain their
+native headers and real back navigation. No native dependency or provider is added.
+Every affected upstream file was already adapted and keeps its exact upstream
+original; all current hashes are updated in `provenance.json`.
+
+Task 5 actual-host Chinese screenshots and checks use disposable public DSH with
+the production engine and normal preview-disabled Metro. They are browser-only;
+Linux exports do not establish native Xcode compilation, IPA or device behavior.

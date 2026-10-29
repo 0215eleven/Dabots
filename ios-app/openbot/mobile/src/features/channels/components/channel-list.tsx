@@ -1,4 +1,4 @@
-import {tr} from '@ds/text';
+import {useDsText} from '@ds/text';
 import {useDs} from '@ds/provider';
 import type { ChannelSummary } from "@openbot/contracts/ipc";
 import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
@@ -246,6 +246,7 @@ export const ChannelListRow = memo(function ChannelListRow({
   rightInset?: number;
 }) {
   const { t, format } = useText();
+  const {tr, locale} = useDsText();
   const [background, accent] = useThemeColor(["background", "accent"]);
   const { toggleChannelPinAnimated } = useAgentPinTransition();
   const isPinned = useMobileWorkspaceSelector(({ pinnedChannelIds }) => pinnedChannelIds.includes(channel.id));
@@ -259,7 +260,7 @@ export const ChannelListRow = memo(function ChannelListRow({
   const [menuKey, setMenuKey] = useState(0);
   const previewLine = useMemo(
     () => (channel.lastMessage ? markdownPreviewText(channel.lastMessage.text) : tr("Open group conversation")),
-    [channel.lastMessage, t],
+    [channel.lastMessage, t, locale],
   );
   const title = channel.title.trim();
   const unread = channel.unreadCount > 0;

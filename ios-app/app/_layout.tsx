@@ -1,6 +1,7 @@
 import "../global.css";
 import "react-native-reanimated";
 import React from "react";
+import {useI18n} from "../src/i18n";
 import {DsProvider} from "../src/ds/provider";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 const queryClient = new QueryClient();
@@ -22,18 +23,20 @@ if (designPreview) LogBox.ignoreAllLogs(true);
 
 function Root() {
   const t = useTheme();
+  const {tr} = useI18n();
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <StatusBar style={t.dark ? "light" : "dark"} />
       <Stack screenOptions={{ contentStyle: { backgroundColor: t.bg } }}>
-        <Stack.Screen name="index" options={{ headerTransparent: true, headerShadowVisible: false, title: "" }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="connected" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerTransparent: true, headerShadowVisible: false, title: "", headerBackButtonDisplayMode: "minimal" }} />
         <Stack.Screen name="chat/[agentId]" options={{ headerBackButtonDisplayMode: "minimal" }} />
-        <Stack.Screen name="add-agent" options={{title:"Add Bot",presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
-        <Stack.Screen name="add-channel" options={{title:"New group",presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
-        <Stack.Screen name="agent-info/[agentId]" options={{title:"Bot",presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
-        <Stack.Screen name="channel-info/[channelId]" options={{title:"Group",presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
-        <Stack.Screen name="+not-found" options={{title:"Unavailable"}} />
+        <Stack.Screen name="add-agent" options={{title:tr("Add Bot"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
+        <Stack.Screen name="add-channel" options={{title:tr("New group"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
+        <Stack.Screen name="agent-info/[agentId]" options={{title:tr("Bot"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
+        <Stack.Screen name="channel-info/[channelId]" options={{title:tr("Group"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
+        <Stack.Screen name="+not-found" options={{title:tr("Unavailable")}} />
         <Stack.Screen name="pairing" options={{ presentation: "modal", headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="classic" options={{ headerShown: false }} />
       </Stack>

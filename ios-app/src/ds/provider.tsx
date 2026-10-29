@@ -34,7 +34,7 @@ export function DsProvider({ children }: {
     children: React.ReactNode;
 }) {
     const session = useSession();
-    const t = useTheme(), mode = useColorMode(), { locale } = useI18n();
+    const t = useTheme(), mode = useColorMode(), { locale, tr } = useI18n();
     const latest = useRef(session);
     latest.current = session;
     const client = session.client, serverId = session.host?.serverId, outbox = session.outbox;
@@ -57,7 +57,7 @@ export function DsProvider({ children }: {
         stores.liveState.update('activityByServer', () => ({ [view.serverId]: Object.fromEntries(Object.entries(view.work).filter(([, w]) => w.phase !== 'idle').map(([id, w]) => [id, { agentId: id, turnId: null, phase: w.phase === 'idle' ? 'working' : w.phase, detail: w.detail }])) }));
     }, [stores, session.workspace.team, session.workspace.conversations, session.workspace.online]);
     const host: MobileServer = { id: serverId ?? 'unavailable', name: session.host?.name ?? 'DeepSeek Bot Pro', logoKey: null, kind: 'local', state: session.workspace.online ? 'online' : 'offline', initialConnectionPending: session.loading, connectionMessage: session.error || null, address: null, accent: '', publicKey: '', membershipId: '', role: 'member' };
-    const fail = (error: unknown) => Alert.alert('DeepSeek Bot Pro', mutationProblem(error).message);
+    const fail = (error: unknown) => Alert.alert('DeepSeek Bot Pro', tr(mutationProblem(error).message));
     const flag = async (id: string, patch: {
         pinned?: boolean;
         hidden?: boolean;

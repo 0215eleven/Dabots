@@ -80,12 +80,22 @@
 
 Task 4 verification evidence and repeatable commands: `ios-app/docs/isolated-host-acceptance.md`. Final branch push, reusable cloud draft and independent whole-branch review remain owned by the parent task; no release/tag publication is authorized. Native Xcode/IPA/signing/device checks remain unrun on this Linux environment.
 
-### Task 5: Simplified Chinese and home navigation polish (new user request)
+### Task 5: Complete Chinese UI and simplify the home header
 
-Authorized by the user after Task 4 screenshots: offer Simplified Chinese and translate currently available core pages; show one home title and use a settings gear icon. Parent assigns a fresh implementer after Task 4 review; preserve all existing DS identities, capabilities and host semantics.
+**User steering:** 用户明确要求语言切换提供中文版，并指出首页重复品牌标题、文字 Settings 入口丑陋，要求用 icon。This extends the current implementation, not a replacement task.
 
-- [ ] Add Simplified Chinese selection and reachable core-page translations using existing locale storage and translation infrastructure.
-- [ ] Remove duplicate home title and use a settings gear with an accessible label, without adding product scope.
-- [ ] Verify affected behavior and real isolated-host screens; retain existing Metro 8093 for reuse.
-- [ ] Run final web and iOS exports once on stable Task 5 product source. Task 4 baseline web export passed; its iOS export is explicitly NOT RUN/deferred here. Native compilation, IPA, signing and device checks remain unverified on Linux.
-- [ ] Update evidence/docs and submit for parent review and authorized branch push.
+**Files:** Modify `ios-app/app/_layout.tsx`, `ios-app/app/settings.tsx`, active DS-adapted screens under `ios-app/openbot/mobile/src/features/agents/`, `features/channels/`, `features/chat/`, and `ios-app/src/ds/`; reuse `ios-app/src/i18n.ts`, existing Chinese JSON catalogs and language bridge. Update imported-source provenance/originals for any adaptation. Extend meaningful actual-UI localization/header tests under `ios-app/test/` and `ios-app/test/browser/`. Update existing docs/checked plan.
+
+**Interfaces:** Existing `useI18n()`, `tr()`, `setLocalePreference()` and `LocalePreference` values `host|system|en|zh`; original per-host `mobile-preferences` locale cache. DS provider already bridges resolved locale into imported `useAppLanguage`. Root routes `/` and `/connected` mount the same ConnectedScreen. Reuse existing icons/dependencies and real-host harness/normal Metro8093 previewOFF. Model references/effort values remain those offered by DSH.
+
+- [x] Verify language selection exposes `English` and `简体中文`, applies immediately to active home/chat/Bot/group/settings/management errors and navigation titles, persists using the existing preference identity, and can switch back. Preserve follow-computer/system behavior, host isolation, raw user-owned data and DSH model identities. Add behavioral RED→GREEN for missing Chinese coverage/reactivity; reuse existing catalogs rather than adding a second locale system.
+- [x] Show one DeepSeek Bot Pro brand heading on home. Remove duplicate navigation/body branding and replace the Settings text action with an accessible gear button (44pt hit area, localized accessibility label, real settings navigation). Check both home routes at390px, safe area and back navigation. This is a narrow correction to the shown header, no broad visual redesign.
+- [x] Ensure reachable DS-owned interface labels, empty/error/uncertain-save states and model controls are translated; raw user names/messages and canonical DSH model IDs are not rewritten. Recheck host/system preference fallback and persistence, locale changes while mounted and after navigation, and English restoration.
+- [x] Run actual previewOFF/publicDSH browser checks for Chinese home, single chat, Bot/group form, DSH model controls and settings; verify the gear opens settings and only one brand heading is visible. Save6updated390px Chinese screenshots without pairing secrets, clearly browser-only. Existing18functional host scenarios must remain valid; use focused additions/reuse harness instead of replacing real integration with static string assertions.
+- [ ] On stable final source, run mobile typecheck/tests and required root check, final web+iOS exports (iOS bundle gate moved from Task4), existing source/archive audit and final source-bound production pack from clean committed code. Reuse Task4 unchanged plugin/SDK/packed/native-prebuild evidence; rerun additional gates only for a concrete affected area. No new CI, tag, release, signing or credentials.
+- [ ] Self-review, update provenance/docs/plan, commit and report exact source/gate results. Parent supplies Task5 review and final whole-branch review/push/config draft. Keep native Xcode/IPA/device limitations explicit. Do not push, publish, merge or spawn subagents.
+
+
+### Parent completion
+
+- [ ] Independent Task 5 review, final whole-branch review, authorized branch push and reusable cloud configuration draft (parent-owned).

@@ -32,15 +32,15 @@ const zh: Record<string, string> = {
   "Edit character": "编辑角色",
   "Character animation": "角色动画",
   Motion: "动画",
-  "How lively your Bots feel.": "设置 Bot 角色的动画活跃程度。",
-  "Add a Main Bot": "添加主 Bot",
+  "How lively your Bots feel.": "设置机器人角色的动画活跃程度。",
+  "Add a Main Bot": "添加主机器人",
   "Move to first": "移到首位",
   First: "首位",
   "Knowledge and tasks": "知识与任务",
-  "What this Bot remembers.": "这个 Bot 保存的记忆。",
-  "Tasks this Bot runs on a schedule.": "这个 Bot 的定时任务。",
+  "What this Bot remembers.": "这个机器人保存的记忆。",
+  "Tasks this Bot runs on a schedule.": "这个机器人的定时任务。",
   "A copy with fresh memory and conversation.":
-    "复制 Bot，使用新的记忆和对话。",
+    "复制机器人，使用新的记忆和对话。",
   "Its chats are archived.": "对话将被归档。",
   Character: "角色",
   "Custom color": "自定义颜色",
@@ -53,9 +53,9 @@ const zh: Record<string, string> = {
   Label: "标签",
   Optional: "可选",
   Instructions: "指令",
-  "How should this Bot work?": "希望这个 Bot 如何工作？",
+  "How should this Bot work?": "希望这个机器人如何工作？",
   "Instructions are added to this Bot’s system prompt.":
-    "这些指令会添加到 Bot 的系统提示词。",
+    "这些指令会添加到机器人的系统提示词。",
   "Creating…": "正在创建…",
   "Create group": "创建群聊",
   "Who responds": "谁来回答",
@@ -67,16 +67,16 @@ const zh: Record<string, string> = {
   "Name after members": "按成员命名",
   "No group chats yet": "还没有群聊",
   "Bring Bots together in a shared conversation.":
-    "让多个 Bot 加入同一个对话。",
+    "让多个机器人加入同一个对话。",
   "Choose an admin and at least one other Bot.":
-    "选择一位管理员和至少一个其他 Bot。",
+    "选择一位管理员和至少一个其他机器人。",
   "A group needs at least two members.": "群聊至少需要两位成员。",
   "Chat history is archived. The Bots stay in your team.":
-    "群聊记录将被归档，Bot 会保留在团队中。",
+    "群聊记录将被归档，机器人会保留在团队中。",
   Team: "团队",
   "Hidden Bots remain available in settings and groups.":
-    "隐藏的 Bot 仍可在设置和群聊中使用。",
-  "Connect to your Bot team.": "连接你的 Bot 团队。",
+    "隐藏的机器人仍可在设置和群聊中使用。",
+  "Connect to your Bot team.": "连接你的机器人团队。",
   "Connect your host": "连接主机",
   "Pairing JSON": "配对数据 JSON",
   "Device name": "设备名称",
@@ -114,7 +114,7 @@ const zh: Record<string, string> = {
     "此 Agent 的所有对话都会归档。",
   "This Agent conversation is no longer available.":
     "这个 Agent 对话已不可用。",
-  "Bot team": "Bot 团队",
+  "Bot team": "机器人团队",
   "Classic Agent": "经典 Agent",
   "Open DSH Agent conversations in the navigation drawer.":
     "在导航中打开 DSH Agent 对话。",
@@ -138,8 +138,8 @@ const zh: Record<string, string> = {
   Shuffle: "随机",
   Pin: "置顶",
   Hide: "隐藏",
-  "Main Bot": "主 Bot",
-  "Main Bots": "主 Bot",
+  "Main Bot": "主机器人",
+  "Main Bots": "主机器人",
   General: "通用",
   Memory: "记忆",
   Schedules: "定时任务",
@@ -153,10 +153,10 @@ const zh: Record<string, string> = {
 Object.assign(zh, {
   "New group chat": "新建群聊",
   "Your main point of contact. Main Bots can organize the team and keep work moving.":
-    "主 Bot 是你的主要联系人，可以组织团队并推动工作。",
+    "主机器人是你的主要联系人，可以组织团队并推动工作。",
   "Shown first in the sidebar.": "在侧边栏中排在首位。",
   Actions: "操作",
-  "Duplicate Bot": "复制 Bot",
+  "Duplicate Bot": "复制机器人",
   "No models available. Configure a model provider in Harness settings.":
     "没有可用模型，请在 Harness 设置中配置模型提供方。",
   "Every member reads this before speaking.": "每位成员发言前都会阅读。",
@@ -175,14 +175,14 @@ Object.assign(zh, {
   "Allow development loopback HTTP": "允许开发回环 HTTP",
   "Cancel pairing": "取消配对",
   "To change the only Main Bot, choose a replacement in Bots settings.":
-    "要更换唯一的主 Bot，请在 Bot 设置中选择替代者。",
-  "Let this Bot organize the team.": "让这个 Bot 组织团队。",
+    "要更换唯一的主机器人，请在机器人设置中选择替代者。",
+  "Let this Bot organize the team.": "让这个机器人组织团队。",
   "Your host is offline. Settings can be changed when it reconnects.":
     "主机离线，重新连接后可修改设置。",
   "A new model applies to the next message.": "新模型会从下一条消息开始生效。",
   "You can choose a model now or after creating the Bot.":
-    "可现在选择模型，也可创建 Bot 后再选。",
-  "Create at least two Bots first.": "请先创建至少两个 Bot。",
+    "可现在选择模型，也可创建机器人后再选。",
+  "Create at least two Bots first.": "请先创建至少两个机器人。",
 });
 export type LocalePreference = "host" | "system" | "en" | "zh";
 let preference: LocalePreference = "host";

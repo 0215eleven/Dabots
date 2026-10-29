@@ -66,6 +66,19 @@ test('screen transcript renders DS reasoning/tool/attachment details and author 
  const [row]=screenMessages([{id:'m',author:'assistant',senderAgentId:'ds:A:bot:b',text:'answer',createdAt:'now',status:'completed',ds:{author:{id:'b',name:'Reviewer'},source:{},reasoning:'why',tool:{name:'read',output:'result'},attachments:[{name:'proof.txt'}]}}] as any);
  assert.equal(row.speaker?.id,'ds:A:bot:b');assert.equal(row.speaker?.name,'Reviewer');for(const text of ['answer','why','read','proof.txt'])assert.ok(row.body.includes(text));
 });
+test('transcript presentation changes language without changing user content, names or canonical identity',async()=>{
+ const {screenMessages}=await import('../src/ds/chat-binding.ts');
+ const original={id:'ds:A:message:raw',author:'assistant',text:'Reasoning · user text',createdAt:'now',status:'completed',ds:{author:{id:'raw',name:'Tool'},source:{},reasoning:'Tool · raw reasoning',tool:{name:'Reasoning',output:'raw'}}};
+ const catalog:Record<string,string>={Reasoning:'推理',Tool:'工具'};
+ const [english]=screenMessages([original] as any);
+ const [chinese]=screenMessages([original] as any,key=>catalog[key]??key);
+ assert.ok(english.body.includes('\n\nReasoning\n'));
+ assert.ok(chinese.body.includes('\n\n推理\nTool · raw reasoning'));
+ assert.ok(chinese.body.includes('\n\n工具\n'));
+ assert.equal(chinese.id,original.id);assert.equal(chinese.speaker?.name,'Tool');
+ assert.ok(chinese.body.startsWith(original.text));assert.ok(chinese.body.includes('"name": "Reasoning"'));
+ assert.equal(original.ds.reasoning,'Tool · raw reasoning');
+});
 test('actual provider binding reads current refs and rejects replaced client/outbox owners',async()=>{
  const {bindSessionCore}=await import('../src/ds/session-binding.ts');
  const client:any={};let snapshot:any={client,serverId:'A',source:'live',team:{bots:[],rooms:[],models:[],prefs:{theme:'paper'}},conversations:[]};

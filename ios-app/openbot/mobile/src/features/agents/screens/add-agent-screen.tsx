@@ -1,4 +1,4 @@
-import { tr } from '@ds/text';
+import { useDsText } from '@ds/text';
 import { avatarHueSwatch } from '@openbot/brand/bloub-avatar';
 import type { AvatarHue } from '@openbot/contracts/ipc';
 import { router } from 'expo-router';
@@ -14,6 +14,7 @@ import { useDsForm } from '@ds/form-state';
 /** Original appearance/form/sheet composition; DS owns fields and persistence. */
 export function AddAgentScreen() {
     const { commands, online, view } = useDs();
+    const { tr } = useDsText();
     const [name, setName] = useState(''), [role, setRole] = useState(''), [instructions, setInstructions] = useState(''), [seed, setSeed] = useState('ds-bot'), [color, setColor] = useState(''), [runtime, setRuntime] = useState<ModelChoice>({});
     const [hue, setHue] = useState<AvatarHue | null>(null);
     const [owner] = useState(view?.serverId);
@@ -24,9 +25,9 @@ export function AddAgentScreen() {
         throw Error('This computer is unavailable.'); await commands.createBot({ name, role, instructions, avatar: { shape: seed }, ...(color ? { color } : {}), ...runtime }); }, () => router.back());
     return <SheetScrollView className="bg-sheet" contentContainerClassName="gap-5 px-5 pb-safe-offset-5" keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled">
   <AgentAppearancePicker seed={seed} hue={hue} name={name} nameField={<SheetFormField label={tr("Bot name")} value={name} onChangeText={setName} editable={!form.saving}/>} disabled={form.saving} onSeedChange={setSeed} onHueChange={value => { setHue(value); setColor(value === null ? '' : avatarHueSwatch(value)); }} showFaces={true}/>
-  <SheetFormField label={tr("Role")} value={role} onChangeText={setRole} editable={!form.saving}/><SheetFormField label={tr("Instructions")} value={instructions} onChangeText={setInstructions} editable={!form.saving} multiline/><SheetFormField label={tr("Color (hex)")} value={color} onChangeText={setColor} editable={!form.saving}/>
+  <SheetFormField label={tr("Role")} value={role} onChangeText={setRole} editable={!form.saving}/><SheetFormField label={tr("Instructions")} value={instructions} onChangeText={setInstructions} editable={!form.saving} multiline/><SheetFormField label={tr("Color")} value={color} onChangeText={setColor} editable={!form.saving}/>
   <DsModelFields value={runtime} onChange={setRuntime} disabled={form.saving || !available}/>
-  {form.error ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text">{form.error}</Typography.Paragraph> : null}
+  {form.error ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text">{tr(form.error)}</Typography.Paragraph> : null}
   <SheetSaveAction dirty={dirty && !form.finished} canSave={Boolean(name.trim() && available && !form.blocked)} pending={form.saving} label={tr("Create Bot")} onSave={submit}/>
  </SheetScrollView>;
 }

@@ -9,7 +9,7 @@ function load(path:string,mocks:Record<string,any>){const code=transformSync(rea
 function animation(){return {duration(){return this},reduceMotion(value:string){return {...this,motion:value}}};}
 const reanimated={__esModule:true,default:{FlatList:'FlatList',View:'AnimatedView'},Easing:{bezier:noop},FadeIn:animation(),LinearTransition:animation(),ReduceMotion:{System:'system',Always:'always'},useSharedValue:(value:any)=>({get:()=>value,set:(next:any)=>{value=next}})};
 function screen(hidden:boolean){const agents=[{id:'visible'},{id:'hidden'}];return load('../openbot/mobile/src/features/agents/screens/connected-screen.tsx',{
- 'react':{...react,useState:()=>[hidden,noop]},'react-native':{View:'View'},'react-native-reanimated':reanimated,'expo-router':{Stack:{Screen:'Screen'}},
+ '@ds/text':{useDsText:()=>({tr:(text:string)=>text,locale:'en'})},'heroui-native/hooks':{useThemeColor:()=>('#141414')},'react':{...react,useState:()=>[hidden,noop]},'react-native':{View:'View'},'react-native-reanimated':reanimated,'expo-router':{Stack:{Screen:'Screen'}},
  '@/features/workspace/context/mobile-workspace-context':{useMobileWorkspace:()=>({agents,activeAgents:agents.slice(0,1),activeServer:{id:'h',name:'host'},pinnedAgentIds:['hidden'],pinnedChannelIds:[],hiddenChannelIds:[]})},
  '@/features/channels/components/use-channels':{useChannels:()=>({channels:[]})},'react-native-safe-area-context':{useSafeAreaInsets:()=>({bottom:0})},
  '@/shared/components/large-title':{useLargeTitleScroll:()=>({})},'@ds/provider':{useDs:()=>({view:{capabilities:{actions:[]}},online:true})},
