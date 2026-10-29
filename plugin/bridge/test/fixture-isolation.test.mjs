@@ -3,6 +3,27 @@ import test from 'node:test'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 import { launchFixture } from './fixture-host.mjs'
+import { fixtureEnvironment } from './fixture-environment.mjs'
+
+test('isolated package installation retains proxy and CA routing without application credentials', async t => {
+  const area = resolve(import.meta.dirname, '../fixture')
+  await mkdir(area, { recursive: true })
+  const home = await mkdtemp(join(area, 'network-isolation-'))
+  t.after(() => rm(home, { recursive: true, force: true }))
+  const environment = await fixtureEnvironment(home, {
+    PATH: process.env.PATH, HTTPS_PROXY: 'http://127.0.0.1:9080', NO_PROXY: '127.0.0.1,localhost',
+    NODE_EXTRA_CA_CERTS: '/fixture/public-ca.pem',
+    EXPO_TOKEN: 'synthetic-private-token', MODEL_API_KEY: 'synthetic-private-model-key',
+    HOME: '/outside-profile', DSH_HOME: '/outside-dsh',
+  })
+  assert.equal(environment.HTTPS_PROXY, 'http://127.0.0.1:9080')
+  assert.equal(environment.NO_PROXY, '127.0.0.1,localhost')
+  assert.equal(environment.NODE_EXTRA_CA_CERTS, '/fixture/public-ca.pem')
+  assert.equal(environment.EXPO_TOKEN, undefined)
+  assert.equal(environment.MODEL_API_KEY, undefined)
+  assert.equal(environment.HOME, home)
+  assert.equal(environment.DSH_HOME, home)
+})
 
 test('isolated fixture copies source without following dependency directories', async t => {
   const area = resolve(import.meta.dirname, '../fixture')
