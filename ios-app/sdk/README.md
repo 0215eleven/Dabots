@@ -1,4 +1,7 @@
-> Private bundled SDK `0.1.1-codex.4`; use the same checked source commit as mobile `0.1.8-codex.3`. Protocol compatibility is established by handshake and capabilities, not equal component version numbers. See [integrated delivery](../../docs/integrated-delivery.md).
+# Internal iOS protocol SDK
+
+Used by ios-app via file:./sdk and by desktop protocol tests; not a separate product. See ../../plugin/README.md for the composed desktop plugin.
+
 
 # DS Bot mobile SDK
 

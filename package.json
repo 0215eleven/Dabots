@@ -8,17 +8,15 @@
     "check": "npm --prefix plugin/engine test && npm --prefix plugin/engine run lint && node plugin/engine/scripts/build-client.mjs --check && npm --prefix ios-app run typecheck && npm --prefix ios-app test && npm --prefix ios-app/sdk test && npm --prefix plugin/tools/relay test && npm --prefix plugin/bridge test && npm --prefix plugin/bridge run lint && npm --prefix plugin/ui run check && npm --prefix plugin/ui run build && npm run test:suite",
     "check:bridge": "npm --prefix plugin/bridge run test:prepare && npm --prefix plugin/bridge run test:integration",
     "audit": "python3 plugin/scripts/audit-source.py",
-    "pack:bridge": "node plugin/scripts/pack-bridge.mjs",
-    "pack:companion": "node plugin/scripts/pack-companion.mjs",
-    "preview:companion": "node plugin/ui/test/fixture.mjs",
-    "check:companion": "npm --prefix plugin/ui run check && npm --prefix plugin/ui run build && npm --prefix plugin/ui run test:delivery",
-    "pack:ds-bot": "node plugin/scripts/pack-ds-bot.mjs",
     "test:suite": "node --test plugin/scripts/test/*.test.mjs",
     "check:suite": "node plugin/scripts/test/suite-boot.mjs && node plugin/scripts/test/suite-migration.mjs",
-    "pack:suite": "node plugin/scripts/pack-suite.mjs",
-    "migrate:suite": "node plugin/scripts/migrate-suite.mjs",
     "test:prepare": "npm --prefix plugin/bridge run test:prepare",
-    "pack:plugin": "node plugin/scripts/pack-suite.mjs"
+    "pack:plugin": "node plugin/scripts/pack-suite.mjs",
+    "check:integration": "npm --prefix plugin/bridge run test:integration",
+    "plugin:migrate": "node plugin/scripts/migrate-suite.mjs",
+    "plugin:preview": "node plugin/ui/test/fixture.mjs",
+    "ios:start": "npm --prefix ios-app run start -- --host localhost --port 8082 --max-workers 2",
+    "ios:preview": "node ios-app/scripts/start-preview.mjs --host localhost --max-workers 2"
   },
   "engines": {
     "node": ">=24 <25"

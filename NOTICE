@@ -1,3 +1,5 @@
+DeepSeek Bot Pro — retained upstream notices and local continuation
+
 DS Bot
 Copyright 2026 Fei2411 and the DS Bot contributors
 
@@ -10,7 +12,8 @@ Third-party code in this repository
 DeepSeek Harness (https://github.com/deepseek-ai/deepseek-harness)
 MIT License, Copyright (c) 2026 DeepSeek
 
-  - ds-bot/dev/desktop-linux/launch.mts follows the steps of
+  - Historical ds-bot/dev/desktop-linux/launch.mts (removed from the current
+    product tree) followed the steps of
     apps/desktop/scripts/dev.ts in DeepSeek Harness and reuses a few of its
     lines (the release record and the Electron launch arguments). It is a
     developer script for screenshots on Linux and is not in the npm package.
@@ -35,7 +38,8 @@ MIT License, Copyright (c) 2026 DeepSeek
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 
-No other third-party code is copied into this repository. At run time the
+The preceding historical notice describes the upstream DS Bot core. Additional
+mobile and relay sources and their licenses are recorded below. At run time the
 plugin uses the @deepseek-ai/* packages of the DeepSeek Harness install it
 runs in; they are not bundled. esbuild is a build tool only.
 
@@ -83,20 +87,20 @@ export include independent build/test dependencies, owner-supplied Android
 signing, reproducible CI, current documentation and public package metadata.
 The App characterData.json and BotAvatar algorithms use original DS Bot 0.1.7
 artwork by Fei2411 and contributors, Apache-2.0, source commit
-939a6635830cb5b246e7dd19c67b0e1352ad1c07. See bridge/NOTICE for bridge provenance.
+939a6635830cb5b246e7dd19c67b0e1352ad1c07. See plugin/bridge/NOTICE for bridge provenance.
 
 The mobile Markdown parser uses markdown-it-cjk-friendly 3.0.0 by Tatsunori
 Uchino and get-east-asian-width by Sindre Sorhus, both MIT-licensed, as npm
 dependencies for CJK emphasis delimiter support. Full license notices are in
-apps/mobile/THIRD_PARTY_NOTICES.txt. No dependency source is vendored here.
+ios-app/THIRD_PARTY_NOTICES.txt. No dependency source is vendored here.
 
 The optional relay SDK adapts MIT-licensed NaCl envelope and secretbox code from
 slopus/happy at d6b85a0dda14c9582e1f083539fd11d99924022f,
 Copyright (c) 2026 Happy Coder Contributors. The adapted subset, full MIT notice
-and change record are packages/mobile-sdk/vendor/happy-envelope.js,
-packages/mobile-sdk/vendor/LICENSE.happy and third_party/happy/README.md.
+and change record are ios-app/sdk/vendor/happy-envelope.js,
+ios-app/sdk/vendor/LICENSE.happy and plugin/third_party/happy/README.md.
 This does not import Happy's account system, database or public services.
 
 This repository also contains phone UI code and art derived from OpenBot (https://github.com/nightly-labs/openbot, commit c389f4404256e754214b6982503381778d80ed35),
-licensed under the PolyForm Noncommercial License 1.0.0, in apps/mobile/src/openbot/, apps/mobile/assets/openbot/, apps/mobile/global.css and
-apps/mobile/patches/. That code is not Apache-2.0; see apps/mobile/src/openbot/README.md and LICENSE.
+licensed under the PolyForm Noncommercial License 1.0.0, in ios-app/src/openbot/, ios-app/assets/openbot/, ios-app/global.css and
+ios-app/patches/. That code is not Apache-2.0; see ios-app/src/openbot/README.md and LICENSE.

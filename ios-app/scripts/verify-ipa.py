@@ -7,6 +7,7 @@ import plistlib
 import sys
 import zipfile
 from pathlib import Path, PurePosixPath
+from xml.parsers.expat import ExpatError
 
 
 def verify(path, bundle_id=None):
@@ -27,7 +28,7 @@ def verify(path, bundle_id=None):
             app = '/'.join(next(iter(apps)))
             try:
                 info = plistlib.loads(archive.read(app + '/Info.plist'))
-            except (KeyError, plistlib.InvalidFileException, ValueError) as error:
+            except (KeyError, plistlib.InvalidFileException, ValueError, ExpatError) as error:
                 raise ValueError('Missing or invalid Info.plist') from error
             if not isinstance(info, dict):
                 raise ValueError('Invalid Info.plist dictionary')

@@ -4,7 +4,7 @@
 // must have an explicit source description. `--dev` allows the isolated 0.1.7
 // fixture engine for development; such archives are marked and are not deliverables.
 import {execFileSync} from 'node:child_process'
-import {mkdir,mkdtemp,readFile,rm,writeFile} from 'node:fs/promises'
+import {cp,mkdir,mkdtemp,readFile,rm,writeFile} from 'node:fs/promises'
 import {createHash} from 'node:crypto'
 import {tmpdir} from 'node:os'
 import {join,resolve} from 'node:path'
@@ -40,6 +40,7 @@ const engineDigest=fingerprint.digest('hex')
 const stage=await mkdtemp(join(tmpdir(),'ds-bot-suite-'))
 try{
   await stageEngine({engineDir,target:stage})
+  await cp(new URL('plugin/docs/',root),join(stage,'docs'),{recursive:true})
   const bridge=await stageBridge({bridgeDir,target:stage})
   const suite={revision:SUITE_REVISION,dev:args.dev,source:{repository:'0215eleven/ds-bot-mobile',commit,dirty:Boolean(dirty)},
     engine:{version:engine.version,source:engineSource,digest:engineDigest,agents:contract.agents},bridge:{version:bridge.version},
@@ -48,6 +49,7 @@ try{
   await writeFile(join(stage,'package.json'),JSON.stringify(manifest,null,2)+'\n')
   await writeFile(join(stage,'client.js'),composeClient({engineClient:await readFile(join(engineDir,'client.js'),'utf8'),mobileBundle:await bundleCompanion({bundleKey:'ds-bot'})}))
   await writeFile(join(stage,'cordis.patch.yml'),composePatch({enginePatch:await readFile(join(engineDir,'cordis.patch.yml'),'utf8'),bridgePatch:await readFile(join(bridgeDir,'cordis.patch.yml'),'utf8')}))
+  await writeFile(join(stage,'README.md'),`# DeepSeek Bot Pro\n\nOne desktop DSH plugin: Bot team, Mobile Bridge and phone pairing settings.\nInstall this TGZ through the DSH plugin manager. Preserve the existing ds-bot\nidentity and Bridge row configuration.\n\nSee SUITE.md for exact component/source identities and PATCHED.md for engine\nmodifications. Installation and migration instructions for this commit:\nhttps://github.com/0215eleven/ds-bot-mobile/tree/${commit}/plugin\n\nOriginal LICENSE, NOTICE and bridge/THIRD_PARTY_RELAY_NOTICES.txt are retained.\n`)
   let engineNotice=''
   try{engineNotice=await readFile(join(engineDir,'NOTICE'),'utf8')}catch{}
   await writeFile(join(stage,'NOTICE'),`${engineNotice?engineNotice.trimEnd()+'\n\n':''}DeepSeek Bot Pro (ds-bot ${version})

@@ -1,28 +1,24 @@
-# 源码分类说明
+# 源码与许可来源
 
-本仓库汇总 DS Bot 项目的两部分源码：
+## 当前产品边界
 
-## 手机端（仓库根目录）
+| 部分 | 当前路径 | 来源与许可 |
+| --- | --- | --- |
+| 桌面团队引擎 | plugin/engine/ | 随旧清理快照 5e5d62ba4d03d93f74f72e1ea611fbd02081868c 分发的 ds-bot 0.2.0；Fei2411 / DS Bot 贡献者，Apache-2.0 |
+| Bridge 与桌面配对 UI | plugin/bridge/、plugin/ui/ | 原仓库自有整合与后续 ds2 源码；Apache-2.0；Bridge 原始来源见其 NOTICE |
+| iOS App 与 SDK | ios-app/、ios-app/sdk/ | 原 DS Bot Mobile 源码及 ds2 整合；连接层为本项目代码 |
+| OpenBot UI / 美术 / 依赖补丁 | ios-app/src/openbot/、assets/openbot/、global.css、patches/ | nightly-labs/openbot c389f4404256e754214b6982503381778d80ed35；PolyForm Noncommercial 1.0.0，不属于 Apache-2.0 |
+| 中转封装 | ios-app/sdk/vendor/、plugin/bridge/src/relay-shared.mjs | 改编自 slopus/happy d6b85a0dda14c9582e1f083539fd11d99924022f；MIT，完整许可保留 |
+| 可选中转服务 | plugin/tools/relay/ | 原仓库的自建服务源码；不使用 Happy 账号、数据库或公共服务 |
 
-- DS Bot Mobile App 源码（React Native + Expo），来自 MuQY1818/ds-bot-mobile-app。
-- 本次整合基于私仓 main `3137bf4df30bb6e25d64ccbbf928fcc1bfcae2b1`，该基线已合入 PR #1。整合来源为 [PR #6](https://github.com/0215eleven/ds-bot-mobile-app/pull/6) 的 `ccd09f3fe2b45a760e2c2557f19c56e244049216`（电脑会话状态与任务事件）、[PR #7](https://github.com/0215eleven/ds-bot-mobile-app/pull/7) 的 `9e94e94e5fadac320b029277695c050e41a8c270`（电脑远程连接配置）和 [PR #8](https://github.com/0215eleven/ds-bot-mobile-app/pull/8) 的 `590113df9a72da748ec33358208e0fdaf285a0bd`（手机界面、导航、设备操作与状态提示）。这些是明确的来源提交，不表示各 PR 的后续变化也已纳入。
-- 本私仓整合源码候选版本：root / mobile package `0.1.8-codex.2`、Expo 原生显示版本 `0.1.8`、私有内嵌 SDK `0.1.1-codex.2`、Bridge `0.0.9-codex.4`、companion `0.2.1-codex.3`。此前桌面候选使用的 Bridge `0.0.9-codex.1` / companion `0.2.1-codex.1` 不作为本次最终组合的制品身份；版本变化不表示已发布或已安装。
-- 本次不构建 IPA / APK，不指定或推定手机 build 号。用户转发的 build `11` 及电脑已安装版本未核实；未来打包人员须按实际签名、安装与构建历史选择 build 号。官方标签、公开引擎、兼容合同与更新来源核验见 [版本来源](docs/version-sources.md)。
-- PR #8 以 `HomeDock` 替代旧 `AppNavigation.tsx` 组件，保留原生导航、页面和受能力控制的功能入口。替代组件的删除不代表删除历史来源、保留能力骨架或许可证；原有 `LICENSE` / `NOTICE` 与第三方来源记录继续保留。
+本次整理以公开 ds2 提交 4d61cf517b74d005fa9edaed1d37a34451916cc8 为基线；v0.1.9 对应 3606686443278e966ed7bb6ee5a2e6c5134dadce，既有标签和附件保持原样。
 
-- `ds2` 分支起，手机端界面复用 OpenBot 手机端的 UI 与美术（PolyForm Noncommercial 1.0.0，见 `apps/mobile/src/openbot/README.md`）；连接层不使用其代码。
+生产引擎的 Bridge 接口由仓库内既有审查补丁适配到 0.2.0，修改说明在 [PATCHED.md](plugin/engine/PATCHED.md)。正式包不依赖外部电脑目录。公共 ds-bot 0.1.7 的固定 integrity 和兼容性补丁仅用于测试，保留在 plugin/test-support/ 与 ignored fixture。
 
-## 电脑端（ds-bot/ 文件夹）
+## 保留的历史来源记录
 
-- DeepSeek-Bot 源码快照，来自 ElevenOrganization/DeepSeek-Bot 的 `main` 分支，2026-10-23 放入。
-- 本次经 GitHub 接口推送，仅包含文本文件。以下 10 个二进制图片文件未包含，待后续用 git 补齐：
-  - `ds-bot/app/assets/icon.ico`
-  - `ds-bot/app/assets/icon.png`
-  - `ds-bot/docs/images/details.png`
-  - `ds-bot/docs/images/details.zh.png`
-  - `ds-bot/docs/images/group.png`
-  - `ds-bot/docs/images/group.zh.png`
-  - `ds-bot/docs/images/team.png`
-  - `ds-bot/docs/images/team.zh.png`
-  - `ds-bot/docs/images/usage.png`
-  - `ds-bot/docs/images/usage.zh.png`
+原始 Mobile App / SDK 源头记录为 QingJ01/DS-Bot-App（Apache-2.0）253407cf76062b2aa60bc5d039415aaa1c9867c4；本地审查源码为 438b1f055c5d8bb107e09051c146b0fbe199c737。历史整合记录包含旧私仓 main 3137bf4df30bb6e25d64ccbbf928fcc1bfcae2b1，以及 ccd09f3fe2b45a760e2c2557f19c56e244049216、9e94e94e5fadac320b029277695c050e41a8c270、590113df9a72da748ec33358208e0fdaf285a0bd。它们用于来源追溯，不表示未知后续 PR 已纳入。
+
+DS Bot 原始头像/算法记录为 Fei2411 0.1.7，939a6635830cb5b246e7dd19c67b0e1352ad1c07，Apache-2.0。原引擎完整 NOTICE、Bridge NOTICE、Happy MIT 和 OpenBot 原始许可均随对应源码保留。独立 Electron 应用与旧交付文档从当前产品树移除，历史仍可由 Git 提交追溯。
+
+[OpenBot 来源细节](ios-app/src/openbot/README.md)说明复制和适配范围；商业使用该 UI/美术需遵守其独立许可。根 LICENSE 不能替代这些条款。

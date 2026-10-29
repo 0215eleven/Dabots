@@ -1,11 +1,18 @@
 # Compatibility
 
-The custom pair is Bridge **0.0.9-codex.8** and companion **0.2.1-codex.5**, built from the same commit of https://github.com/0215eleven/ds-bot-mobile-app. Neither is an upstream release. Preserve the existing compatible DS Bot engine; this change does not install or upgrade it. See [version sources](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/version-sources.md) and [installation](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/installation.md).
+Use the production `plugin/engine/` and Bridge/UI from the same repository commit.
+Their component version strings need not match: mobile handshake capabilities
+and the engine's versioned `bridge.describe` contract determine available behavior.
 
-The minimum text contract remains public DSH Connection/Session APIs plus DS Bot bridge.describe version 1 with redactedText:true and stableRequestId:true, scoped bridge.redact and stable request-ID bridge.submit. Optional host actions remain capability-gated. Missing capabilities disable the corresponding operations rather than being inferred from a version string. Public Session list metadata supports recent activity; absent metadata is omitted. Source inspection of npm ds-bot 0.2.0's recorded commit does not find those three endpoints; no runtime acceptance of that package or assertion about the user's installed version is made.
+The preserved package identity is `ds-bot`; the Bridge row is
+`ds-bot-mobile-bridge` and its composed export is `ds-bot/bridge`.
+Owner overrides should address the row ID without the old standalone package
+name. Dedicated storage, device grants, receipts and protocol identities are
+retained.
 
-Validation uses public DSH 0.2.1-rc.2 with the reviewed, isolated DS Bot 0.1.7 bridge-contract fixture; pristine 0.1.7 rejection remains tested. The vendored ds-bot/ source snapshot is separate from that fixture and from any installed engine. Never test on or patch a live profile.
+Pristine public engines without reliable submission/redaction must continue to
+refuse those mobile capabilities. The integrity-pinned 0.1.7 fixtures test this;
+they are never silently substituted into the production TGZ.
 
-This integration retains 0.0.8 desktop activity, scoped work, read-only approval attention and foreground turn events, and adds manual temporary/fixed/existing remote modes. Pairing URL revisions invalidate old codes and pending requests without granting access to another server URL. It retains 0.0.7 team-management allowlists and redaction. See [desktop continuity](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/bridge-desktop-continuity.md) and [remote connection](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/remote-connection.md).
-
-No background push, durable notification inbox, file/binary transfer or remote approval writes are supplied. HTTP/WS, mocked cloudflared and packaged fixtures are separate evidence from physical-device, public Cloudflare and live installation acceptance; those latter checks were not performed.
+See [compatibility and evidence](../docs/compatibility.md) and
+[migration](../docs/migration.md).

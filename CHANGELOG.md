@@ -1,3 +1,15 @@
+# DeepSeek Bot Pro changelog
+
+## Unreleased: 0.1.10-pro.1
+
+- Consolidate the source into plugin/ and ios-app/ with one desktop TGZ and one unsigned lite iOS IPA workflow.
+- Include the production 0.2.0 team engine and adapt the reviewed mobile contract through public DSH APIs.
+- Preserve package, device, protocol, bundle and stored-data identities; retain source and third-party licenses.
+- Remove standalone Electron and Android/EAS release entry points; add artifact validation and immutable draft-release handling.
+- Existing v0.1.8 / v0.1.9 tags and release assets are unchanged. Native compilation/signing remain separate evidence.
+
+## Earlier source history
+
 # Changelog
 
 ## Mobile DS 2.0 — branch `ds2` (unreleased, not device-tested)

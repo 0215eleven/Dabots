@@ -180,7 +180,7 @@ try {
   console.log(`${passed} companion packed lifecycle assertions passed; public DSH 0.2.1-rc.2, reviewed Bot fixture and mock model`)
 } catch (error) {
   await writeFile(join(home, 'failure.log'), `${error.stack}\n${error.privateOutput ?? ''}\n${children.map(item => `${item.label}\n${item.output}`).join('\n')}`, { mode: 0o600 })
-  throw Error(`Companion delivery failed during ${phase}; diagnostics are retained only in ignored companion/fixture`)
+  throw Error(`Companion delivery failed during ${phase}; diagnostics are retained only in ignored plugin/ui/fixture`)
 } finally {
   client?.dispose()
   for (const item of [...children].reverse()) await stop(item)

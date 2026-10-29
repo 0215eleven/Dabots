@@ -62,6 +62,10 @@ class VerifyIpaTests(unittest.TestCase):
         self.archive(info=False)
         self.refused('Info.plist')
 
+    def test_malformed_xml_plist_is_refused_without_a_traceback(self):
+        self.archive(info=False, extra={self.root + 'Info.plist': b'<?xml version="1.0"?><plist>'})
+        self.refused('Info.plist')
+
     def test_missing_executable_is_refused(self):
         self.archive(executable=False)
         self.refused('executable')

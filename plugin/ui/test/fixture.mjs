@@ -81,7 +81,7 @@ export async function launchFixture({ publishReady = true } = {}) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const fixture = await launchFixture()
-  console.log('Companion fixture ready; synthetic private login is in ignored companion/fixture/ready.json')
+  console.log('Companion fixture ready; synthetic private login is in ignored plugin/ui/fixture/ready.json')
   const stop = async () => { await fixture.close(); console.log('Companion fixture children stopped') }
   process.once('SIGINT', stop); process.once('SIGTERM', stop)
 }

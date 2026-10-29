@@ -25,7 +25,7 @@ const RING_SIZE = 116
 const RING_RADIUS = 228
 const ORBIT = { light: '#4D6BFE', dark: '#6A84FF' }
 
-const out = resolve(process.argv[2] ?? join(import.meta.dirname, '../../../ds-bot/docs/images'))
+const out = resolve(process.argv[2] ?? join(import.meta.dirname, '../../docs/assets'))
 mkdirSync(out, { recursive: true })
 for (const mode of ['light', 'dark']) {
   const file = join(out, mode === 'light' ? 'logo.svg' : 'logo-dark.svg')

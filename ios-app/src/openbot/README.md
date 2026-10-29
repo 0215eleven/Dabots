@@ -1,6 +1,6 @@
 # Code and art derived from OpenBot
 
-This directory (plus `apps/mobile/assets/openbot/`, `apps/mobile/global.css` and `apps/mobile/patches/`) contains the phone UI of
+This directory (plus `ios-app/assets/openbot/`, `ios-app/global.css` and `ios-app/patches/`) contains the phone UI of
 [OpenBot](https://github.com/nightly-labs/openbot) (`apps/mobile`), copied and adapted for DS Bot Mobile.
 
 - **Source:** `nightly-labs/openbot` at commit `c389f4404256e754214b6982503381778d80ed35`.
@@ -8,7 +8,7 @@ This directory (plus `apps/mobile/assets/openbot/`, `apps/mobile/global.css` and
   the upstream states a commercial licence is available from licenses@openbot.run). They are **not** covered by this repository's
   Apache-2.0 licence. Do not use a build that includes them commercially without a licence from the upstream.
 - **Why it is here:** the project owner asked to reuse OpenBot's phone-side UI and art (fonts, sounds, splash eyes).
-- **Not from OpenBot:** the connection layer. Sync (`packages/mobile-sdk`, `bridge/`), the session (`src/session`), the outbox
+- **Not from OpenBot:** the connection layer. Sync (`ios-app/sdk/`, `plugin/bridge/`), the session (`src/session`), the outbox
   (`src/outbox`) and the connection hub (`src/connection`) are this repository's own. OpenBot's workspace context, team client, WebRTC
   transport and server code were not copied.
 
@@ -24,8 +24,8 @@ This directory (plus `apps/mobile/assets/openbot/`, `apps/mobile/global.css` and
 | Design tokens | `packages/brand/src/tokens*.css` | `brand/` |
 | Bot avatars (bloub shapes, colours, moods, orbit rings), group avatar | `features/agents`, `features/channels/components/channel-avatar.tsx`, `packages/brand/src/bloub-avatar*.ts` | `features/agents`, `features/channels`, `pkg/brand`; uses `@norbert_bodziony/bloub` (MIT) with Solid shims in `shims/` |
 | Side drawer (swipe right from home): shell, icon buttons, profile avatar | `features/servers/components/app-drawer-shell.tsx`, `server-drawer-icon-button*`, `shared/components/profile-avatar.tsx` | same paths; `server-drawer-content.tsx` is rewritten for DS Bot (computers, team and host pages, this phone) in the same layout |
-| Fonts (Inter), sounds, splash eyes | `apps/mobile/assets` | `apps/mobile/assets/openbot/` |
-| Dependency patches (masked-view types, keyboard-controller, uitextview) | `patches/` | `apps/mobile/patches/`, applied by `npm run patch` |
+| Fonts (Inter), sounds, splash eyes | `apps/mobile/assets` | `ios-app/assets/openbot/` |
+| Dependency patches (masked-view types, keyboard-controller, uitextview) | `patches/` | `ios-app/patches/`, applied by `npm run patch` |
 
 Files marked "DS Bot Mobile adapter" are ours: Bot avatars are OpenBot's generated avatars seeded by the Bot id (a photo set in DS Bot still wins), activity and online state come from DS Bot's work status, `adapters/chat-model.ts` maps SDK messages and the
 outbox onto OpenBot's view models, and `chat-screen.tsx`, `home-screen.tsx` and `locale-bridge.tsx` assemble them. Stubs return `null`

@@ -1,77 +1,31 @@
-# Dbot pro — Mobile client
+# DeepSeek Bot Pro · iOS
 
-The Expo / React Native client for [DS Bot Mobile App](../../README.en.md), targeting iOS and Android. The current source (Mobile DS 2.0, see [docs/mobile-ds2.md](../../docs/mobile-ds2.md)) uses Expo SDK 58, React Native 0.88.1 and React 19.3, with Expo Router (native tabs and stack), `@legendapp/list`, `@expo/ui` and an iOS Live Activity via `expo-widgets`. Unsigned IPAs and an APK are built by `.github/workflows/mobile-release.yml`; see [docs/sideloading.md](../../docs/sideloading.md) to install them.
+iOS App 源码，基于 Expo 58 / React Native 0.88。默认交付 lite 未签名 IPA；无 Live Activity 扩展或 App Group。保留的共用平台代码不构成 Android 发行入口。
 
-[中文项目说明](../../README.md) · [Documentation](../../docs/README.md) · [Installation](../../docs/installation.md) · [Development](../../docs/development.md) · [Compatibility](../../docs/validation.md)
+## 开发
 
-## Mobile source for building
-
-This private fork identifies the mobile source package as `0.1.9-codex.1` and native display version as `0.1.9`. Since PR #10 the phone adds the owner-granted DSH Agent entry; without a granted device or the matching Bridge it behaves as before. The bundled SDK `0.1.1-codex.4` adds optional task-event APIs that the current phone does not use. The phone uses the existing handshake and only enables history, streaming and sending when the server explicitly advertises each capability; cached or unknown capabilities do not authorize operations. No IPA/APK or device acceptance is implied. Build from the reviewed commit, select build numbers from the actual target distribution history, and preserve app identity and signing. See the existing [development guide](../../docs/development.md) for build setup and [desktop delivery](../../docs/integrated-delivery.md) for the separately paired plugins.
-
-## Requirements
-
-- Node.js 24 and npm.
-- iOS: macOS, Xcode and an iOS Simulator or a device with your own signing identity.
-- Android: Android SDK, its required build toolchain, and an emulator or device.
-- A configured DS Bot Mobile Bridge and a trusted HTTPS endpoint for actual host access.
-
-The project includes custom native modules. Use a development build for native testing; Expo Go does not provide the complete runtime.
-
-## Install dependencies
-
-From the repository root:
+在仓库根目录执行 `npm run setup`。App 的独立检查：
 
 ```sh
-npm run setup
+npm --prefix ios-app run typecheck
+npm --prefix ios-app test
+npm run ios:start
 ```
 
-Or, when working only in this directory:
+本地 iOS 编译需要 macOS、Xcode 和 CocoaPods。需要安装到设备时，使用自己的签名身份。原生开发客户端包含自定义模块，Expo Go 不提供完整运行环境。
 
-```sh
-npm ci --ignore-scripts
-```
+内部合成数据预览可使用 `npm run ios:preview`，用于布局开发，不连接真实主机；键盘、生命周期和设备权限仍需真机验证。
 
-## Run a development build
+## 构建与安装
 
-From this directory, choose one platform:
+GitHub Actions 使用 `macos-26`，依次执行仓库 setup、Expo prebuild、pod install 和关闭签名的 Xcode archive，再校验 Payload、Info.plist、Mach-O 可执行文件、ZIP 完整性及 SHA-256。
 
-```sh
-npm run ios
-# or
-npm run android
-```
+实际编译通过后，归档在 `ios-unsigned` artifact 中，文件名为 `DeepSeekBotPro-0.1.10-lite-unsigned.ipa`。源码仓库不内置已构建 IPA。详见 [构建与后签名](docs/build-and-sign.md)。
 
-These scripts invoke `expo run:ios` / `expo run:android`, generate native projects when needed and install a development build. Changes to native modules require rebuilding that client; restarting Metro alone does not add native code. See the official Expo guides on [development builds](https://docs.expo.dev/develop/development-builds/introduction/) and [local compilation](https://docs.expo.dev/guides/local-app-development/). After installing the development client, `npm start` starts Metro for it. Use your own signing configuration for device builds. The public source defaults to `app.dsbot.mobile`; an update to an existing installation must retain its bundle identifier, signing identity and Keychain access. See [installation](../../docs/installation.md).
+安装身份保持 `app.dsbot.mobile`、`dsbot` scheme 和既有 Keychain/缓存标识。签名工具改写 Bundle ID 时，旧配对信息可能无法沿用，应按实际结果重新配对。
 
-## Install a release build on iPhone
+SDK 是本目录的 `sdk/` 内部包，原生模块在 `modules/`，没有独立的第三个客户端产品。
 
-A development build runs unoptimized JavaScript with development checks and is noticeably slower, especially when scrolling chats. For everyday use, install a Release build on a connected iPhone:
+## 来源与许可
 
-```sh
-npm run ios:release
-```
-
-This runs `expo run:ios --configuration Release --device`, which bundles optimized Hermes bytecode into the app and needs no Metro server. Signing works as for the development build.
-
-## Design preview
-
-For an isolated Web preview with synthetic conversations, run from this directory:
-
-```sh
-EXPO_PUBLIC_DS_BOT_DESIGN_PREVIEW=1 npm run web
-```
-
-The preview requires development mode and does not connect to a real host. It is useful for layout review; native keyboard, gestures and device lifecycle require native testing. See [design notes](../../docs/design.md).
-
-## Checks
-
-```sh
-npm run typecheck
-npm test
-```
-
-The standalone Bridge exposes a restricted capability set. UI components are enabled according to capability discovery; available components alone do not imply server support. See the [capability matrix](../../docs/validation.md).
-
-## License
-
-[Apache-2.0](../../LICENSE). Upstream attribution is retained in [NOTICE](../../NOTICE).
+项目及连接层使用 Apache-2.0。复用的 OpenBot UI/美术使用 **PolyForm Noncommercial 1.0.0**；见 [源码来源](src/openbot/README.md)、原始 [LICENSE](src/openbot/LICENSE)、[NOTICE.upstream](src/openbot/NOTICE.upstream) 及 [第三方通知](THIRD_PARTY_NOTICES.txt)。这些材料随源码保留。

@@ -1,37 +1,29 @@
-# 开发与检查
+# 开发与验证
 
-使用 Node.js 24 与 npm，原生构建额外需要 Xcode 或 Android SDK。仓库不包含签名、真实聊天、设备身份或运行态数据。
+在仓库根目录使用 Node.js 24、npm、Git 和 Python 3：
 
 ```sh
 npm run setup
-npm --prefix bridge run test:prepare
+npm run test:prepare
 npm run check
-npm --prefix bridge run test:integration
+npm run check:integration
+npm run check:suite
 npm run audit
-npm run pack:bridge
-npm --prefix bridge run test:delivery -- ../artifacts/ds-bot-mobile-bridge-0.0.9-codex.5.tgz
-npm run pack:companion
-npm --prefix companion run test:delivery -- ../artifacts/ds-bot-mobile-app-0.2.1-codex.4.tgz
 ```
 
-两条 `test:delivery` 中的 `../artifacts/` 路径分别相对于对应的 `bridge/` 和 `companion/` 子包。test:prepare 从公开 npm 下载固定 DSH 0.2.1-rc.2 和 DS Bot 0.1.7，只给 ignored fixture 内的副本应用审查补丁；保留原版拒绝测试。不接触用户 profile。动态端口与 HOME/DSH_HOME 相互隔离，测试结束清理子进程。
+setup 采用锁文件安装，并应用已提交的 React Native 补丁。test:prepare 将固定 DSH、jsdom、oxlint 及带完整性校验的公开 ds-bot 0.1.7 下载到 ignored fixture；原版/审查补丁用于兼容性拒绝测试，正式集成使用 `plugin/engine/`。
 
-BRIDGE_TEST_BOT 可指定另一份已经审查的 DS Bot 源码，BRIDGE_TEST_DEPS 可复用公开测试依赖目录。生产验证与 fixture 分开记录，不能把 mock 通过视作真机验收。
+默认 npm registry 主机替换为官方 registry 时仍保留锁文件中的 integrity，不改变第三方版本。根目录 setup 不需要 EAS 登录、Apple 证书或真实模型 API key。
 
-App 测试自带 esbuild，不依赖另一个 DS Bot 仓库的 node_modules。Android 签名脚本只接受你自己提供的 ANDROID_KEYSTORE_PATH、ANDROID_KEY_ALIAS、ANDROID_KEYSTORE_PASSWORD 和 ANDROID_SIGNING_CERT_SHA256。不含任何签名密钥或证书。
+修改浏览器端源码后重新生成已提交的文件：
 
-npm run pack:bridge 要求干净 Git 工作树，按明确文件白名单打包，记录对应源码提交与发布信息。每次版本修改必须更新 bridge/package.json 与 lock，保留旧 tag/制品。
+```sh
+npm --prefix plugin/engine run build
+npm --prefix plugin/ui run build
+```
 
-## Bridge 快照与独立仓库
+check 检查 engine/client.js 是否同步，并重新构建 ui/client.js；CI 随后要求无 tracked diff。单包和迁移检查在干净的已提交检出执行，用实际生产源码生成 TGZ。
 
-Bridge 后续维护从[独立仓库](https://github.com/MuQY1818/ds-bot-mobile-bridge)进入。本仓库 `bridge/` 是在保留的兼容快照上整合的自定义 `0.0.9-codex.5`，必须配套 companion `0.2.1-codex.4`，当前 CI 和客户端契约测试仍使用它；不要删除或未经核对替换。本地快照与独立仓库不会自动同步，涉及客户端契约或兼容修复时，应明确记录来源、版本和对应验证。
+内部独立组件的归档工具仅供交付回归检查：`plugin/scripts/pack-bridge.mjs`、`plugin/scripts/pack-companion.mjs`；面向用户的构建入口只有 `npm run pack:plugin`。对应组件的 test:delivery 在隔离 profile 内安装归档，不接触日常 DSH。
 
-## App 电脑端插件
-
-`companion/` 是独立的标准 DSH UI bundle。`src/` 为可维护源码，`client.js` 为提交并随包交付的构建产物。修改后运行 `npm --prefix companion run check` 和 `npm --prefix companion run build`；CI 会再次构建并检查 `client.js` 没有漂移。
-
-`npm run pack:companion` 同样要求干净工作树，按白名单输出插件安装包，并记录对应源码提交。Bridge 与配套插件分别打包，保持版本独立。
-
-`test:delivery` 在独立 `HOME` / `DSH_HOME` 中安装固定公开 DSH、只用于 fixture 的已审查 DS Bot 和本地 `.tgz`。测试使用固定 `pnpm@10.12.1`，通过真实 owner carrier 调用官方插件管理器安装、启停与移除 App 配套插件，验证 Bridge 与设备授权独立保留；结束后清理本轮子进程。所有凭据与诊断仅留在 ignored `companion/fixture/`，不会进入包。
-
-需要手动检查配对界面时运行 `npm run preview:companion`。该命令是明确的持久预览：启动独立 mock 宿主，并把仅供当前测试的登录地址写入权限 `0600` 的 `companion/fixture/ready.json`。使用 `Ctrl+C` 停止，宿主和 mock 服务一起清理；导入 `companion/test/fixture.mjs` 不会自动启动进程。不要将预览登录资料、二维码或测试状态加入 Git。
+桌面配对界面开发可使用 `npm run plugin:preview`。其登录资料只保存在 ignored fixture 的受限文件中，停止本次进程时清理子服务。不要共享登录链接、二维码或测试状态。
