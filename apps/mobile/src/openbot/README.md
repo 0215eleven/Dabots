@@ -23,6 +23,7 @@ This directory (plus `apps/mobile/assets/openbot/`, `apps/mobile/global.css` and
 | English and Chinese UI strings | `packages/i18n` | `pkg/i18n` (other languages dropped; they fall back to English) |
 | Design tokens | `packages/brand/src/tokens*.css` | `brand/` |
 | Bot avatars (bloub shapes, colours, moods, orbit rings), group avatar | `features/agents`, `features/channels/components/channel-avatar.tsx`, `packages/brand/src/bloub-avatar*.ts` | `features/agents`, `features/channels`, `pkg/brand`; uses `@norbert_bodziony/bloub` (MIT) with Solid shims in `shims/` |
+| Side drawer (swipe right from home): shell, icon buttons, profile avatar | `features/servers/components/app-drawer-shell.tsx`, `server-drawer-icon-button*`, `shared/components/profile-avatar.tsx` | same paths; `server-drawer-content.tsx` is rewritten for DS Bot (computers, team and host pages, this phone) in the same layout |
 | Fonts (Inter), sounds, splash eyes | `apps/mobile/assets` | `apps/mobile/assets/openbot/` |
 | Dependency patches (masked-view types, keyboard-controller, uitextview) | `patches/` | `apps/mobile/patches/`, applied by `npm run patch` |
 

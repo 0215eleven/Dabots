@@ -73,7 +73,7 @@ import { HostPill, HostSheet } from "./components/HostSwitcher";
 import { selectConversation, type Route } from "./logic/app-navigation";
 import { conversationStreams, watchConversationStreamLifecycle } from "./logic/conversation-streams";
 const newSlot = () => Crypto.randomUUID();
-function Shell() {
+function Shell({ initial }: { initial?: Route }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const { tr, locale } = useI18n();
@@ -90,6 +90,18 @@ function Shell() {
   const [error, setError] = useState("");
   const [route, setRoute] = useState<Route>({ page: "home" });
   const navigator = useRef(createAppNavigator()).current;
+  // Opened from the DS 2.0 drawer at one page: open it once the navigator and the computer are ready.
+  const openedInitial = useRef(false);
+  useEffect(() => {
+    if (!initial || openedInitial.current || !client) return;
+    const timer = setInterval(() => {
+      if (!navigator.ref.isReady()) return;
+      clearInterval(timer);
+      openedInitial.current = true;
+      navigator.open(initial);
+    }, 50);
+    return () => clearInterval(timer);
+  }, [initial, client, navigator]);
   const [selected, setSelected] = useState("");
   const [chatOpening, setChatOpening] = useState({ id: "", revision: 0 });
   const [newChat, setNewChat] = useState(false);
@@ -669,10 +681,10 @@ function Shell() {
         onRemove={item => void forgetHost(item).catch(err => setError(errorText(err)))}/>
   </View>;
 }
-export default function App() {
+export default function App({ initial }: { initial?: Route } = {}) {
   return (
     <SafeAreaProvider>
-      <KeyboardProvider><MotionProvider><Shell /></MotionProvider></KeyboardProvider>
+      <KeyboardProvider><MotionProvider><Shell initial={initial} /></MotionProvider></KeyboardProvider>
     </SafeAreaProvider>
   );
 }

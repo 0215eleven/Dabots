@@ -22,7 +22,7 @@ Outgoing messages use the existing idempotent `requestId` + receipt (`GET /submi
 
 ## UI
 
-`apps/mobile/app/` (Expo Router): `NativeTabs` (Chats, Settings), a native `Stack` per tab with a drawn large title, `Stack.SearchBar` and `Stack.Toolbar` menus (iOS 26 Liquid Glass when built with Xcode 26), chat on `@legendapp/list` with `react-native-keyboard-controller`, Reanimated motion, haptics, and `@expo/ui` pickers and switches in Settings. The pairing screen is reused. The previous single-page shell remains reachable as **Classic view** for team, group, schedule and host settings, which have not been rebuilt yet.
+`apps/mobile/app/` (Expo Router): the home list sits in OpenBot's side drawer (swipe right or the sidebar button) with the paired computers, team and host pages and a gear for Settings; a native `Stack` with drawn large titles, `Stack.SearchBar` and `Stack.Toolbar` menus (iOS 26 Liquid Glass when built with Xcode 26), chat on `@legendapp/list` with `react-native-keyboard-controller`, Reanimated motion, haptics, and `@expo/ui` pickers and switches in Settings. The pairing screen is reused. The previous single-page shell remains reachable as **Classic view** for team, group, schedule and host settings, which have not been rebuilt yet.
 
 The chat, home list, composer, markdown, motion, fonts, sounds and splash art come from OpenBot's phone app (`apps/mobile/src/openbot/`, licensed PolyForm Noncommercial 1.0.0, so a build that includes them is not freely usable commercially; see its README for the source commit and what changed). They run on HeroUI Native and Uniwind. Only the UI was taken: the connection layer, session, outbox and sync protocol are this repository's own.
 

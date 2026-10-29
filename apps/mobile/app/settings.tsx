@@ -4,15 +4,15 @@ import { Typography } from "heroui-native";
 import { Host as UiHost, Picker, Switch } from "@expo/ui";
 import Constants from "expo-constants";
 import { Stack, useRouter } from "expo-router";
-import { LargeTitleScrollView } from "../../../src/openbot/shared/components/large-title";
-import { hostAddress } from "../../../src/logic/hosts";
-import { setLiveActivityEnabled } from "../../../src/liveactivity/controller";
-import { LocalePreference, setLocalePreference, useI18n } from "../../../src/i18n";
-import { errorFeedback, selectionFeedback, successFeedback } from "../../../src/media/haptics";
-import { useSession } from "../../../src/session/SessionProvider";
-import { readCache, writeCache } from "../../../src/storage";
-import { ColorMode, setColorMode, useColorMode } from "../../../src/theme";
-import { errorText } from "../../../src/types";
+import { LargeTitleScrollView } from "../src/openbot/shared/components/large-title";
+import { hostAddress } from "../src/logic/hosts";
+import { setLiveActivityEnabled } from "../src/liveactivity/controller";
+import { LocalePreference, setLocalePreference, useI18n } from "../src/i18n";
+import { errorFeedback, selectionFeedback, successFeedback } from "../src/media/haptics";
+import { useSession } from "../src/session/SessionProvider";
+import { readCache, writeCache } from "../src/storage";
+import { ColorMode, setColorMode, useColorMode } from "../src/theme";
+import { errorText } from "../src/types";
 
 function Group({ title, footer, children }: { title: string; footer?: string; children: React.ReactNode }) {
   return (

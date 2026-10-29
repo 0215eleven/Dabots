@@ -19,7 +19,8 @@ function Root() {
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <StatusBar style={t.dark ? "light" : "dark"} />
       <Stack screenOptions={{ contentStyle: { backgroundColor: t.bg } }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerTransparent: true, headerShadowVisible: false, title: "" }} />
+        <Stack.Screen name="settings" options={{ headerTransparent: true, headerShadowVisible: false, title: "", headerBackButtonDisplayMode: "minimal" }} />
         <Stack.Screen name="chat/[id]" options={{ headerBackButtonDisplayMode: "minimal" }} />
         <Stack.Screen name="pairing" options={{ presentation: "modal", headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="classic" options={{ headerShown: false }} />

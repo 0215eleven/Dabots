@@ -25,5 +25,7 @@
   "This send belongs to a previous device pairing. Review it on your host.": "这条消息属于之前的配对，请在电脑上查看。",
   "Unpair": "取消配对",
   "Unpair this computer": "取消配对此电脑",
-  "Unpair this computer?": "取消配对此电脑？"
+  "Unpair this computer?": "取消配对此电脑？",
+  "Computer settings": "电脑设置",
+  "{p0} computers paired": "已配对 {p0} 台电脑"
 }
