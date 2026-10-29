@@ -27,5 +27,6 @@
   "Unpair this computer": "取消配对此电脑",
   "Unpair this computer?": "取消配对此电脑？",
   "Computer settings": "电脑设置",
-  "{p0} computers paired": "已配对 {p0} 台电脑"
+  "{p0} computers paired": "已配对 {p0} 台电脑",
+  "Agents": "Agent"
 }

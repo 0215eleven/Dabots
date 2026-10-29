@@ -16,6 +16,7 @@ const room = { id: "preview-room", name: "创作小组", members: ["preview-rese
 const conversations: Conversation[] = [
   ...bots.map((bot, index) => ({ id: bot.id, kind: "bot", name: bot.name, role: bot.role, sessionId: bot.sessionId, updatedAt: now - index * 37 * 60_000 })),
   { id: room.id, kind: "room", name: room.name, sessionId: "s-room", updatedAt: now - 3 * 3_600_000 },
+  { id: "agent:preview", kind: "agent", name: "DSH Agent", sessionId: "s-agent", updatedAt: now - 5 * 60_000 },
 ];
 const message = (seq: number, role: string, text: string, minutes: number, author?: (typeof bots)[number]): Message => ({
   id: `m-${seq}`, sessionId: "s", seq, role, text, createdAt: now - minutes * 60_000,
@@ -28,6 +29,7 @@ const transcripts: Record<string, Message[]> = {
     message(3, "user", "好，先从整理资料开始。", 2),
     message(4, "assistant", "我会陪你一起。把最想弄清楚的问题发给我吧。", 1),
   ],
+  "agent:preview": [message(1, "user", "检查一下项目里还有哪些测试没过。", 6), message(2, "assistant", "我跑了一遍：**全部通过**，没有失败的测试。", 5)],
   "preview-room": [
     message(1, "user", "我们把下一版的方向定下来吧。", 200),
     message(2, "assistant", "我先整理用户反馈，找出最需要解决的两个问题。", 199, bots[1]),
@@ -47,11 +49,11 @@ export const previewHosts: Host[] = [
 
 export function previewClient(): MobileClient {
   const state = {
-    bots, rooms: [room], models: [], mainBotIds: ["preview-chief"], prefs: {},
+    bots, rooms: [room], models: [], agentAccess: true, mainBotIds: ["preview-chief"], prefs: {},
     work: { bots: { "preview-design": { said: "正在调整首页的配色", since: now - 90_000 } }, approvals: [] },
   };
   const client = {
-    info: async () => ({ serverId: "preview", capabilities: { history: true, stream: true, send: true, groups: true } }),
+    info: async () => ({ serverId: "preview", capabilities: { history: true, stream: true, send: true, groups: true, "agent-open": true } }),
     state: async () => state,
     conversations: async () => ({ conversations }),
     messages: async (id: string) => ({ messages: transcripts[id] ?? [], cursor: null, sessionId: "s" }),

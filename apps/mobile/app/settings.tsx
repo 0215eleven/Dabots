@@ -93,6 +93,23 @@ export default function Settings() {
         <Row title={tr("Pair a computer")} onPress={() => router.push("/pairing")} />
       </Group>
 
+      {host ? (
+        <Group title={tr("Mode")}>
+          <Row
+            title={tr("Classic Agent mode")}
+            detail={session.agentsAvailable ? tr("Show DSH Agent conversations on the home screen.") : tr("Allow this phone to use the DSH Agent on the computer first, under the paired devices of DS Bot Mobile.")}
+          >
+            <UiHost matchContents>
+              <Switch
+                value={session.agentMode}
+                disabled={!session.agentsAvailable}
+                onValueChange={value => { selectionFeedback(); void session.setAgentMode(value).catch(err => setMessage(errorText(err))); }}
+              />
+            </UiHost>
+          </Row>
+        </Group>
+      ) : null}
+
       <Group title={tr("Appearance")}>
         <Row title={tr("Theme")}>
           <UiHost matchContents>

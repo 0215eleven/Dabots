@@ -31,6 +31,11 @@ export interface Session {
   workspace: Workspace;
   outbox: Outbox | null;
   foreground: boolean;
+  /** Classic Agent mode: the home list shows only DSH Agent conversations. Off when the computer offers none. */
+  agentMode: boolean;
+  /** This computer offers DSH Agents to this phone. */
+  agentsAvailable: boolean;
+  setAgentMode(value: boolean): Promise<void>;
   /** Slot for the next pairing; changes after each successful pairing. */
   pairingSlot: string;
   connected(host: Host, client: MobileClient): Promise<void>;
@@ -64,6 +69,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [pairingSlot, setPairingSlot] = useState(newSlot);
   const [foreground, setForeground] = useState(AppState.currentState === "active");
   const workspace = useWorkspace(client, host);
+  const [agentChoice, setAgentChoice] = useState(false);
+  // As in the classic shell: the host must offer the Agent and the owner must have allowed this phone,
+  // or an Agent conversation is already listed; otherwise the mode would leave an empty list.
+  const agentsAvailable = (mobileActionAllowed(workspace.team.mobileCapabilities, "agent-open") && workspace.team.agentAccess === true)
+    || workspace.conversations.some(item => item.kind === "agent");
+  const agentMode = agentChoice && agentsAvailable;
   const workspaceRef = useRef(workspace);
   workspaceRef.current = workspace;
 
@@ -115,7 +126,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setHostLocale(undefined);
     setLocalePreference("host");
     if (!client || !host) return;
-    void readCache<{ locale?: LocalePreference }>(host.serverId, "mobile-preferences").then(value => { if (alive && value?.locale) setLocalePreference(value.locale); }).catch(() => {});
+    setAgentChoice(false);
+    // The same per-computer preference the classic shell keeps.
+    void readCache<{ locale?: LocalePreference; classic?: boolean }>(host.serverId, "mobile-preferences").then(value => {
+      if (!alive || !value) return;
+      if (value.locale) setLocalePreference(value.locale);
+      setAgentChoice(!!value.classic);
+    }).catch(() => {});
     if (canReadSettings) void client.settings().then(description => {
       const value = description.namespaces.find(item => item.ns === "locale")?.value;
       if (alive && value && typeof value === "object" && !Array.isArray(value)) setHostLocale(value.preference as string | undefined);
@@ -196,6 +213,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     void endBotActivity();
     router.dismissAll?.();
   }
+  async function setAgentMode(value: boolean) {
+    setAgentChoice(value);
+    if (!host) return;
+    const previous = (await readCache<Record<string, unknown>>(host.serverId, "mobile-preferences")) || {};
+    await writeCache(host.serverId, "mobile-preferences", { ...previous, classic: value });
+  }
   async function connected(value: Host, connection: MobileClient) {
     const { hosts: next, replaced } = upsertHost(hosts, value);
     await Promise.allSettled(replaced.map(item => tokenStoreFor(item.slot).clear()));
@@ -256,7 +279,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   const value: Session = {
-    loading, error, hosts, host, client, workspace, outbox, foreground, pairingSlot,
+    loading, error, hosts, host, client, workspace, outbox, foreground, pairingSlot, agentMode, agentsAvailable, setAgentMode,
     connected, switchHost, forgetHost, disconnect, resume, open,
   };
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

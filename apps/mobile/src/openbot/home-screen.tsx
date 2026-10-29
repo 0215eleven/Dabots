@@ -69,7 +69,7 @@ const Row = memo(function Row({ item, team, preview, serverId, onOpen }: { item:
 });
 
 export function OpenBotHome() {
-  const { workspace, host, open, resume, loading, error } = useSession();
+  const { workspace, host, open, resume, loading, error, agentMode } = useSession();
   const scroll = useLargeTitleScroll();
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -79,13 +79,14 @@ export function OpenBotHome() {
     const mains = team.mainBotIds?.length ? team.mainBotIds : team.mainBotId ? [team.mainBotId] : [];
     const needle = query.trim().toLowerCase();
     return orderConversations(workspace.conversations.filter((item) => {
+      if (agentMode && item.kind !== "agent") return false;
       if (item.kind === "room" && team.mobileCapabilities?.groups === false) return false;
       const bot = team.bots.find((entry) => entry.id === item.id || entry.sessionId === item.sessionId);
       const room = team.rooms.find((entry) => entry.id === item.id);
       const hidden = item.hidden || bot?.hidden || room?.hidden;
       return (!hidden || (bot && mains.includes(bot.id))) && (!needle || `${item.name} ${item.role ?? ""}`.toLowerCase().includes(needle));
     }), previews, (item) => !!(item.pinned || team.bots.find((x) => x.id === item.id)?.pinned || team.rooms.find((x) => x.id === item.id)?.pinned));
-  }, [workspace.conversations, team, previews, query]);
+  }, [workspace.conversations, team, previews, query, agentMode]);
 
   return (
     <View className="flex-1 bg-background">
@@ -100,7 +101,7 @@ export function OpenBotHome() {
         scrollEventThrottle={16}
         keyboardDismissMode="on-drag"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); resume(); void workspace.refresh({ fresh: true }).finally(() => setRefreshing(false)); }} />}
-        ListHeaderComponent={<LargeTitle scroll={scroll} title={tr("Chats")} caption={host?.name} />}
+        ListHeaderComponent={<LargeTitle scroll={scroll} title={agentMode ? tr("Agents") : tr("Chats")} caption={host?.name} />}
         ListEmptyComponent={
           <Typography.Paragraph className="text-muted px-5 pt-6" style={typeScale.preview}>
             {error || (loading ? "" : workspace.online ? (query ? tr("No conversations found.") : tr("No conversations yet.")) : tr("Connecting…"))}
@@ -108,7 +109,7 @@ export function OpenBotHome() {
         }
         renderItem={({ item }) => <Row item={item} team={team} preview={previews[item.id]} serverId={host?.serverId ?? ""} onOpen={open} />}
       />
-      <LargeTitleBar scroll={scroll} title={tr("Chats")} surface="canvas" />
+      <LargeTitleBar scroll={scroll} title={agentMode ? tr("Agents") : tr("Chats")} surface="canvas" />
     </View>
   );
 }
