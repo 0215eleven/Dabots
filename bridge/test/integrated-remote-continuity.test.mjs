@@ -133,12 +133,12 @@ async function fixture(t) {
     await operator('pairing.approve', { requestId: claim.requestId })
     return (await mobile('/pairings/complete', { json: { claimToken: claim.claimToken } })).body
   }
-  async function stream(token) {
+  async function stream(token, extra = {}) {
     const socket = new WebSocket(root.replace('http:', 'ws:') + '/mobile/v1/events'), frames = inbox()
     sockets.add(socket)
     socket.on('message', bytes => frames.push(JSON.parse(bytes.toString())))
     await once(socket, 'open')
-    socket.send(JSON.stringify({ type: 'auth', token, conversationId: 'alpha' }))
+    socket.send(JSON.stringify({ type: 'auth', token, conversationId: 'alpha', ...extra }))
     await frames.wait(frame => frame.type === 'ready')
     return { socket, frames }
   }
@@ -240,4 +240,28 @@ test('same serverId after an owner URL change cannot move old HTTP or WebSocket 
   const reset = await frames.wait(frame => frame.type === 'reset')
   assert.equal(reset.busy, true); assert.equal(reset.sessionId, 'public-chat')
   assert.deepEqual(socketDestinations, ['wss://after.example'])
+})
+
+test('protocol 2 streams announce themselves, accept only bounded acknowledgements of sent sequences, and legacy phones stay strict', { timeout: 10000 }, async t => {
+  const f = await fixture(t), session = await f.pair('Synthetic protocol 2 phone')
+  const legacy = await f.stream(session.accessToken)
+  assert.equal(legacy.frames.values.find(frame => frame.type === 'ready').protocol, undefined)
+  const legacyClosed = once(legacy.socket, 'close')
+  legacy.socket.send(JSON.stringify({ type: 'ack', seq: 1 }))
+  assert.equal((await legacyClosed)[0], 4400)
+
+  const live = await f.stream(session.accessToken, { protocol: 2 })
+  const ready = live.frames.values.find(frame => frame.type === 'ready')
+  assert.equal(ready.protocol, 2); assert.equal(ready.heartbeatMs, 15000)
+  f.publish({ type: 'turn/end', seq: 21, time: 700, data: { turn: 3, reason: { kind: 'completed' } } })
+  const ended = await live.frames.wait(frame => frame.taskEvent && Number.isSafeInteger(frame.eventSeq))
+  live.socket.send(JSON.stringify({ type: 'ack', seq: ended.eventSeq }))
+  live.socket.send(JSON.stringify({ type: 'ack', seq: ended.eventSeq }))
+  await new Promise(resolve => setTimeout(resolve, 50))
+  assert.equal(live.socket.readyState, WebSocket.OPEN)
+  // An acknowledgement for a sequence the host never sent is a protocol violation.
+  const closed = once(live.socket, 'close')
+  live.socket.send(JSON.stringify({ type: 'ack', seq: ended.eventSeq + 1000 }))
+  assert.equal((await closed)[0], 4400)
+  await boundedCleanup(f.cleanupPlugin())
 })

@@ -154,7 +154,10 @@ export interface QueueItem {
   attachments?: Attachment[];
 }
 export interface MobileEvent {
-  type: 'ready' | 'delta' | 'message' | 'reset' | 'status' | 'error';
+  type: 'ready' | 'delta' | 'message' | 'reset' | 'status' | 'error' | 'heartbeat';
+  /** Sync protocol announced by `ready`; 2 means events are acknowledged and heartbeats flow. */
+  protocol?: number;
+  heartbeatMs?: number;
   conversationId?: string;
   sessionId?: string;
   attemptId?: string;
@@ -190,6 +193,13 @@ export function createTaskEventTracker(options?: { limit?: number }): {
   take(serverId: string, event: unknown): (ScopedTaskEvent & { serverId: string }) | null;
   clear(serverId?: string): void;
 };
+export interface StreamConnection {
+  close(): void;
+  /** Highest applied eventSeq; a new stream with `after: cursor` catches up incrementally. */
+  readonly cursor: number | string | null;
+  /** Skips any backoff wait and reconnects now, resuming from the cursor. */
+  reconnectNow(): void;
+}
 export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'unauthorized';
 export interface Cache {
   getMessages(serverId: string, conversationId: string): Promise<Message[]>;
@@ -235,6 +245,8 @@ export interface ClientOptions {
   requestTimeoutMs?: number;
   reconnectDelayMs?: number;
   reconnectMaxDelayMs?: number;
+  /** Jitter source for reconnect delays; defaults to Math.random. */
+  random?: () => number;
 }
 export class MobileClient {
   constructor(options: ClientOptions);
@@ -289,7 +301,7 @@ export class MobileClient {
     onEvent(event: MobileEvent): void;
     onStatus?(status: ConnectionStatus): void;
     onError?(error: Error): void;
-  }): { close(): void };
+  }): StreamConnection;
   /** Clears local credentials and stops active connections; revokeDevice also revokes at the host. */
   logout(): Promise<void>;
   /** Stops all connections and requests without removing the stored session. */

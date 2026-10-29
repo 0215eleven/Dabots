@@ -346,9 +346,9 @@ class FakeSocket {
   static all = [];
   constructor(url) { this.url = url; this.sent = []; FakeSocket.all.push(this); }
   send(value) { this.sent.push(JSON.parse(value)); }
-  open() { this.onopen?.(); }
+  open() { this.readyState = 1; this.onopen?.(); }
   event(value) { this.onmessage?.({ data: JSON.stringify(value) }); }
-  close() { this.onclose?.({ code: 1000 }); }
+  close() { this.readyState = 3; this.onclose?.({ code: 1000 }); }
   serverClose(code) { this.onclose?.({ code }); }
 }
 
@@ -387,7 +387,7 @@ test('websocket authenticates in a frame, merges reset cache, reconnects, and st
   const first = FakeSocket.all[0];
   assert.equal(first.url, 'wss://bot.example/mobile/v1/events');
   first.open();
-  assert.deepEqual(first.sent, [{ type: 'auth', token: 'test-access', conversationId: 'chief' }]);
+  assert.deepEqual(first.sent, [{ type: 'auth', token: 'test-access', conversationId: 'chief', protocol: 2 }]);
   first.event({ type: 'ready' });
   first.event({ type: 'reset', conversationId: 'chief', eventSeq: 5, messages: [{ id: 's1:1', sessionId: 's1', seq: 1, role: 'user', text: 'Hello', createdAt: 0 }] });
   assert.equal((await client.getCachedMessages('chief')).length, 1);
@@ -431,5 +431,94 @@ test('attachment requests encode identities without allowing a remote credential
   assert.throws(() => client.download('https://other.example/secret'), { code: 'invalid_download' });
   assert.throws(() => client.download('/mobile/v1/attachments/%2E%2E?sessionId=s1'), { code: 'invalid_download' });
   assert.throws(() => client.download('/mobile/v1/attachments/hash%2Fsecret'), { code: 'invalid_download' });
+  client.dispose();
+});
+
+test('protocol 2 acknowledges the applied cursor in batches and resumes from it', async () => {
+  FakeSocket.all = [];
+  const { client } = clientWith(() => response({}), { WebSocket: FakeSocket, reconnectDelayMs: 1, reconnectMaxDelayMs: 1 });
+  const connection = client.connect({ conversationId: 'chief', onEvent() {} });
+  await tick();
+  const socket = FakeSocket.all[0];
+  socket.open();
+  socket.event({ type: 'ready', protocol: 2, heartbeatMs: 15000 });
+  for (let seq = 1; seq <= 8; seq++) socket.event({ type: 'status', phase: 'running', eventSeq: seq });
+  assert.deepEqual(socket.sent.slice(1), [{ type: 'ack', seq: 8 }]);
+  socket.event({ type: 'status', phase: 'idle', eventSeq: 9 });
+  await delay(300);
+  assert.deepEqual(socket.sent.at(-1), { type: 'ack', seq: 9 });
+  assert.equal(connection.cursor, 9);
+  socket.serverClose(1006);
+  await delay(15);
+  FakeSocket.all[1].open();
+  assert.equal(FakeSocket.all[1].sent[0].after, 9);
+  connection.close();
+  client.dispose();
+});
+
+test('a protocol 1 host never receives ack frames', async () => {
+  FakeSocket.all = [];
+  const { client } = clientWith(() => response({}), { WebSocket: FakeSocket });
+  const connection = client.connect({ conversationId: 'chief', onEvent() {} });
+  await tick();
+  const socket = FakeSocket.all[0];
+  socket.open();
+  socket.event({ type: 'ready' });
+  for (let seq = 1; seq <= 20; seq++) socket.event({ type: 'status', phase: 'running', eventSeq: seq });
+  await delay(300);
+  assert.equal(socket.sent.length, 1);
+  connection.close();
+  client.dispose();
+});
+
+test('reconnectNow skips the backoff wait and does not double-connect', async () => {
+  FakeSocket.all = [];
+  const { client } = clientWith(() => response({}), { WebSocket: FakeSocket, reconnectDelayMs: 60000, reconnectMaxDelayMs: 60000 });
+  const connection = client.connect({ conversationId: 'chief', onEvent() {} });
+  await tick();
+  FakeSocket.all[0].open();
+  FakeSocket.all[0].event({ type: 'ready', eventSeq: 4 });
+  FakeSocket.all[0].serverClose(1006);
+  await tick();
+  assert.equal(FakeSocket.all.length, 1);
+  connection.reconnectNow();
+  connection.reconnectNow();
+  await tick();
+  assert.equal(FakeSocket.all.length, 2);
+  FakeSocket.all[1].open();
+  assert.equal(FakeSocket.all[1].sent[0].after, 4);
+  connection.close();
+  client.dispose();
+});
+
+test('reconnect backoff doubles to the cap and applies bounded jitter', async () => {
+  FakeSocket.all = [];
+  const stamps = [];
+  const { client } = clientWith(() => response({}), { WebSocket: FakeSocket, reconnectDelayMs: 4, reconnectMaxDelayMs: 16, random: () => 0 });
+  const connection = client.connect({ conversationId: 'chief', onEvent() {} });
+  await tick();
+  for (let index = 0; index < 5; index++) {
+    stamps.push(Date.now());
+    FakeSocket.all[index].serverClose(1006);
+    const before = FakeSocket.all.length;
+    for (let wait = 0; wait < 100 && FakeSocket.all.length === before; wait++) await delay(2);
+  }
+  stamps.push(Date.now());
+  assert.equal(FakeSocket.all.length, 6);
+  assert.ok(stamps.at(-1) - stamps[3] < 200);
+  connection.close();
+  client.dispose();
+});
+
+test('a silent protocol 2 stream is dropped and resumed', async () => {
+  FakeSocket.all = [];
+  const { client } = clientWith(() => response({}), { WebSocket: FakeSocket, reconnectDelayMs: 1, reconnectMaxDelayMs: 1 });
+  const connection = client.connect({ conversationId: 'chief', onEvent() {} });
+  await tick();
+  FakeSocket.all[0].open();
+  FakeSocket.all[0].event({ type: 'ready', protocol: 2, heartbeatMs: 4 });
+  await delay(40);
+  assert.equal(FakeSocket.all.length, 2);
+  connection.close();
   client.dispose();
 });

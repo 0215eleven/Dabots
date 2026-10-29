@@ -205,6 +205,8 @@ function requireString(value, name) {
   return value;
 }
 
+const ACK_BATCH = 8;
+const ACK_DELAY_MS = 250;
 export class MobileClient {
   #fetch;
   #WebSocket;
@@ -212,6 +214,7 @@ export class MobileClient {
   #timeout;
   #reconnectDelay;
   #reconnectMaxDelay;
+  #random;
   #generation = 0;
   #disposed = false;
   #storeQueue = Promise.resolve();
@@ -222,7 +225,7 @@ export class MobileClient {
   #connections = new Set();
   #serverId = null;
 
-  constructor({ baseUrl, tokenStore, tlsPin, fetch: fetchImpl = globalThis.fetch, WebSocket: socketImpl = globalThis.WebSocket, allowInsecure = false, cache = new MemoryCache(), requestTimeoutMs = 45000, reconnectDelayMs = 750, reconnectMaxDelayMs = 15000 }) {
+  constructor({ baseUrl, tokenStore, tlsPin, fetch: fetchImpl = globalThis.fetch, WebSocket: socketImpl = globalThis.WebSocket, allowInsecure = false, cache = new MemoryCache(), requestTimeoutMs = 45000, reconnectDelayMs = 750, reconnectMaxDelayMs = 15000, random = Math.random }) {
     Object.defineProperty(this, 'baseUrl', { value: validateServerUrl(baseUrl, { allowInsecure }), enumerable: true });
     Object.defineProperty(this, 'tlsPin', { value: tlsPin === undefined ? undefined : validateTlsPin(tlsPin), enumerable: true });
     if (tlsPin !== undefined && (fetchImpl === globalThis.fetch || socketImpl === globalThis.WebSocket || typeof socketImpl !== 'function')) throw new MobileError('missing_pinned_transport', 'Install the latest native app to connect to local HTTPS.');
@@ -235,6 +238,7 @@ export class MobileClient {
     this.#WebSocket = socketImpl;
     this.cache = cache;
     this.#timeout = Math.max(1, requestTimeoutMs);
+    this.#random = random;
     this.#reconnectDelay = Math.max(1, reconnectDelayMs);
     this.#reconnectMaxDelay = Math.max(this.#reconnectDelay, reconnectMaxDelayMs);
   }
@@ -525,6 +529,32 @@ export class MobileClient {
     let attempts = 0;
     let refreshNext = false;
     let sentToken;
+    // Protocol 2: every event carries eventSeq; the client acknowledges the highest one
+    // it has applied. The cursor (`after`) is what makes a reconnect an incremental catch-up.
+    let acked = after == null ? 0 : Number(after) || 0;
+    let ackTimer = null;
+    let unacked = 0;
+    let streaming = false;
+    let liveness = null;
+    let heartbeatMs = 0;
+    const sendAck = () => {
+      clearTimeout(ackTimer);
+      ackTimer = null;
+      const seq = Number(after);
+      if (!streaming || !socket || socket.readyState !== 1 || !Number.isSafeInteger(seq) || seq <= acked) return;
+      try { socket.send(JSON.stringify({ type: 'ack', seq })); acked = seq; unacked = 0; } catch { /* The close handler reconnects from the cursor. */ }
+    };
+    const noteAck = () => {
+      if (!streaming) return;
+      if (++unacked >= ACK_BATCH) sendAck();
+      else if (!ackTimer) ackTimer = setTimeout(sendAck, ACK_DELAY_MS);
+    };
+    const armLiveness = () => {
+      clearTimeout(liveness);
+      if (!heartbeatMs || stopped) return;
+      const current = socket;
+      liveness = setTimeout(() => { if (current && socket === current) current.close(); }, heartbeatMs * 2.5);
+    };
     const active = () => !stopped && !this.#disposed && generation === this.#generation;
     const emitError = error => { if (active()) onError(error); };
     const finish = status => {
@@ -532,26 +562,56 @@ export class MobileClient {
       stopped = true;
       clearTimeout(timer);
       clearTimeout(handshake);
+      clearTimeout(ackTimer);
+      clearTimeout(liveness);
       this.#connections.delete(connection);
       const current = socket;
       socket = null;
       if (current) current.close();
       onStatus(status);
     };
-    const connection = { close: () => finish('closed') };
+    const connection = {
+      close: () => finish('closed'),
+      get cursor() { return after ?? null; },
+      /** Network came back or the app returned to the foreground: skip any backoff wait and catch up now. */
+      reconnectNow: () => {
+        if (!active()) return;
+        attempts = 0;
+        clearTimeout(timer);
+        timer = null;
+        if (socket) {
+          const stale = socket;
+          socket = null;
+          clearTimeout(handshake);
+          clearTimeout(liveness);
+          clearTimeout(ackTimer);
+          streaming = false;
+          try { stale.close(); } catch { /* Already gone. */ }
+          // Detach the stale socket so its late close frame cannot schedule a second attempt.
+          stale.onmessage = stale.onclose = stale.onerror = stale.onopen = null;
+        }
+        void open();
+      },
+    };
     const schedule = () => {
       if (!active() || timer) return;
       onStatus('reconnecting');
-      const delay = Math.min(this.#reconnectMaxDelay, this.#reconnectDelay * 2 ** Math.min(attempts++, 8));
+      // Exponential backoff capped at reconnectMaxDelayMs, with up to 20% jitter below the cap so
+      // many phones do not reconnect in lockstep after a host restart.
+      const base = Math.min(this.#reconnectMaxDelay, this.#reconnectDelay * 2 ** Math.min(attempts++, 8));
+      const delay = Math.max(1, Math.round(base * (1 - 0.2 * this.#random())));
       timer = setTimeout(() => { timer = null; void open(); }, delay);
     };
+    let ticket = 0;
     const open = async () => {
       if (!active()) return;
+      const mine = ++ticket;
       onStatus(attempts ? 'reconnecting' : 'connecting');
       try {
         const session = refreshNext ? await this.#refresh(sentToken, generation) : await this.#validSession(generation);
         refreshNext = false;
-        if (!active()) return;
+        // A newer open (reconnectNow) superseded this one while the session was loading.
+        if (!active() || mine !== ticket) return;
         sentToken = session.accessToken;
         const wsUrl = `${this.baseUrl.replace(/^http/, 'ws')}/mobile/v1/events`;
         const current = new this.#WebSocket(wsUrl);
@@ -560,21 +620,27 @@ export class MobileClient {
         handshake = setTimeout(() => { if (currentActive()) current.close(); }, Math.min(this.#timeout, 20000));
         current.onopen = () => {
           if (!currentActive()) { current.close(); return; }
-          current.send(JSON.stringify({ type: 'auth', token: session.accessToken, conversationId, ...(after == null ? {} : { after }) }));
+          current.send(JSON.stringify({ type: 'auth', token: session.accessToken, conversationId, protocol: 2, ...(after == null ? {} : { after }) }));
         };
         current.onmessage = ({ data }) => {
           if (!currentActive()) return;
           let event;
           try { event = JSON.parse(data); }
           catch { emitError(new MobileError('invalid_event', 'The server sent an unreadable event.')); return; }
-          if (!event || !['ready', 'delta', 'message', 'reset', 'status', 'error'].includes(event.type)) return;
+          if (!event || !['ready', 'delta', 'message', 'reset', 'status', 'error', 'heartbeat'].includes(event.type)) return;
           if (event.conversationId && event.conversationId !== conversationId) return;
           if (event.type === 'ready') {
             clearTimeout(handshake);
             attempts = 0;
+            streaming = event.protocol >= 2;
+            heartbeatMs = streaming && Number(event.heartbeatMs) > 0 ? Number(event.heartbeatMs) : 0;
+            acked = after == null ? 0 : Number(after) || 0;
+            unacked = 0;
             onStatus('connected');
           }
-          if (event.eventSeq != null) after = event.eventSeq;
+          armLiveness();
+          if (event.type === 'heartbeat') return;
+          if (event.eventSeq != null) { after = event.eventSeq; noteAck(); }
           if (event.type === 'error') {
             const code = String(event.error?.code || event.code || 'stream_error').toLowerCase();
             if (['unauthorized', 'token_expired', 'invalid_token'].includes(code)) {
@@ -592,6 +658,9 @@ export class MobileClient {
         current.onclose = ({ code }) => {
           if (!currentActive()) return;
           clearTimeout(handshake);
+          clearTimeout(liveness);
+          clearTimeout(ackTimer);
+          streaming = false;
           socket = null;
           if (code === 4401 || code === 4403) refreshNext = true;
           schedule();

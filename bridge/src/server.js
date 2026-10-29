@@ -7,6 +7,8 @@ import { validateRemoteUrl } from './remote-connection.mjs'
 import { createRelayEndpoint } from './relay-endpoint.mjs'
 
 const PREFIX = '/mobile/v1'
+const HEARTBEAT_MS = 15_000
+const MAX_UNACKED = 1024
 const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost'])
 const fail = (status, code, message) => { throw new BridgeError(status, code, message) }
 const required = (value, name, maximum = 256) => {
@@ -284,13 +286,20 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
   })
   function acceptSocket(socket) {
     const controller = new AbortController()
-    const state = { controller, deviceId: null, authenticated: false, busy: false }
+    const state = { controller, deviceId: null, authenticated: false, busy: false, protocol: 1, acked: 0, pending: [], head: 0, acks: { at: 0, count: 0 } }
     sockets.set(socket, state)
     const timeout = setTimeout(() => socket.close(4401, 'Authentication required'), 5000)
     const send = event => {
       if (socket.readyState !== WebSocket.OPEN) return
       if (socket.bufferedAmount > 2 * 1024 * 1024) { socket.close(4408, 'Reconnect to catch up'); return }
       socket.send(JSON.stringify(state.deviceId ? forDevice(event, state.deviceId) : event))
+      // Protocol 2 tracks what the phone has not acknowledged. A phone that stops
+      // acknowledging is too slow to follow live; it reconnects and catches up from its cursor.
+      if (state.protocol === 2 && Number.isSafeInteger(event.eventSeq) && event.eventSeq > state.head) {
+        state.head = event.eventSeq
+        state.pending.push(event.eventSeq)
+        if (state.pending.length > MAX_UNACKED) socket.close(4408, 'Reconnect to catch up')
+      }
     }
     let expiry
     let alive = true
@@ -298,6 +307,20 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
     socket.on('close', () => { clearTimeout(timeout); clearInterval(expiry); controller.abort(); sockets.delete(socket) })
     socket.on('error', () => controller.abort())
     socket.on('message', async bytes => {
+      if (state.authenticated && state.protocol === 2) {
+        // After authentication a protocol 2 phone may only acknowledge a sequence it was sent.
+        let frame
+        try { frame = JSON.parse(bytes.toString()) } catch { frame = null }
+        const now = Date.now()
+        if (now - state.acks.at > 1000) state.acks = { at: now, count: 0 }
+        if (frame?.type !== 'ack' || !Number.isSafeInteger(frame.seq) || frame.seq < state.acked || frame.seq > state.head || ++state.acks.count > 20) {
+          socket.close(4400, 'Only acknowledgements are accepted after authentication')
+          return
+        }
+        state.acked = frame.seq
+        state.pending = state.pending.filter(seq => seq > frame.seq)
+        return
+      }
       if (state.busy || state.authenticated) { socket.close(4400, 'Only an initial authentication frame is accepted'); return }
       state.busy = true
       try {
@@ -312,16 +335,22 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         auth.verifyAccess(frame.token)
         state.deviceId = device.id
         state.agent = frame.conversationId.startsWith('agent:')
+        state.protocol = frame.protocol === 2 ? 2 : 1
+        state.acked = state.head = Number.isSafeInteger(frame.after) ? frame.after : 0
         state.authenticated = true
         clearTimeout(timeout)
         expiry = setInterval(() => {
           try { auth.verifyAccess(frame.token) } catch { socket.close(4401, 'Session expired') }
           if (!alive) { socket.terminate(); return }
           alive = false
-          if (socket.readyState === WebSocket.OPEN) socket.ping()
-        }, 15_000)
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.ping()
+            // The phone cannot see protocol pings; this frame lets it detect a silent stream.
+            if (state.protocol === 2) send({ type: 'heartbeat', head: state.head })
+          }
+        }, HEARTBEAT_MS)
         expiry.unref()
-        send({ type: 'ready', conversationId: frame.conversationId, serverId: auth.data.serverId })
+        send({ type: 'ready', conversationId: frame.conversationId, serverId: auth.data.serverId, ...(state.protocol === 2 ? { protocol: 2, heartbeatMs: HEARTBEAT_MS } : {}) })
         for await (const event of adapter.follow(frame.conversationId, { after: frame.after }, controller.signal, grant(device.id))) {
           if (controller.signal.aborted) break
           send(event)
