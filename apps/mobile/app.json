@@ -30,6 +30,78 @@
     },
     "plugins": [
       "expo-router",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#CDADEC",
+          "image": "./assets/openbot/splash/eyes.png",
+          "imageWidth": 240,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#756183",
+            "image": "./assets/openbot/splash/eyes.png"
+          },
+          "android": {
+            "imageWidth": 188
+          }
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "ios": {
+            "fonts": [
+              "./assets/openbot/fonts/inter/Inter-Regular.ttf",
+              "./assets/openbot/fonts/inter/Inter-Italic.ttf",
+              "./assets/openbot/fonts/inter/Inter-Medium.ttf",
+              "./assets/openbot/fonts/inter/Inter-SemiBold.ttf",
+              "./assets/openbot/fonts/inter/Inter-Bold.ttf",
+              "./assets/openbot/fonts/inter/Inter-BoldItalic.ttf",
+              "./assets/openbot/fonts/inter/Inter-ExtraBold.ttf"
+            ]
+          },
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "Inter",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/openbot/fonts/inter/Inter-Regular.ttf",
+                    "weight": 400
+                  },
+                  {
+                    "path": "./assets/openbot/fonts/inter/Inter-Italic.ttf",
+                    "weight": 400,
+                    "style": "italic"
+                  },
+                  {
+                    "path": "./assets/openbot/fonts/inter/Inter-Medium.ttf",
+                    "weight": 500
+                  },
+                  {
+                    "path": "./assets/openbot/fonts/inter/Inter-SemiBold.ttf",
+                    "weight": 600
+                  },
+                  {
+                    "path": "./assets/openbot/fonts/inter/Inter-Bold.ttf",
+                    "weight": 700
+                  },
+                  {
+                    "path": "./assets/openbot/fonts/inter/Inter-BoldItalic.ttf",
+                    "weight": 700,
+                    "style": "italic"
+                  },
+                  {
+                    "path": "./assets/openbot/fonts/inter/Inter-ExtraBold.ttf",
+                    "weight": 800
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
       [
         "expo-widgets",
         {

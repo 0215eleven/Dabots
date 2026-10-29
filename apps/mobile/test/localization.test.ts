@@ -51,7 +51,8 @@ test("every literal translated control and known error has Chinese catalog cover
   function walk(dir: string) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const file = join(dir, entry.name);
-      if (entry.isDirectory()) { walk(file); continue; }
+      // Code derived from OpenBot has its own typed catalog (src/openbot/pkg/i18n).
+      if (entry.isDirectory()) { if (entry.name !== "openbot") walk(file); continue; }
       if (!/\.tsx?$/.test(file) || /(?:i18n|locale)\.ts$/.test(file)) continue;
       const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
       function visit(node: ts.Node) {

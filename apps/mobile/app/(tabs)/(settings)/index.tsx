@@ -1,44 +1,42 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Platform, ScrollView, Text, View } from "react-native";
+import { Alert, Platform, Pressable, View } from "react-native";
+import { Typography } from "heroui-native";
 import { Host as UiHost, Picker, Switch } from "@expo/ui";
 import Constants from "expo-constants";
 import { Stack, useRouter } from "expo-router";
-import { AnimatedPressable as Pressable } from "../../../src/components/Motion";
+import { LargeTitleScrollView } from "../../../src/openbot/shared/components/large-title";
 import { hostAddress } from "../../../src/logic/hosts";
 import { setLiveActivityEnabled } from "../../../src/liveactivity/controller";
 import { LocalePreference, setLocalePreference, useI18n } from "../../../src/i18n";
 import { errorFeedback, selectionFeedback, successFeedback } from "../../../src/media/haptics";
 import { useSession } from "../../../src/session/SessionProvider";
 import { readCache, writeCache } from "../../../src/storage";
-import { ColorMode, setColorMode, useColorMode, useTheme } from "../../../src/theme";
+import { ColorMode, setColorMode, useColorMode } from "../../../src/theme";
 import { errorText } from "../../../src/types";
 
 function Group({ title, footer, children }: { title: string; footer?: string; children: React.ReactNode }) {
-  const t = useTheme();
   return (
-    <View style={{ gap: 6 }}>
-      <Text style={{ color: t.muted, fontSize: 13, textTransform: "uppercase", paddingHorizontal: 16 }}>{title}</Text>
-      <View style={{ backgroundColor: t.surface === t.bg ? t.sidebar : t.surface, borderRadius: 20, borderCurve: "continuous", overflow: "hidden" }}>{children}</View>
-      {footer ? <Text style={{ color: t.faint, fontSize: 12, paddingHorizontal: 16 }}>{footer}</Text> : null}
+    <View className="gap-1.5">
+      <Typography.Paragraph className="text-muted px-4 uppercase" style={{ fontSize: 13 }}>{title}</Typography.Paragraph>
+      <View className="overflow-hidden bg-grouped" style={{ borderRadius: 16, borderCurve: "continuous" }}>{children}</View>
+      {footer ? <Typography.Paragraph className="text-muted px-4" style={{ fontSize: 12 }}>{footer}</Typography.Paragraph> : null}
     </View>
   );
 }
 function Row({ title, detail, onPress, destructive, children }: { title: string; detail?: string; onPress?(): void; destructive?: boolean; children?: React.ReactNode }) {
-  const t = useTheme();
   const content = (
-    <View style={{ minHeight: 48, paddingHorizontal: 16, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 12 }}>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: destructive ? t.error : onPress ? t.accent : t.ink, fontSize: 16 }}>{title}</Text>
-        {detail ? <Text numberOfLines={2} style={{ color: t.muted, fontSize: 13, marginTop: 2 }}>{detail}</Text> : null}
+    <View className="min-h-12 flex-row items-center gap-3 px-4 py-2.5">
+      <View className="flex-1">
+        <Typography.Paragraph className={destructive ? "text-danger-text" : onPress ? "text-accent-text" : ""} style={{ fontSize: 16 }}>{title}</Typography.Paragraph>
+        {detail ? <Typography.Paragraph className="text-muted" numberOfLines={2} style={{ fontSize: 13, marginTop: 2 }}>{detail}</Typography.Paragraph> : null}
       </View>
       {children}
     </View>
   );
-  return onPress ? <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress}>{content}</Pressable> : content;
+  return onPress ? <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>{content}</Pressable> : content;
 }
 
 export default function Settings() {
-  const t = useTheme();
   const { tr, locale } = useI18n();
   const router = useRouter();
   const session = useSession();
@@ -75,12 +73,12 @@ export default function Settings() {
   ]);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.bg }} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 16, gap: 24 }}>
-      <Stack.Screen options={{ title: tr("Settings") }} />
-      {message || session.error ? <Text style={{ color: t.error, paddingHorizontal: 4 }}>{message || session.error}</Text> : null}
+    <LargeTitleScrollView title={tr("Settings")} caption={host?.name} contentContainerClassName="gap-6 px-4 pt-3">
+      <Stack.Screen options={{ title: "", headerTransparent: true, headerShadowVisible: false }} />
+      {message || session.error ? <Typography.Paragraph className="text-danger-text px-1">{message || session.error}</Typography.Paragraph> : null}
       <Group title={tr("Connection")} footer={tr("The app keeps one WebSocket per open chat and resumes from where it stopped after a network change or when it returns from the background.")}>
         <Row title={host?.name || tr("No computer paired")} detail={host ? hostAddress(host) : undefined}>
-          <Text style={{ color: session.workspace.online ? t.success : t.muted, fontSize: 14 }}>{status}</Text>
+          <Typography.Paragraph className={session.workspace.online ? "text-success-text" : "text-muted"} style={{ fontSize: 14 }}>{status}</Typography.Paragraph>
         </Row>
         <Row title={tr("Reconnect now")} onPress={host ? () => { successFeedback(); session.resume(); } : undefined} />
       </Group>
@@ -88,8 +86,8 @@ export default function Settings() {
       <Group title={tr("Computers")}>
         {session.hosts.map(item => (
           <Row key={item.slot || item.serverId} title={item.name} detail={hostAddress(item)} onPress={host && item.serverId === host.serverId ? undefined : () => { selectionFeedback(); void session.switchHost(item); }}>
-            {host && item.serverId === host.serverId ? <Text style={{ color: t.accent, fontSize: 14 }}>{tr("Selected")}</Text>
-              : <Pressable accessibilityRole="button" accessibilityLabel={tr("Forget {p0}?", { p0: item.name })} onPress={() => forget(item)} hitSlop={10}><Text style={{ color: t.error, fontSize: 14 }}>{tr("Forget")}</Text></Pressable>}
+            {host && item.serverId === host.serverId ? <Typography.Paragraph className="text-accent-text" style={{ fontSize: 14 }}>{tr("Selected")}</Typography.Paragraph>
+              : <Pressable accessibilityRole="button" accessibilityLabel={tr("Forget {p0}?", { p0: item.name })} onPress={() => forget(item)} hitSlop={10}><Typography.Paragraph className="text-danger-text" style={{ fontSize: 14 }}>{tr("Forget")}</Typography.Paragraph></Pressable>}
           </Row>
         ))}
         <Row title={tr("Pair a computer")} onPress={() => router.push("/pairing")} />
@@ -126,7 +124,7 @@ export default function Settings() {
         <Row title={tr("Classic view")} detail={tr("Team, groups, schedules and host settings.")} onPress={() => router.push("/classic")} />
         {host ? <Row title={tr("Unpair this computer")} destructive onPress={unpair} /> : null}
       </Group>
-      <Text style={{ color: t.faint, textAlign: "center", fontSize: 12 }}>DS Bot Mobile {Constants.expoConfig?.version} · {locale}</Text>
-    </ScrollView>
+      <Typography.Paragraph className="text-muted text-center" style={{ fontSize: 12 }}>DS Bot Mobile {Constants.expoConfig?.version} · {locale}</Typography.Paragraph>
+    </LargeTitleScrollView>
   );
 }

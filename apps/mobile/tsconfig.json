@@ -3,7 +3,30 @@
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@/*": [
+        "./src/openbot/*"
+      ],
+      "@/assets/*": [
+        "./assets/openbot/*"
+      ],
+      "@openbot/i18n/mobile": [
+        "./src/openbot/pkg/i18n/mobile.ts"
+      ],
+      "@openbot/contracts/*": [
+        "./src/openbot/pkg/contracts/*"
+      ],
+      "@openbot/brand/*": [
+        "./src/openbot/pkg/brand/*"
+      ],
+      "@openbot/user-errors": [
+        "./src/openbot/pkg/user-errors/index.ts"
+      ]
+    }
   },
-  "include": ["**/*.ts", "**/*.tsx"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ]
 }

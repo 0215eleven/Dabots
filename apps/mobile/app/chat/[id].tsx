@@ -3,7 +3,7 @@ import { Text } from "react-native";
 import { Stack, useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
 import { BotAvatar } from "../../src/components/BotAvatar";
 import { ScreenActivity } from "../../src/components/ScreenActivity";
-import { ChatView } from "../../src/chat/ChatView";
+import { OpenBotChat } from "../../src/openbot/chat-screen";
 import { useI18n } from "../../src/i18n";
 import { useSession } from "../../src/session/SessionProvider";
 import { useTheme } from "../../src/theme";
@@ -19,7 +19,7 @@ export default function Chat() {
   const bot = workspace.team.bots.find(entry => entry.id === id || entry.sessionId === conversation?.sessionId);
   return (
     <ScreenActivity.Provider value={focused}>
-      <Stack.Screen options={{ title: conversation?.name ?? "", headerTintColor: t.accent, headerStyle: { backgroundColor: t.bg } }} />
+      <Stack.Screen options={{ title: conversation?.name ?? "", headerTransparent: true, headerShadowVisible: false, headerBackButtonDisplayMode: "minimal" }} />
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Menu icon="ellipsis.circle" title={tr("More")}>
           <Stack.Toolbar.MenuAction icon="arrow.clockwise" onPress={resume}>{tr("Reconnect now")}</Stack.Toolbar.MenuAction>
@@ -27,7 +27,7 @@ export default function Chat() {
         </Stack.Toolbar.Menu>
       </Stack.Toolbar>
       {conversation && host
-        ? <ChatView key={`${host.serverId}:${conversation.id}`} conversation={conversation} />
+        ? <OpenBotChat key={`${host.serverId}:${conversation.id}`} conversation={conversation} />
         : <Text style={{ color: t.muted, textAlign: "center", padding: 32 }}>{workspace.online ? tr("This conversation is no longer available.") : tr("Connecting…")}</Text>}
     </ScreenActivity.Provider>
   );

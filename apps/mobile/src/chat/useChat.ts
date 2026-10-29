@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { type ConnectionStatus, type Message, mergeMessages } from "@ds-bot/mobile-sdk";
 import { useSession } from "../session/SessionProvider";
 import { conversationStreams } from "../logic/conversation-streams";
 import { useScreenActivity } from "../components/ScreenActivity";
 import { cache, readCache, writeCache } from "../storage";
 import { errorText } from "../types";
-import { chatRows } from "./rows";
 
 const CURSOR_FLUSH_MS = 1000;
 const EMPTY: never[] = [];
@@ -93,11 +92,11 @@ export function useChat(id: string) {
     };
   }, [client, serverId, id, foreground, focused]);
 
-  const outgoing = useSyncExternalStore(
+  // Re-render when the outbox changes; its items are read fresh below.
+  useSyncExternalStore(
     useCallback(listener => outbox?.subscribe(listener) ?? (() => {}), [outbox]),
     () => outbox?.version ?? 0,
   );
-  const rows = useMemo(() => chatRows(messages, outbox?.list(id) ?? []), [messages, outbox, id, outgoing]);
 
   // Rows the host has echoed no longer need the outbox.
   useEffect(() => { void outbox?.settle(id, messages); }, [messages, outbox, id]);
@@ -136,7 +135,7 @@ export function useChat(id: string) {
   }, [client, id]);
 
   return {
-    rows, status, running, error, draft, setDraft, send, loadOlder, hasOlder: !!older, loadingOlder, stop,
+    messages, outgoing: outbox?.list(id) ?? [], status, running, error, draft, setDraft, send, loadOlder, hasOlder: !!older, loadingOlder, stop,
     retry: (requestId: string) => outbox?.retry(requestId),
     discard: (requestId: string) => outbox?.discard(requestId),
   };

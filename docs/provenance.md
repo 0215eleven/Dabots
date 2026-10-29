@@ -7,3 +7,5 @@
 - 电脑端 App 配套插件：本仓库 `companion/` 的独立实现，使用 DSH 公开 bundle / UI slot / owner carrier；QR 编码器来自 `qrcode@1.5.4`，其 MIT 许可及 `dijkstrajs` 声明保留在包内 `NOTICE`。浏览器渲染不依赖远端二维码服务。
 
 本仓库以审查后的源码快照建立独立历史，原始开发仓库及其未提交材料在本机保留。初始公开快照未复制原开发工作区的运行态、签名或原始截图；后续文档截图单独审阅并脱敏。没有声称此前的上游功能全部被当前独立 Bridge 支持。
+
+- 手机端 UI 与美术（`apps/mobile/src/openbot/`、`apps/mobile/assets/openbot/`）：nightly-labs/openbot `apps/mobile`，提交 c389f4404256e754214b6982503381778d80ed35，**PolyForm Noncommercial 1.0.0**（非 Apache-2.0；商业使用需上游授权）。仅 UI 与资源；连接层仍是本仓库自己的实现。详见该目录的 `README.md`、`LICENSE`、`NOTICE.upstream`。

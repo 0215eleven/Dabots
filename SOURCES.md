@@ -10,6 +10,8 @@
 - 本次不构建 IPA / APK，不指定或推定手机 build 号。用户转发的 build `11` 及电脑已安装版本未核实；未来打包人员须按实际签名、安装与构建历史选择 build 号。官方标签、公开引擎、兼容合同与更新来源核验见 [版本来源](docs/version-sources.md)。
 - PR #8 以 `HomeDock` 替代旧 `AppNavigation.tsx` 组件，保留原生导航、页面和受能力控制的功能入口。替代组件的删除不代表删除历史来源、保留能力骨架或许可证；原有 `LICENSE` / `NOTICE` 与第三方来源记录继续保留。
 
+- `ds2` 分支起，手机端界面复用 OpenBot 手机端的 UI 与美术（PolyForm Noncommercial 1.0.0，见 `apps/mobile/src/openbot/README.md`）；连接层不使用其代码。
+
 ## 电脑端（ds-bot/ 文件夹）
 
 - DeepSeek-Bot 源码快照，来自 ElevenOrganization/DeepSeek-Bot 的 `main` 分支，2026-10-23 放入。
