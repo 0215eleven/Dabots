@@ -31,9 +31,9 @@ test('a message is checked for a receipt, submitted once, and kept as sent until
   assert.equal(item?.text, 'hello');
   assert.deepEqual(f.calls, ['receipt:r1', 'submit:r1']);
   assert.equal(f.outbox.list()[0].state, 'sent');
-  await f.outbox.settle('chief', [{ requestId: 'other' }]);
+  await f.outbox.settle('chief', [{role:'user', requestId: 'other', sessionId: 's1' }]);
   assert.equal(f.outbox.list().length, 1);
-  await f.outbox.settle('chief', [{ requestId: 'r1' }]);
+  await f.outbox.settle('chief', [{role:'user', requestId: 'r1', sessionId: 's1' }]);
   assert.equal(f.outbox.list().length, 0);
   assert.deepEqual(f.saves().at(-1), []);
 });
@@ -233,4 +233,37 @@ test('legacy queued and sending records without persistence markers keep receipt
     const f=fixture({receipt:id=>({requestId:id,status:'accepted'})},saved);
     await f.outbox.resume();assert.deepEqual(f.calls,['receipt:legacy']);assert.equal(f.outbox.list()[0].state,'sent');f.outbox.dispose();
   }
+});
+
+test('early canonical evidence is scoped to the exact request, conversation and Session',async()=>{
+ for(const mismatch of ['request','conversation','session']){
+  let accept:any;const f=fixture({receipt:()=>new Promise(resolve=>{accept=resolve;})});
+  await f.outbox.enqueue({conversationId:'chief',text:'scoped'});await f.settle();
+  await f.outbox.settle(mismatch==='conversation'?'other':'chief',[{role:'user',requestId:mismatch==='request'?'other':'r1',sessionId:mismatch==='session'?'other':'s1'}]);
+  accept({requestId:'r1',conversationId:'chief',sessionId:'s1',status:'accepted'});await f.settle();
+  assert.equal(f.outbox.list()[0].state,'sent',mismatch);
+  await f.outbox.settle('chief',[{role:'user',requestId:'r1',sessionId:'other'}]);assert.equal(f.outbox.list().length,1,'wrong Session must never settle even an accepted send');
+  await f.outbox.settle('chief',[{role:'user',requestId:'r1',sessionId:'s1'}]);assert.deepEqual(f.outbox.list(),[]);f.outbox.dispose();
+ }
+});
+test('early evidence never clears unconfirmed persistence, crosses outbox owners or acts after disposal',async()=>{
+ let accept:any;const f=fixture({receipt:()=>new Promise(resolve=>{accept=resolve;})});
+ await f.outbox.enqueue({conversationId:'chief',text:'old owner'});await f.settle();await f.outbox.settle('chief',[{role:'user',requestId:'r1',sessionId:'s1'}]);
+ f.outbox.dispose();accept({requestId:'r1',status:'accepted'});await f.settle();assert.equal(f.outbox.list()[0].state,'sending');
+ const other=fixture();await other.outbox.enqueue({conversationId:'chief',text:'new owner'});await other.settle();assert.equal(other.outbox.list()[0].state,'sent','same IDs in a different owner need their own transcript evidence');other.outbox.dispose();
+ const saved:OutboxItem[]=[{requestId:'persisted',conversationId:'chief',sessionId:'s1',deviceId:'device-1',text:'uncertain',attachments:[],state:'sent',persistence:'unconfirmed',attempts:0,createdAt:1}];
+ const uncertain=fixture({receipt:id=>({requestId:id,status:'accepted'})},saved);await uncertain.outbox.load();
+ await uncertain.outbox.settle('chief',[{role:'user',requestId:'persisted',sessionId:'s1'}]);assert.equal(uncertain.outbox.list()[0].state,'unconfirmed');
+ await uncertain.outbox.retry('persisted');await uncertain.settle();assert.equal(uncertain.outbox.list()[0].state,'sent','unconfirmed persistence must not retain settlement evidence');uncertain.outbox.dispose();
+});
+test('local accepted placeholders, streaming and local delivery rows never become canonical settlement evidence',async()=>{
+ for(const flags of [{localSubmission:true},{pending:true},{delivery:'sending' as const},{role:'assistant'}]){
+  let accept:any;const f=fixture({receipt:()=>new Promise(resolve=>{accept=resolve;})});
+  await f.outbox.enqueue({conversationId:'chief',text:'not canonical'});await f.settle();
+  const placeholder={requestId:'r1',sessionId:'s1',role:'user',...flags};
+  await f.outbox.settle('chief',[placeholder]);accept({requestId:'r1',status:'accepted'});await f.settle();
+  assert.equal(f.outbox.list().length,1,JSON.stringify(flags));
+  await f.outbox.settle('chief',[placeholder]);assert.equal(f.outbox.list().length,1,'late placeholder must not settle either');
+  await f.outbox.settle('chief',[{role:'user',requestId:'r1',sessionId:'s1'}]);assert.deepEqual(f.outbox.list(),[]);f.outbox.dispose();
+ }
 });

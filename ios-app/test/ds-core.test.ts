@@ -52,14 +52,15 @@ function fixture() {
     const client = { action: async (name: string, body: Record<string, unknown>) => { calls.push([name, body]); return action(name, body); }, messages: async () => ({ messages, cursor: null, sessionId: 'session' }), cancel: async () => ({}) } as unknown as MobileClient;
     let snapshot = { serverId: 'host', client, team, conversations, source: 'live' as 'live' | 'cache' };
     let transport = true, pendingReceipt = true;
+    let receipt: ((id:string)=>Promise<any>) | undefined;
     let saves: OutboxItem[] = [];
     const outbox = createOutbox({ store: { load: async () => [], save: async (items) => { saves = structuredClone(items); } }, newId: () => 'request-1',
-        transport: () => transport ? { deviceId: async () => 'device', target: async () => ({ sessionId: 'session' }), submission: async (id) => ({ requestId: id, status: pendingReceipt ? 'pending' : 'accepted' }), submit: async () => { throw new Error('must recover by receipt'); } } : null,
+        transport: () => transport ? { deviceId: async () => 'device', target: async () => ({ sessionId: 'session' }), submission: async (id) => receipt ? receipt(id) : ({ requestId: id, status: pendingReceipt ? 'pending' : 'accepted' }), submit: async () => { throw new Error('must recover by receipt'); } } : null,
         setTimer: () => 0, clearTimer: () => { },
     });
     const core = createDsCore({ client, serverId: 'host', getSnapshot: () => snapshot, refresh: async () => { refreshes++; if (failRefresh)
             throw new Error('readback offline'); return snapshot; }, outbox, isOnline: () => online, isCurrent: () => active });
-    return { core, team, conversations, client, calls, outbox, messages, bot: dsId('host', 'bot', 'same'), group: dsId('host', 'group', 'group'), chat: dsId('host', 'conversation', 'same'),
+    return { setReceipt: (next:typeof receipt) => {receipt=next;}, core, team, conversations, client, calls, outbox, messages, bot: dsId('host', 'bot', 'same'), group: dsId('host', 'group', 'group'), chat: dsId('host', 'conversation', 'same'),
         failRefresh: () => { failRefresh = true; }, refreshes: () => refreshes, saves: () => saves, setOnline: (v: boolean) => { online = v; }, setActive: (v: boolean) => { active = v; }, setSource: (v: 'live' | 'cache') => { snapshot = { ...snapshot, source: v }; }, switchHost: () => { snapshot = { ...snapshot, serverId: 'elsewhere' }; }, setAction: (v: typeof action) => { action = v; }, accept: () => { pendingReceipt = false; }, pause: () => { transport = false; } };
 }
 test('identities are stable, lossless, server scoped and distinguish Bots, groups, conversations and Sessions', () => {
@@ -191,7 +192,7 @@ test('enqueue is pending, not accepted; receipt recovery keeps durable request I
     await tick();
     assert.equal(f.core.pending(f.chat)[0].state, 'accepted');
     assert.ok(f.refreshes() > 0);
-    f.messages[0] = { ...f.messages[0], requestId: 'request-1' };
+    f.messages[0] = { ...f.messages[0], role: 'user', requestId: 'request-1' };
     await f.core.history(f.chat);
     assert.equal(f.core.pending(f.chat).length, 0);
     f.core.dispose();
@@ -279,7 +280,7 @@ test('canonical streaming transcript settles an accepted durable send',async()=>
   f.client.connect=(input:any)=>{options=input;return {close(){},reconnectNow(){},cursor:null};};
   f.accept();await f.core.send(f.chat,{text:'hello'});await tick();
   assert.equal(f.core.pending(f.chat)[0].state,'accepted');f.core.watchConversation(f.chat,{onSnapshot(){}});
-  options.onEvent({type:'message',message:{...f.messages[0],requestId:'request-1'}});await tick();
+  options.onEvent({type:'message',message:{...f.messages[0],role:'user',requestId:'request-1'}});await tick();
   assert.equal(f.core.pending(f.chat).length,0);f.core.dispose();conversationStreams.clear(f.client);
 });
 
@@ -353,4 +354,19 @@ test('a default-model change during reasoning discovery invalidates the selectio
   const f=fixture();f.setAction(async()=>{f.team.defaultModel='dsh/next';return {efforts:[{id:'auto/42',name:'Auto'}]};});
   await assert.rejects(f.core.updateBot(f.bot,{model:null,effort:'auto/42'}),{code:'STALE_SNAPSHOT'});
   assert.equal(f.calls.some(([name])=>name==='update-bot'),false);
+});
+
+test('canonical stream before accepted receipt automatically settles pending without another stream or history update',async()=>{
+ const f=fixture();let stream:any,resolveReceipt:any,snapshots=0,historyCalls=0;
+ f.setReceipt(()=>new Promise(resolve=>{resolveReceipt=resolve;}));
+ f.client.messages=async()=>{historyCalls++;throw Error('no history refresh is required');};
+ f.client.connect=(input:any)=>{stream=input;return {close(){},reconnectNow(){throw Error('no reconnect is required');},cursor:null};};
+ try {
+  f.core.watchConversation(f.chat,{onSnapshot(){snapshots++;}});
+  await f.core.send(f.chat,{text:'canonical first'});await tick();assert.equal(f.core.pending(f.chat)[0].state,'sending');
+  stream.onEvent({type:'message',message:{...f.messages[0],role:'user',text:'canonical first',requestId:'request-1'}});await tick();
+  const before=snapshots;assert.equal(f.core.pending(f.chat).length,1,'canonical evidence alone must not imply receipt acceptance');
+  resolveReceipt({requestId:'request-1',conversationId:'same',sessionId:'session',status:'accepted'});await tick();await tick();
+  assert.deepEqual(f.core.pending(f.chat),[]);assert.deepEqual(f.saves(),[]);assert.equal(snapshots,before);assert.equal(historyCalls,0);
+ }finally{f.core.dispose();f.outbox.dispose();conversationStreams.clear(f.client);}
 });

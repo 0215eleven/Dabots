@@ -42,11 +42,14 @@ async function until(run, timeout=10000){const start=Date.now();let last;while(D
    // UI-issued authorization stays only in memory for canonical public readback.
    const authorization=await response.request().headerValue('authorization');assert.ok(authorization);
    async function canonical(){const r=await fetch(`${h.p.url}/mobile/v1/conversations/${encodeURIComponent(bot.id)}/messages`,{headers:{authorization}});assert.equal(r.status,200);const history=await r.json();const rows=history.messages.filter(row=>row.requestId===submitted.requestId);assert.equal(rows.length,1);assert.equal(rows[0].text,text);assert.equal(history.messages.filter(row=>row.role==='user'&&row.text===text).length,1);return rows[0];}
-   await until(canonical);const visibleRowsBeforeReconnect=await visible(text).count();
+   await until(canonical);const upgradesBeforeSettlement=h.p.controls.upgrades;
+   const automatic=await until(async()=>{assert.equal(await visible(text).count(),1);assert.equal(await visible('Accepted by computer · waiting for transcript').count(),0);});
+   assert.equal(h.p.controls.upgrades,upgradesBeforeSettlement,'pending must settle without reconnect');
+   const visibleRowsBeforeReconnect=await visible(text).count();
    const upgrades=h.p.controls.upgrades;h.p.disconnect();await until(()=>assert.ok(h.p.controls.upgrades>upgrades));await until(async()=>assert.equal(await visible(text).count(),1));await canonical();
    assert.equal(h.p.controls.writes.filter(w=>w.path==='/mobile/v1/submissions'&&w.body.requestId===submitted.requestId).length,1);
    assert.equal(h.p.controls.writes.filter(w=>w.path==='/mobile/v1/submissions'&&w.body.text===text).length,1);
-   check(stage,{requestId:submitted.requestId,droppedMethod:drop.method,droppedStatus:drop.status,recoveredReceipt:receipt.status,submissions:1,canonicalHistoryItems:1,visibleRowsBeforeReconnect,visibleRowsAfterReconnect:1});
+   check(stage,{requestId:submitted.requestId,droppedMethod:drop.method,droppedStatus:drop.status,recoveredReceipt:receipt.status,submissions:1,canonicalHistoryItems:1,automaticSettlementMs:automatic.ms,visibleRowsBeforeReconnect,visibleRowsAfterReconnect:1});
   }finally{page.off('request',observe);}
  }
  async function pair(h){const code=await h.op('pairing.create');await page.locator('textarea').fill(JSON.stringify({...code,url:h.p.url}));await page.getByRole('switch').check();await page.getByText('Connect to my host',{exact:true}).click();await until(async()=>{const s=await h.op('status');assert.ok(s.pending.length);await h.op('pairing.approve',{requestId:s.pending[0].requestId??s.pending[0].id})});await visible('Connected').waitFor();}

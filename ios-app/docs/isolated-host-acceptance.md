@@ -58,8 +58,8 @@ error assertion (desktop rename visible in 7785 ms). Review found its lost-ack c
 dropped a missing-receipt GET, so that entry did not prove loss of a successful
 submission response. The corrected scenario below targets only the exact successful
 POST, records its request ID/status, observes the browser itself retrieve the accepted
-receipt for that ID, and asserts one POST and one canonical history/UI item after
-reconnect. Independent SDK/outbox tests do not replace this actual UI check.
+receipt for that ID, and asserts one POST and one canonical history/UI item automatically before
+reconnect, then verifies reconnect does not duplicate it. Independent SDK/outbox tests do not replace this actual UI check.
 
 Unchanged baseline gates passed: production Bridge integration
 21, TGZ boot 5/migration 6, Bridge delivery 11 and companion delivery 7. Companion
@@ -85,8 +85,13 @@ also ensure receipt GETs, other POST endpoints and unsuccessful POST responses
 cannot consume the successful-submission fault. The provider's named avatar palette
 uses resolved theme darkness; System appearance changes invalidate its memo.
 
-Known acceptance boundary: if canonical stream history arrives before receipt
-recovery, the existing local accepted/pending row can remain alongside it until a
-new history/stream reset. The focused loss scenario records the pre-reconnect row
-count and asserts one canonical history item and one visible row after explicit
-reconnect; it does not claim immediate UI deduplication before that refresh.
+The late-receipt convergence defect discovered during this scenario is corrected:
+the owning outbox retains exact canonical request/conversation/Session/device
+evidence from canonical user rows (excluding local/streaming placeholders) and
+settles it when the accepted receipt arrives, in either order. It
+never treats transcript visibility alone as acceptance and leaves unconfirmed
+persistence untouched. The actual UI settled automatically in 297 ms before any
+forced reconnect (one POST, one canonical record, one visible row); a subsequent
+reconnect retained that single row. Core/outbox regression coverage requires no
+second history/stream update, and checks Session mismatch, disposal and owner
+isolation. Evidence is ephemeral; storage and request identities are unchanged.

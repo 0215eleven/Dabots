@@ -81,6 +81,11 @@ export function createOutbox(options: OutboxOptions) {
   let items: OutboxItem[] = [];
   let disposed = false;
   const unpersisted = new Set<string>();
+  // Ephemeral evidence belongs only to this host/device outbox. A canonical row
+  // may arrive before its accepted receipt; retain its exact identity until both
+  // are present, without treating transcript visibility as delivery acceptance.
+  const canonical = new Map<string, string>();
+  const identity = (item: OutboxItem) => JSON.stringify([item.conversationId, item.sessionId, item.deviceId, item.requestId]);
   let loaded: Promise<void> | undefined;
   let timer: unknown;
   let version = 0;
@@ -106,6 +111,16 @@ export function createOutbox(options: OutboxOptions) {
     return persist(required);
   };
   const find = (requestId: string) => items.find(item => item.requestId === requestId);
+  async function settleAccepted() {
+    if (disposed) return;
+    const next = items.filter(item => !(item.state === "sent" && item.persistence !== "unconfirmed"
+      && !unpersisted.has(item.requestId) && canonical.get(item.requestId) === identity(item)));
+    for (const requestId of canonical.keys()) if (!next.some(item => item.requestId === requestId)) canonical.delete(requestId);
+    if (next.length === items.length) return;
+    items = next;
+    emit();
+    await persist();
+  }
   function load() {
     loaded ??= options.store.load().then(saved => {
       // Whatever was in flight when the app died is uncertain, not failed: reconcile by receipt.
@@ -148,6 +163,7 @@ export function createOutbox(options: OutboxOptions) {
       if (receipt.status !== "accepted") { await patch(item.requestId, { state: "unconfirmed", error: "The host has not confirmed this message yet." }); return; }
       void transport.remember?.(submission, receipt)?.catch(() => {});
       await patch(item.requestId, { state: "sent", error: undefined, retryAt: undefined });
+      await settleAccepted();
     } catch (error) {
       const code = status(error);
       if (code !== undefined && REJECTED.includes(code)) { await patch(item.requestId, { state: "rejected", error: message(error) }); return; }
@@ -254,15 +270,18 @@ export function createOutbox(options: OutboxOptions) {
       } finally { unpersisted.delete(requestId); }
       void flush(item.conversationId).catch(() => {});
     },
-    /** Drop accepted items whose canonical transcript row has arrived. */
-    async settle(conversationId: string, transcript: Pick<Message, "requestId">[]) {
+    /** Reconcile canonical rows and accepted receipts in either arrival order. */
+    async settle(conversationId: string, transcript: Pick<Message, "requestId" | "sessionId" | "role" | "localSubmission" | "pending" | "delivery">[]) {
       await load();
-      const seen = new Set(transcript.map(row => row.requestId).filter(Boolean));
-      const next = items.filter(item => !(item.conversationId === conversationId && item.state === "sent" && seen.has(item.requestId)));
-      if (next.length === items.length) return;
-      items = next;
-      emit();
-      await persist();
+      if (disposed) return;
+      for (const item of items) {
+        if (item.conversationId !== conversationId || !item.deviceId || !item.sessionId
+          || item.persistence === "unconfirmed" || unpersisted.has(item.requestId)) continue;
+        if (transcript.some(row => row.role === "user" && !row.localSubmission && !row.pending && !row.delivery
+          && row.requestId === item.requestId && row.sessionId === item.sessionId))
+          canonical.set(item.requestId, identity(item));
+      }
+      await settleAccepted();
     },
     /** Network or foreground recovery: ignore backoff and try everything that is queued. */
     async resume() {
@@ -270,7 +289,7 @@ export function createOutbox(options: OutboxOptions) {
       items = items.map(item => item.state === "queued" ? { ...item, retryAt: undefined } : item);
       await flush();
     },
-    dispose() { disposed = true; clearTimer(timer); listeners.clear(); },
+    dispose() { disposed = true; canonical.clear(); clearTimer(timer); listeners.clear(); },
   };
 }
 export type Outbox = ReturnType<typeof createOutbox>;
