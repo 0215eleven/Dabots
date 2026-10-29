@@ -9,6 +9,8 @@ config.resolver.nodeModulesPaths = [path.resolve(__dirname, "node_modules")];
 const shims = new Map([
   ["@solidjs/web", path.resolve(__dirname, "src/openbot/shims/solidjs-web.ts")],
   ["solid-js", path.resolve(__dirname, "src/openbot/shims/solid-js.ts")],
+  // The engine-only build on every platform; the web "browser" build needs Solid's DOM renderer.
+  ["@norbert_bodziony/bloub", path.resolve(__dirname, "node_modules/@norbert_bodziony/bloub/dist/package/server.js")],
 ]);
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   const shim = shims.get(moduleName);

@@ -4,3 +4,4 @@ export async function foregroundNotification(_title:string,_data:Record<string,u
 export function notificationResponses(_callback:(data:Record<string,unknown>)=>void) { return ()=>{}; }
 export const systemPushConfigured = false;
 export async function localNotificationsAllowed() { return false; }
+export function notificationArrivals(_callback:(data:Record<string,unknown>)=>void) { return ()=>{}; }

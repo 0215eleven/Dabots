@@ -15,7 +15,9 @@ function update(value: boolean): void {
 function subscribe(listener: () => void) {
   if (!started) {
     started = true;
-    void AccessibilityInfo.isReduceTransparencyEnabled().then(update, () => update(false));
+    // Web (the design preview) has no such setting.
+    if (typeof AccessibilityInfo.isReduceTransparencyEnabled !== "function") update(false);
+    else void AccessibilityInfo.isReduceTransparencyEnabled().then(update, () => update(false));
     AccessibilityInfo.addEventListener("reduceTransparencyChanged", update);
   }
   listeners.add(listener);

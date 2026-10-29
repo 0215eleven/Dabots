@@ -19,6 +19,7 @@ import { setColorMode, setThemePreferences, type ColorMode } from "../theme";
 import { LocalePreference, setHostLocale, setLocalePreference } from "../i18n";
 import { errorText } from "../types";
 import { openHost } from "./open-host";
+import { designPreview, previewClient, previewHosts } from "../preview/preview-session";
 
 type Workspace = ReturnType<typeof useWorkspace>;
 export interface Session {
@@ -72,6 +73,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   // Restore saved computers and open the active one.
   useEffect(() => {
+    if (designPreview) {
+      setHosts(previewHosts);
+      setHost(previewHosts[0]);
+      setClient(previewClient());
+      setLoading(false);
+      return;
+    }
     let mounted = true;
     void Promise.all([readCache<Host[]>("app", "hosts"), readCache<Host>("app", "host"), readCache<string>("app", "activeHost")])
       .then(async ([saved, legacy, active]) => {

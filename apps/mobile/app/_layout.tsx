@@ -1,7 +1,8 @@
 import "../global.css";
 import "react-native-reanimated";
 import React from "react";
-import { View } from "react-native";
+import { LogBox, View } from "react-native";
+import { designPreview } from "../src/preview/preview-session";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { HeroUINativeProvider } from "heroui-native/provider";
@@ -12,6 +13,9 @@ import { MotionProvider } from "../src/components/Motion";
 import { LocaleBridge } from "../src/openbot/locale-bridge";
 import { SessionProvider } from "../src/session/SessionProvider";
 import { useTheme } from "../src/theme";
+
+// Screenshots of the design preview should show the screens, not development warnings.
+if (designPreview) LogBox.ignoreAllLogs(true);
 
 function Root() {
   const t = useTheme();
