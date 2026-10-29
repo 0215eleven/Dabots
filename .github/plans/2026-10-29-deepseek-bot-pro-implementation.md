@@ -1,6 +1,6 @@
 # DeepSeek Bot Pro Repository Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Consolidate the existing repository into a reproducible desktop DSH plugin and an iOS app producing unsigned lite IPA archives.
 
@@ -71,11 +71,11 @@
 
 **Interfaces:** Root instructions describe only setup/check, plugin TGZ and iOS unsigned build. Historical provenance is retained with source references, without implying previous checks cover this branch.
 
-- [ ] Remove standalone Electron/upstream development/docker/demo trees and obsolete build entry points only after dependency references are relocated or proven unused.
-- [ ] Keep relevant license/attribution material with code; migrate install, relay, compatibility and development docs to their product owner and fix links.
-- [ ] Replace root docs with concise DeepSeek Bot Pro guidance; document two artifacts, actual native/signing limits and preserved compatibility IDs.
-- [ ] Verify root tracked directories, active paths, legal notices, documentation links, source audit and all baseline suites.
-- [ ] Commit. Expected: tracked product directories are plugin and ios-app, plus .github support.
+- [x] Remove standalone Electron/upstream development/docker/demo trees and obsolete build entry points only after dependency references are relocated or proven unused.
+- [x] Keep relevant license/attribution material with code; migrate install, relay, compatibility and development docs to their product owner and fix links.
+- [x] Replace root docs with concise DeepSeek Bot Pro guidance; document two artifacts, actual native/signing limits and preserved compatibility IDs.
+- [x] Verify root tracked directories, active paths, legal notices, documentation links, source audit and all baseline suites.
+- [x] Commit. Expected: tracked product directories are plugin and ios-app, plus .github support.
 
 ### Task 5: Verify the whole product and save reusable environment instructions
 
@@ -83,8 +83,10 @@
 
 **Interfaces:** A fresh agent can install/test/run using only repository state and saved setup instructions. PR/Actions API availability is verified separately from native Git access.
 
-- [ ] Run the complete root check, production Bridge integration, suite boot/migration, packed-delivery and source/package audit; inspect current result counts and cleanup.
-- [ ] Verify the iOS JavaScript development workflow and actual unsigned artifact if a macOS build becomes available; preserve failed/unrun outcomes explicitly.
-- [ ] Request a fresh whole-branch review, fix material findings with regression evidence and run affected/full checks.
-- [ ] Update and test saved installation/startup instructions for the relocated source. Confirm draft persistence without claiming publication.
-- [ ] Leave reviewable commits; push/create a draft PR if supported by existing authorization and available access. Do not merge or publish releases. Report exact outstanding access/native-build limitations.
+- [x] Run the complete root check, production Bridge integration, suite boot/migration, packed-delivery and source/package audit; inspect current result counts and cleanup.
+- [x] Verify the iOS JavaScript development workflow and actual unsigned artifact if a macOS build becomes available; preserve failed/unrun outcomes explicitly.
+- [x] Request a fresh whole-branch review, fix material findings with regression evidence and run affected/full checks.
+- [x] Update and test saved installation/startup instructions for the relocated source. Confirm draft persistence without claiming publication.
+- [x] Leave reviewable commits; push/create a draft PR if supported by existing authorization and available access. Do not merge or publish releases. Report exact outstanding access/native-build limitations.
+
+Completion evidence: `2026-10-29-deepseek-bot-pro-validation.md`. Draft PR creation was attempted but blocked by the current GitHub API network policy; the branch is pushed. Native Xcode/IPA/device checks remain explicitly unrun. Cloud draft saving was confirmed, but publication and fresh-task restoration are separate.
