@@ -145,3 +145,9 @@ bundles 4967 iOS modules plus 118 DOM modules, with one Hermes bundle and 37 ass
 These are Linux JavaScript/export checks. Task 4's unchanged native prebuild,
 engine/Bridge/SDK and packed integration evidence remains at its own source point;
 Xcode compilation, IPA, signing and physical-device behavior remain unrun.
+
+Task 5 source packaging follows a clean implementation commit: production
+`ds-bot@0.2.0-pro.1`,85 archive files,original identities/licenses retained.
+Source/archive audit passes3826 records with zero findings. After the evidence
+documentation commit, refresh the package metadata from that clean final HEAD;
+all changed production hashes must still match the verified exports.
