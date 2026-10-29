@@ -1,6 +1,9 @@
 import "../global.css";
 import "react-native-reanimated";
 import React from "react";
+import {DsProvider} from "../src/ds/provider";
+import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
+const queryClient = new QueryClient();
 import { LogBox, View } from "react-native";
 import { designPreview } from "../src/preview/preview-session";
 import { Stack } from "expo-router";
@@ -25,7 +28,12 @@ function Root() {
       <Stack screenOptions={{ contentStyle: { backgroundColor: t.bg } }}>
         <Stack.Screen name="index" options={{ headerTransparent: true, headerShadowVisible: false, title: "" }} />
         <Stack.Screen name="settings" options={{ headerTransparent: true, headerShadowVisible: false, title: "", headerBackButtonDisplayMode: "minimal" }} />
-        <Stack.Screen name="chat/[id]" options={{ headerBackButtonDisplayMode: "minimal" }} />
+        <Stack.Screen name="chat/[agentId]" options={{ headerBackButtonDisplayMode: "minimal" }} />
+        <Stack.Screen name="add-agent" options={{title:"Add Bot",presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
+        <Stack.Screen name="add-channel" options={{title:"New group",presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
+        <Stack.Screen name="agent-info/[agentId]" options={{title:"Bot",presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
+        <Stack.Screen name="channel-info/[channelId]" options={{title:"Group",presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
+        <Stack.Screen name="+not-found" options={{title:"Unavailable"}} />
         <Stack.Screen name="pairing" options={{ presentation: "modal", headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="classic" options={{ headerShown: false }} />
       </Stack>
@@ -41,8 +49,7 @@ export default function Layout() {
           <HeroUINativeProvider>
             <MotionProvider>
               <SessionProvider>
-                <LocaleBridge />
-                <Root />
+                <QueryClientProvider client={queryClient}><DsProvider><LocaleBridge /><Root /></DsProvider></QueryClientProvider>
               </SessionProvider>
             </MotionProvider>
           </HeroUINativeProvider>

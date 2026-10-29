@@ -1,7 +1,7 @@
 import { Input, TextArea, TextField, Typography } from "heroui-native";
 import { View } from "react-native";
 
-import type { SheetFormFieldProps } from "@/shared/components/sheet-form-field.types";
+import type { SheetFormFieldProps } from "@legacy/shared/components/sheet-form-field.types";
 
 export function SheetFormField({
   hint,

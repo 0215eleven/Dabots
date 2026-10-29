@@ -1,4 +1,4 @@
-import type { MobileTextKey, MobileTranslate } from "@openbot/i18n/mobile";
+import type { MobileTextKey, MobileTranslate } from "@legacy/pkg/i18n/mobile";
 
 // Hermes has no Intl.DisplayNames, so the dictation language picker names
 // locales from catalog keys. They cover the languages and regions that the iOS

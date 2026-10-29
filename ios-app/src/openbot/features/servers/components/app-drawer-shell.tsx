@@ -24,11 +24,11 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 import { useSession } from "../../../../session/SessionProvider";
-import { AppDrawerShownContext, AppDrawerShownOnUIContext } from "@/features/servers/components/app-drawer-activity";
-import { ServerDrawerContent } from "@/features/servers/components/server-drawer-content";
-import { haptics } from "@/shared/lib/haptics";
-import { isAndroid } from "@/shared/lib/platform";
-import { useText } from "@/shared/lib/text";
+import { AppDrawerShownContext, AppDrawerShownOnUIContext } from "@legacy/features/servers/components/app-drawer-activity";
+import { ServerDrawerContent } from "@legacy/features/servers/components/server-drawer-content";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { isAndroid } from "@legacy/shared/lib/platform";
+import { useText } from "@legacy/shared/lib/text";
 
 interface AppDrawerContextValue {
   openDrawer: () => void;

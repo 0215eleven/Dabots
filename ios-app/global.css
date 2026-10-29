@@ -3,8 +3,8 @@
 
 @import "heroui-native/styles";
 
-@import "./src/openbot/brand/tokens.css";
-@import "./src/openbot/brand/tokens-native.css";
+@import "./openbot/packages/brand/src/tokens.css";
+@import "./openbot/packages/brand/src/tokens-native.css";
 
 @theme inline {
   --color-sheet: var(--openbot-bg-sheet);
@@ -121,3 +121,5 @@
     --font-mono: monospace;
   }
 }
+
+@source "./openbot/mobile/src";

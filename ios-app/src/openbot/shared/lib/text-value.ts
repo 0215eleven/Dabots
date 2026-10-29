@@ -5,7 +5,7 @@ import {
   type MobileTranslate,
   mobileTranslateFor,
   type TranslatedLocale,
-} from "@openbot/i18n/mobile";
+} from "@legacy/pkg/i18n/mobile";
 import { type UserErrorDetails, userErrorDetails, userErrorMessage } from "./user-errors";
 
 /**

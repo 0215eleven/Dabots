@@ -1,9 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+
 import { Image } from "expo-image";
 import { type ReactNode, useId, useState } from "react";
 import { View } from "react-native";
 import Svg, { Defs, FeColorMatrix, Filter, Image as SvgImage } from "react-native-svg";
-import { useQueryScope } from "@/features/auth/context/mobile-session-context";
+
 import { DISCONNECTED_APPEARANCE } from "@/features/workspace/components/use-connection-appearance";
 import {
   useMobileWorkspaceReader,
@@ -28,29 +28,9 @@ export function AgentPhoto({
   size,
   children,
 }: AgentPhotoProps & { size: number; children: ReactNode }) {
-  const workspace = useMobileWorkspaceReader();
-  const queryScope = useQueryScope();
-  const avatarUrl = useMobileWorkspaceSelector((current) =>
-    imageUrl === undefined
-      ? current.agents.find((candidate) => candidate.id === agentId && candidate.serverId === serverId)?.avatarUrl
-      : undefined,
-  );
-  const online = useMobileWorkspaceSelector((current) =>
-    current.servers.some((server) => server.id === serverId && showsOnline(server)),
-  );
-  const photo = useQuery({
-    queryKey: queryKeys.agentAvatar(queryScope, serverId, agentId, avatarUrl),
-    enabled: imageUrl === undefined && Boolean(avatarUrl && agentId && serverId && online),
-    queryFn: () => {
-      if (!agentId || !serverId || !avatarUrl) throw new Error("The agent avatar is unavailable.");
-      return workspace().loadAgentAvatar(agentId, avatarUrl, serverId);
-    },
-    // A saved photo shows at once, also before the server connects.
-    initialData: () =>
-      agentId && serverId && avatarUrl ? (savedAgentAvatar(serverId, agentId, avatarUrl) ?? undefined) : undefined,
-    staleTime: Infinity,
-  });
-  const uri = imageUrl === undefined ? photo.data : imageUrl;
+  const avatarUrl = useMobileWorkspaceSelector(current => current.agents.find(agent => agent.id === agentId && agent.serverId === serverId)?.avatarUrl);
+  // DS avatar images come from the canonical Bot, not an OpenBot avatar endpoint.
+  const uri = imageUrl === undefined ? avatarUrl : imageUrl;
   const [failed, setFailed] = useState<string | null>(null);
   const filterId = `photo-offline-${useId().replaceAll(":", "")}`;
   return uri && uri !== failed ? (

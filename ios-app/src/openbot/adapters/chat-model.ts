@@ -3,10 +3,10 @@
 import type { Message } from "@ds-bot/mobile-sdk";
 import type { OutboxItem } from "../../outbox/outbox";
 import type { Bot, Room, TeamState } from "../../types";
-import type { ChatBubbleMessage, ChatMessage } from "@/features/chat/model/chat-messages";
-import type { OutboxRowStatus } from "@/features/chat/components/chat-outbox-status";
-import type { ChatTarget } from "@/features/chat/model/chat-target";
-import type { MobileAgent } from "@/features/workspace/model/workspace-types";
+import type { ChatBubbleMessage, ChatMessage } from "@legacy/features/chat/model/chat-messages";
+import type { OutboxRowStatus } from "@legacy/features/chat/components/chat-outbox-status";
+import type { ChatTarget } from "@legacy/features/chat/model/chat-target";
+import type { MobileAgent } from "@legacy/features/workspace/model/workspace-types";
 
 export const outboxRowId = (requestId: string) => `outbox:${requestId}`;
 

@@ -3,10 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useDerivedValue, useFrameCallback, useSharedValue } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { useAppDrawerShownOnUI } from "@/features/servers/components/app-drawer-activity";
-import { useMotionPreference } from "@/shared/lib/motion";
-import { isAndroid } from "@/shared/lib/platform";
-import { useScreenFocusedWhile } from "@/shared/lib/use-screen-focused-while";
+import { useAppDrawerShownOnUI } from "@legacy/features/servers/components/app-drawer-activity";
+import { useMotionPreference } from "@legacy/shared/lib/motion";
+import { isAndroid } from "@legacy/shared/lib/platform";
+import { useScreenFocusedWhile } from "@legacy/shared/lib/use-screen-focused-while";
 
 import {
   type BloubActivityFrame,

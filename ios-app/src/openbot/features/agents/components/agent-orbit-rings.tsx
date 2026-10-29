@@ -18,9 +18,9 @@ import {
   orbitFrames,
   orbitRings,
   prepareOrbitFrames,
-} from "@/features/agents/model/bloub-orbit";
-import { useMotionPreference } from "@/shared/lib/motion";
-import { useScreenFocusedWhile } from "@/shared/lib/use-screen-focused-while";
+} from "@legacy/features/agents/model/bloub-orbit";
+import { useMotionPreference } from "@legacy/shared/lib/motion";
+import { useScreenFocusedWhile } from "@legacy/shared/lib/use-screen-focused-while";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 /**

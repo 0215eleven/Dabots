@@ -1,5 +1,5 @@
 import { type AvatarMood, avatarMoodPresentation } from "@openbot/brand/bloub-avatar-motion";
-import type { AvatarHue } from "@openbot/contracts/ipc";
+import type { AvatarHue } from "@legacy/pkg/contracts/ipc";
 import { memo, useMemo } from "react";
 import Animated, {
   convertToRGBA,
@@ -10,23 +10,23 @@ import Animated, {
   useDerivedValue,
 } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
-import { useAgentColorTransition } from "@/features/agents/components/agent-color-glow";
-import { AgentOrbitRings } from "@/features/agents/components/agent-orbit-rings";
-import { useBloubActivityFrame } from "@/features/agents/components/use-bloub-activity-frame";
+import { useAgentColorTransition } from "@legacy/features/agents/components/agent-color-glow";
+import { AgentOrbitRings } from "@legacy/features/agents/components/agent-orbit-rings";
+import { useBloubActivityFrame } from "@legacy/features/agents/components/use-bloub-activity-frame";
 import {
   type BloubActivityFrame,
   bloubActivityGeometry,
   bloubRestEngineFrame,
   getBloubAvatarColor,
-} from "@/features/agents/model/bloub-activity";
-import { useAgentActivity } from "@/features/workspace/components/use-agent-activity";
+} from "@legacy/features/agents/model/bloub-activity";
+import { useAgentActivity } from "@legacy/features/workspace/components/use-agent-activity";
 import {
   DISCONNECTED_APPEARANCE,
   useConnectionAppearance,
-} from "@/features/workspace/components/use-connection-appearance";
-import { useMobileWorkspaceSelector } from "@/features/workspace/context/mobile-workspace-context";
-import { agentActivityMood } from "@/features/workspace/model/agent-activity";
-import { showsOnline } from "@/features/workspace/model/server-status";
+} from "@legacy/features/workspace/components/use-connection-appearance";
+import { useMobileWorkspaceSelector } from "@legacy/features/workspace/context/mobile-workspace-context";
+import { agentActivityMood } from "@legacy/features/workspace/model/agent-activity";
+import { showsOnline } from "@legacy/features/workspace/model/server-status";
 import { AgentPhoto, type AgentPhotoProps } from "./agent-photo";
 
 interface BloubAvatarProps extends AgentPhotoProps {

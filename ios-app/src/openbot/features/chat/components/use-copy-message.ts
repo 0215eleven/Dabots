@@ -1,8 +1,8 @@
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useRef, useState } from "react";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
-import { haptics } from "@/shared/lib/haptics";
-import { useText } from "@/shared/lib/text";
+import { showFailureAlert } from "@legacy/features/analytics/failure-reports";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { useText } from "@legacy/shared/lib/text";
 
 /** How long Copy shows its check mark, as on desktop. */
 const COPIED_MS = 1_400;

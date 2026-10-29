@@ -276,10 +276,10 @@ export interface MobileWorkspaceContextValue {
   hiddenChannelIds: string[];
   hideChannel: (channelId: string, serverId: string) => boolean;
   unhideChannel: (channelId: string, serverId: string) => boolean;
-  toggleChannelPin: (channelId: string, serverId: string) => ToggleAgentPinResult;
+  toggleChannelPin: (channelId: string, serverId: string) => ToggleAgentPinResult | Promise<ToggleAgentPinResult>;
   /** The pinned workflows of each server, in the order the drawer shows them. Saved on this device. */
   pinnedWorkflowIds: Readonly<Record<string, readonly string[]>>;
-  toggleWorkflowPin: (workflowId: string, serverId: string) => ToggleAgentPinResult;
+  toggleWorkflowPin: (workflowId: string, serverId: string) => ToggleAgentPinResult | Promise<ToggleAgentPinResult>;
   /** Drops the pins of workflows that the host no longer lists. Call only with a complete list. */
   reconcileWorkflowPins: (serverId: string, workflowIds: readonly string[]) => void;
   conversationStore: MobileConversationStore;
@@ -687,7 +687,7 @@ export interface MobileWorkspaceContextValue {
   markAgentUnread: (agentId: string) => void;
   /** Marks every unread chat of the active server read. It rejects when a chat stays unread. */
   markAllRead: () => Promise<void>;
-  toggleAgentPin: (agentId: string) => ToggleAgentPinResult;
+  toggleAgentPin: (agentId: string) => ToggleAgentPinResult | Promise<ToggleAgentPinResult>;
 }
 
 /**

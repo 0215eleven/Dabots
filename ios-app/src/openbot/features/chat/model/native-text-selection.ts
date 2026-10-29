@@ -1,5 +1,5 @@
 import { isRunningInExpoGo } from "expo";
-import { isIOS } from "@/shared/lib/platform";
+import { isIOS } from "@legacy/shared/lib/platform";
 
 /**
  * Whether message text is a native iOS text view that selects a range in place. iOS `Text` copies

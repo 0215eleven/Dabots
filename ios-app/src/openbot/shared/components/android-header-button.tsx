@@ -5,11 +5,11 @@ import type { LucideIcon } from "lucide-react-native";
 import ArrowLeft from "lucide-react-native/icons/arrow-left";
 import { type ReactNode, useLayoutEffect, useMemo, useRef } from "react";
 import { Pressable, View, type ViewStyle } from "react-native";
-import { ChromeGlassSheen } from "@/shared/components/chrome-glass-sheen";
-import { useChromeGlass } from "@/shared/lib/chrome-glass";
-import { haptics } from "@/shared/lib/haptics";
-import { isAndroid } from "@/shared/lib/platform";
-import { useText } from "@/shared/lib/text";
+import { ChromeGlassSheen } from "@legacy/shared/components/chrome-glass-sheen";
+import { useChromeGlass } from "@legacy/shared/lib/chrome-glass";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { isAndroid } from "@legacy/shared/lib/platform";
+import { useText } from "@legacy/shared/lib/text";
 
 /** The 40 dp round state layer of a Material icon button. */
 const ICON_RIPPLE = { borderless: true, radius: 20 } as const;

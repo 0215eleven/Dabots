@@ -1,10 +1,10 @@
 import { KeyboardAwareLegendList } from "@legendapp/list/keyboard";
 import type { AnchoredEndSpaceConfig } from "@legendapp/list/react-native";
-import { expandAttachmentReferences } from "@openbot/contracts/attachment-references";
-import { expandChatTagReferences } from "@openbot/contracts/chat-tag-references";
-import type { AttachmentSummary, BrowserTakeoverRequest } from "@openbot/contracts/ipc";
-import { markdownPlainText } from "@openbot/contracts/markdown-preview-text";
-import type { MobileTextKey } from "@openbot/i18n/mobile";
+import { expandAttachmentReferences } from "@legacy/pkg/contracts/attachment-references";
+import { expandChatTagReferences } from "@legacy/pkg/contracts/chat-tag-references";
+import type { AttachmentSummary, BrowserTakeoverRequest } from "@legacy/pkg/contracts/ipc";
+import { markdownPlainText } from "@legacy/pkg/contracts/markdown-preview-text";
+import type { MobileTextKey } from "@legacy/pkg/i18n/mobile";
 import { useIsFocused } from "expo-router";
 import { Button, Typography } from "heroui-native";
 import type { LucideIcon } from "lucide-react-native";
@@ -51,18 +51,18 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useCSSVariable } from "uniwind";
-import { BloubAvatarThumbnail } from "@/features/agents/components/bloub-avatar";
-import { getBloubAvatarColor } from "@/features/agents/model/bloub-activity";
-import { ChatActivityRow, type ChatActivitySpec } from "@/features/chat/components/chat-activity-row";
-import { type ApprovalDecision, approvalTitle, ChatApprovalCard } from "@/features/chat/components/chat-approval-card";
-import { ChatExchangeGroup, ChatExchangeMarker } from "@/features/chat/components/chat-exchange-marker";
-import { ChatMarkdown } from "@/features/chat/components/chat-markdown";
-import { ChatPlan } from "@/features/chat/components/chat-plan";
-import { ChatQuestionPrompt } from "@/features/chat/components/chat-question-prompt";
-import { useActivityPresence } from "@/features/chat/components/use-activity-presence";
-import { CHAT_ROW_GAP, type ChatMotion } from "@/features/chat/components/use-chat-motion";
-import { useMessageArrivals } from "@/features/chat/components/use-message-arrivals";
-import type { QuestionPromptController } from "@/features/chat/components/use-question-prompt";
+import { BloubAvatarThumbnail } from "@legacy/features/agents/components/bloub-avatar";
+import { getBloubAvatarColor } from "@legacy/features/agents/model/bloub-activity";
+import { ChatActivityRow, type ChatActivitySpec } from "@legacy/features/chat/components/chat-activity-row";
+import { type ApprovalDecision, approvalTitle, ChatApprovalCard } from "@legacy/features/chat/components/chat-approval-card";
+import { ChatExchangeGroup, ChatExchangeMarker } from "@legacy/features/chat/components/chat-exchange-marker";
+import { ChatMarkdown } from "@legacy/features/chat/components/chat-markdown";
+import { ChatPlan } from "@legacy/features/chat/components/chat-plan";
+import { ChatQuestionPrompt } from "@legacy/features/chat/components/chat-question-prompt";
+import { useActivityPresence } from "@legacy/features/chat/components/use-activity-presence";
+import { CHAT_ROW_GAP, type ChatMotion } from "@legacy/features/chat/components/use-chat-motion";
+import { useMessageArrivals } from "@legacy/features/chat/components/use-message-arrivals";
+import type { QuestionPromptController } from "@legacy/features/chat/components/use-question-prompt";
 import {
   type ChatBubbleMessage,
   type ChatMessage,
@@ -71,16 +71,16 @@ import {
   groupExchangeMarkers,
   indexChatMessages,
   type RoutineMarkerEvent,
-} from "@/features/chat/model/chat-messages";
-import { useAgentColorMessages } from "@/features/settings/model/message-color";
-import { useConnectionAppearance } from "@/features/workspace/components/use-connection-appearance";
-import type { MobileAgent } from "@/features/workspace/context/mobile-workspace-context";
-import { agentActivityMood, type MobileAgentActivity } from "@/features/workspace/model/agent-activity";
-import type { PendingApproval } from "@/features/workspace/model/pending-approvals";
-import { haptics } from "@/shared/lib/haptics";
-import { useMotionPreference, useReducedMotion } from "@/shared/lib/motion";
-import { isAndroid } from "@/shared/lib/platform";
-import { useText } from "@/shared/lib/text";
+} from "@legacy/features/chat/model/chat-messages";
+import { useAgentColorMessages } from "@legacy/features/settings/model/message-color";
+import { useConnectionAppearance } from "@legacy/features/workspace/components/use-connection-appearance";
+import type { MobileAgent } from "@legacy/features/workspace/context/mobile-workspace-context";
+import { agentActivityMood, type MobileAgentActivity } from "@legacy/features/workspace/model/agent-activity";
+import type { PendingApproval } from "@legacy/features/workspace/model/pending-approvals";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { useMotionPreference, useReducedMotion } from "@legacy/shared/lib/motion";
+import { isAndroid } from "@legacy/shared/lib/platform";
+import { useText } from "@legacy/shared/lib/text";
 import { mentionDraft } from "../model/chat-mentions";
 import type { ChatTarget } from "../model/chat-target";
 import { nativeTextSelection } from "../model/native-text-selection";

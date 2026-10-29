@@ -1,4 +1,4 @@
-import type { MobileAgent } from "@/features/workspace/model/workspace-types";
+import type { MobileAgent } from "@legacy/features/workspace/model/workspace-types";
 
 export type ChatTarget =
   | (Pick<MobileAgent, "id" | "serverId" | "name" | "avatarSeed" | "avatarHue"> & { kind: "agent" })

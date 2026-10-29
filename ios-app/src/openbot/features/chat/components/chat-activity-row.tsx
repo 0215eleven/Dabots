@@ -1,8 +1,8 @@
-import type { AvatarMood } from "@/features/workspace/model/agent-activity";
+import type { AvatarMood } from "@legacy/features/workspace/model/agent-activity";
 import { type ColorValue, View } from "react-native";
 import Animated, { Easing, ReduceMotion, withTiming } from "react-native-reanimated";
-import { BloubAvatarPreview } from "@/features/agents/components/bloub-avatar";
-import type { MobileAgent } from "@/features/workspace/model/workspace-types";
+import { BloubAvatarPreview } from "@legacy/features/agents/components/bloub-avatar";
+import type { MobileAgent } from "@legacy/features/workspace/model/workspace-types";
 import { ThinkingTextGradient } from "./thinking-text-gradient";
 
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);

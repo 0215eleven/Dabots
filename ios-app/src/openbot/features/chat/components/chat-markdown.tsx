@@ -5,10 +5,10 @@ import {
   fileReferenceTone,
   isFileReference,
 } from "@openbot/brand/file-reference";
-import { chatMathStart } from "@openbot/contracts/chat-math";
-import { chatPreviewKind } from "@openbot/contracts/chat-preview";
-import { chatTagReferences } from "@openbot/contracts/chat-tag-references";
-import type { MobileTranslate } from "@openbot/i18n/mobile";
+import { chatMathStart } from "@legacy/pkg/contracts/chat-math";
+import { chatPreviewKind } from "@legacy/pkg/contracts/chat-preview";
+import { chatTagReferences } from "@legacy/pkg/contracts/chat-tag-references";
+import type { MobileTranslate } from "@legacy/pkg/i18n/mobile";
 import * as Linking from "expo-linking";
 import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
@@ -29,19 +29,19 @@ import {
 } from "react-native";
 import { UITextView } from "react-native-uitextview";
 import { useCSSVariable } from "uniwind";
-import { BloubAvatarThumbnail } from "@/features/agents/components/bloub-avatar";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
-import { ChatLinkIcon } from "@/features/chat/components/chat-link-icon";
+import { BloubAvatarThumbnail } from "@legacy/features/agents/components/bloub-avatar";
+import { showFailureAlert } from "@legacy/features/analytics/failure-reports";
+import { ChatLinkIcon } from "@legacy/features/chat/components/chat-link-icon";
 import {
   StreamingBlock,
   StreamingTailText,
   StreamRevealProvider,
-} from "@/features/chat/components/streaming-tail-text";
-import type { MobileAgent } from "@/features/workspace/model/workspace-types";
-import { graphemes } from "@/shared/lib/graphemes";
-import { haptics } from "@/shared/lib/haptics";
-import { useMotionPreference } from "@/shared/lib/motion";
-import { currentText, useText } from "@/shared/lib/text";
+} from "@legacy/features/chat/components/streaming-tail-text";
+import type { MobileAgent } from "@legacy/features/workspace/model/workspace-types";
+import { graphemes } from "@legacy/shared/lib/graphemes";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { useMotionPreference } from "@legacy/shared/lib/motion";
+import { currentText, useText } from "@legacy/shared/lib/text";
 import { parseFinishedChatMarkdown, parseStreamingChatMarkdown } from "../model/chat-markdown-parser";
 import { plainMentionParts } from "../model/chat-mentions";
 import { createReplyReveal, finishedReplyReveal } from "../model/reply-reveal";

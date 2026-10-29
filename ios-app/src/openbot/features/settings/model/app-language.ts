@@ -1,4 +1,4 @@
-import { type AppLanguage, DEFAULT_APP_LANGUAGE, isAppLanguage } from "@openbot/i18n/mobile";
+import { type AppLanguage, DEFAULT_APP_LANGUAGE, isAppLanguage } from "@legacy/pkg/i18n/mobile";
 import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 

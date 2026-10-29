@@ -5,8 +5,8 @@ import Clock from "lucide-react-native/icons/clock";
 import type { PropsWithChildren } from "react";
 import { View } from "react-native";
 import { useCSSVariable, useUniwind } from "uniwind";
-import { type MenuAction, MenuView } from "@/shared/components/menu-view";
-import { useText } from "@/shared/lib/text";
+import { type MenuAction, MenuView } from "@legacy/shared/components/menu-view";
+import { useText } from "@legacy/shared/lib/text";
 import { type OutboxMessage, outboxRetrySafe } from "../model/outbox";
 
 /** A message of this chat that waits on the phone or failed, and what the person can do with it. */

@@ -33,15 +33,7 @@ import { haptics } from "@/shared/lib/haptics";
 import { isAndroid } from "@/shared/lib/platform";
 import { useText } from "@/shared/lib/text";
 
-interface AppDrawerContextValue {
-  openDrawer: () => void;
-  closeDrawer: () => void;
-  openingGesture: PanGesture;
-  /** Turns off the pan that opens the drawer, for a screen whose own horizontal pans need it. */
-  setOpeningBlocked: (blocked: boolean) => void;
-}
-
-const AppDrawerContext = createContext<AppDrawerContextValue | null>(null);
+import {AppDrawerContext,type AppDrawerContextValue} from "./app-drawer-context";
 const DRAWER_SURFACE_MIN_RADIUS = 34;
 // The surface reaches its full corner radius after this part of the opening motion.
 const DRAWER_SURFACE_ROUNDING_PROGRESS = 0.15;

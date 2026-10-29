@@ -21,10 +21,10 @@ import { hostAddress } from "../../../../logic/hosts";
 import type { Route } from "../../../../logic/app-navigation";
 import { useSession } from "../../../../session/SessionProvider";
 import type { Host } from "../../../../storage";
-import { ProfileAvatar } from "@/shared/components/profile-avatar";
-import { haptics } from "@/shared/lib/haptics";
-import { useReducedMotion } from "@/shared/lib/motion";
-import { typeScale } from "@/shared/lib/type-scale";
+import { ProfileAvatar } from "@legacy/shared/components/profile-avatar";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { useReducedMotion } from "@legacy/shared/lib/motion";
+import { typeScale } from "@legacy/shared/lib/type-scale";
 import { ServerDrawerIconButton } from "./server-drawer-icon-button";
 
 const DRAWER_ROW_HEIGHT = 46;

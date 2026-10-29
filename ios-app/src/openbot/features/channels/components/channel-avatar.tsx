@@ -1,10 +1,10 @@
-import type { ChannelSummary } from "@openbot/contracts/ipc";
+import type { ChannelSummary } from "@legacy/pkg/contracts/ipc";
 import { useThemeColor } from "heroui-native/hooks";
 import Folder from "lucide-react-native/icons/folder";
 import { memo } from "react";
 import { View } from "react-native";
-import { BloubAvatarThumbnail } from "@/features/agents/components/bloub-avatar";
-import type { MobileAgent } from "@/features/workspace/model/workspace-types";
+import { BloubAvatarThumbnail } from "@legacy/features/agents/components/bloub-avatar";
+import type { MobileAgent } from "@legacy/features/workspace/model/workspace-types";
 
 export const ChannelAvatar = memo(function ChannelAvatar({
   channel,

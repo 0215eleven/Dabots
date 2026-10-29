@@ -41,38 +41,4 @@ function filterMobilePayload(event: TrackHandlerPayload): boolean {
   return true;
 }
 
-export const mobileAnalytics = new MobileAnalytics(() => {
-  const clientId = process.env.EXPO_PUBLIC_OPENPANEL_CLIENT_ID;
-  const clientSecret = process.env.EXPO_PUBLIC_OPENPANEL_CLIENT_SECRET;
-  if (
-    __DEV__ ||
-    process.env.EXPO_PUBLIC_APP_ENV !== "production" ||
-    !clientId ||
-    !clientSecret ||
-    (Platform.OS !== "ios" && Platform.OS !== "android")
-  )
-    return null;
-  const client = new OpenPanel({
-    apiUrl: "https://analytics.openbot.run/api",
-    clientId,
-    clientSecret,
-    filter: filterMobilePayload,
-    debug: false,
-  });
-  // The SDK retries below its payload filter. Keep one signal for each consent
-  // period so even retries delayed until after opt-in remain aborted.
-  let transport = new AbortController();
-  const send = client.api.fetch.bind(client.api);
-  client.api.fetch = (path, data, options) => send(path, data, { ...options, signal: transport.signal });
-  return {
-    track: (name, properties, timestamp) =>
-      client.track(name, { ...properties, ...(timestamp ? { __timestamp: timestamp } : {}) }),
-    identify: (user) => client.identify(user),
-    clear: () => {
-      transport.abort();
-      transport = new AbortController();
-      client.queue.length = 0;
-      client.clear();
-    },
-  };
-}, mobileReportQueue);
+export const mobileAnalytics = new MobileAnalytics(() => null);

@@ -1,6 +1,6 @@
-import { blockChatMath, chatMathBlockStart, chatMathStart, inlineChatMath } from "@openbot/contracts/chat-math";
-import { chatTagReferences } from "@openbot/contracts/chat-tag-references";
-import { replaceEqualDeep } from "@/shared/lib/replace-equal-deep";
+import { blockChatMath, chatMathBlockStart, chatMathStart, inlineChatMath } from "@legacy/pkg/contracts/chat-math";
+import { chatTagReferences } from "@legacy/pkg/contracts/chat-tag-references";
+import { replaceEqualDeep } from "@legacy/shared/lib/replace-equal-deep";
 import { Marked, type Token, type TokensList } from "marked";
 
 const markdown = new Marked({

@@ -20,7 +20,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { isAndroid } from "@/shared/lib/platform";
+import { isAndroid } from "@legacy/shared/lib/platform";
 import { createStreamRevealPool, streamRevealWindow } from "../model/stream-reveal-pool";
 
 const AnimatedTypography = Animated.createAnimatedComponent(Typography);

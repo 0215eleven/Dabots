@@ -4,10 +4,12 @@ import Pin from "lucide-react-native/icons/pin";
 import PinOff from "lucide-react-native/icons/pin-off";
 import type { PropsWithChildren } from "react";
 import { Pressable, View } from "react-native";
-import { GestureDetector } from "react-native-gesture-handler";
+import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, { type SharedValue, useAnimatedStyle } from "react-native-reanimated";
-import { useAppDrawer } from "@/features/servers/components/app-drawer-shell";
+import {useOptionalAppDrawer} from "@/features/servers/components/app-drawer-context";
+const NO_DRAWER_GESTURE={enabled:false};
+import {useDs} from "@ds/provider";
 import { useReducedMotion } from "@/shared/lib/motion";
 import { useText } from "@/shared/lib/text";
 
@@ -95,7 +97,11 @@ export function AgentPinSwipeRow({
   onPin: (withHaptic: boolean) => void;
 }>) {
   const [background] = useThemeColor(["background"]);
-  const { openingGesture } = useAppDrawer();
+  const {view}=useDs();
+  const supportsPin=Boolean(view?.capabilities.actions.includes("set-flags"));
+  const drawer=useOptionalAppDrawer();
+  const noDrawerGesture=usePanGesture(NO_DRAWER_GESTURE);
+  const openingGesture=drawer?.openingGesture??noDrawerGesture;
   const swipe = useAgentPinSwipe(openingGesture, onPin, pinBlocked);
   const { t } = useText();
 
@@ -103,7 +109,7 @@ export function AgentPinSwipeRow({
     <GestureDetector gesture={swipe.detectorGesture}>
       <ReanimatedSwipeable
         ref={swipe.swipeable}
-        enabled={!swipe.pinPending}
+        enabled={supportsPin&&!swipe.pinPending}
         containerStyle={{ backgroundColor: background, overflow: "hidden" }}
         childrenContainerStyle={{ backgroundColor: background }}
         friction={1}

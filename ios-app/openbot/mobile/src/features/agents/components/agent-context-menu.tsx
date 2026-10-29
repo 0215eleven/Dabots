@@ -1,3 +1,4 @@
+import {useDs} from '@ds/provider';
 import * as Clipboard from "expo-clipboard";
 import { Link, router } from "expo-router";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -18,6 +19,8 @@ import { haptics } from "@/shared/lib/haptics";
 import { currentText, useText } from "@/shared/lib/text";
 
 function useAgentMenuActions(agent: MobileAgent) {
+  const {view}=useDs();
+  const supported=(action:string)=>Boolean(view?.capabilities.actions.includes(action));
   const workspace = useMobileWorkspaceReader();
   const { toggleAgentPinAnimated } = useAgentPinTransition();
   const sectionMenu = useChatSectionMenu(agent.serverId, agent.id);
@@ -77,7 +80,7 @@ function useAgentMenuActions(agent: MobileAgent) {
     void haptics.selection();
   };
   const handleHide = () => {
-    workspace().hideAgent(agent.id);
+    if(view?.bots.find(bot=>bot.id===agent.id)?.hidden)workspace().unhideAgent(agent.id);else workspace().hideAgent(agent.id);
     void haptics.impact();
   };
   const handleInfo = () =>
@@ -88,19 +91,14 @@ function useAgentMenuActions(agent: MobileAgent) {
   return {
     isPinned,
     isUnread,
-    canPin,
-    sectionMenu,
-    handleRead,
-    handlePin,
-    handleHide,
-    handleInfo,
-    handleCopyId,
-    handleDuplicate,
-    handleDelete,
+    canPin: canPin && supported("set-flags"),
+    sectionMenu, handleRead, handlePin, handleHide, handleInfo, handleCopyId, handleDuplicate, handleDelete,
   };
 }
 
 function useAgentContextMenu(agent: MobileAgent) {
+  const {view}=useDs();
+  const supported=(action:string)=>Boolean(view?.capabilities.actions.includes(action));
   const { t } = useText();
   const {
     isPinned,
@@ -117,14 +115,11 @@ function useAgentContextMenu(agent: MobileAgent) {
   } = useAgentMenuActions(agent);
   return (
     <Link.Menu>
-      <Link.MenuAction icon={isUnread ? "envelope.open" : "envelope.badge"} onPress={handleRead}>
-        {t(isUnread ? "mobile.agent.menu.markRead" : "mobile.agent.menu.markUnread")}
-      </Link.MenuAction>
       <Link.MenuAction icon={isPinned ? "pin.slash" : "pin"} isOn={isPinned} onPress={handlePin} disabled={!canPin}>
         {t(isPinned ? "mobile.agent.pin.unpin" : "mobile.agent.pin.pin")}
       </Link.MenuAction>
-      <Link.MenuAction icon="eye.slash" onPress={handleHide}>
-        {t("mobile.agent.menu.hide")}
+      <Link.MenuAction icon="eye.slash" disabled={!supported("set-flags")} onPress={handleHide}>
+        {view?.bots.find(bot=>bot.id===agent.id)?.hidden?'Show chat':t("mobile.agent.menu.hide")}
       </Link.MenuAction>
       {sectionMenu.menu}
       <Link.MenuAction icon="info.circle" onPress={handleInfo}>
@@ -134,10 +129,10 @@ function useAgentContextMenu(agent: MobileAgent) {
         <Link.MenuAction icon="doc.on.doc" onPress={handleCopyId}>
           {t("mobile.agent.menu.copyId")}
         </Link.MenuAction>
-        <Link.MenuAction icon="plus.square.on.square" onPress={handleDuplicate}>
+        <Link.MenuAction icon="plus.square.on.square" disabled={!supported("duplicate-bot")} onPress={handleDuplicate}>
           {t("mobile.agent.menu.duplicate")}
         </Link.MenuAction>
-        <Link.MenuAction destructive icon="trash" onPress={handleDelete}>
+        <Link.MenuAction destructive icon="trash" disabled={!supported("delete-bot")} onPress={handleDelete}>
           {t("common.delete")}
         </Link.MenuAction>
       </Link.Menu>
@@ -216,19 +211,16 @@ function OpenAgentMenu({
     handleDuplicate,
     handleDelete,
   } = useAgentMenuActions(agent);
+  const {view}=useDs();
+  const supported=(action:string)=>Boolean(view?.capabilities.actions.includes(action));
   const actions: MenuAction[] = [
-    {
-      id: "read",
-      title: t(isUnread ? "mobile.agent.menu.markRead" : "mobile.agent.menu.markUnread"),
-      image: isUnread ? "envelope.open" : "envelope.badge",
-    },
     {
       id: "pin",
       title: t(isPinned ? "mobile.agent.pin.unpin" : "mobile.agent.pin.pin"),
       image: isPinned ? "pin.slash" : "pin",
       attributes: { disabled: !canPin },
     },
-    { id: "hide", title: t("mobile.agent.menu.hide"), image: "eye.slash" },
+    { id: "hide", title: view?.bots.find(bot=>bot.id===agent.id)?.hidden?'Show chat':t("mobile.agent.menu.hide"), image: "eye.slash", attributes:{disabled:!supported("set-flags")} },
     ...sectionMenu.androidActions,
     { id: "info", title: t("mobile.agent.menu.info"), image: "info.circle" },
     {
@@ -237,8 +229,8 @@ function OpenAgentMenu({
       image: "ellipsis",
       subactions: [
         { id: "copy", title: t("mobile.agent.menu.copyId"), image: "doc.on.doc" },
-        { id: "duplicate", title: t("mobile.agent.menu.duplicate"), image: "plus.square.on.square" },
-        { id: "delete", title: t("common.delete"), image: "trash", attributes: { destructive: true } },
+        { id: "duplicate", title: t("mobile.agent.menu.duplicate"), image: "plus.square.on.square",attributes:{disabled:!supported("duplicate-bot")} },
+        { id: "delete", title: t("common.delete"), image: "trash", attributes: { destructive: true, disabled:!supported("delete-bot") } },
       ],
     },
   ];

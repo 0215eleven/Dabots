@@ -1,4 +1,4 @@
-import { APP_LANGUAGES, type AppLanguage } from "@openbot/contracts/app-language";
+import { APP_LANGUAGES, type AppLanguage } from "@legacy/pkg/contracts/app-language";
 
 /**
  * The rows of the language selector.

@@ -1,5 +1,5 @@
-import type { AppFormat } from "@openbot/i18n/mobile";
-import { currentText } from "@/shared/lib/text";
+import type { AppFormat } from "@legacy/pkg/i18n/mobile";
+import { currentText } from "@legacy/shared/lib/text";
 
 export function formatUpdatedAt(value: string | null, format: AppFormat = currentText().format): string {
   if (!value) return "";

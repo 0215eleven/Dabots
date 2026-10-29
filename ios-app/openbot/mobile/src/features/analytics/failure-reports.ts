@@ -39,31 +39,9 @@ const storage: ReportStorage = {
 
 let reports: ReportQueue | undefined;
 export function mobileReportQueue(): ReportQueue | undefined {
-  if (reports) return reports;
-  const clientId = process.env.EXPO_PUBLIC_OPENPANEL_CLIENT_ID;
-  const clientSecret = process.env.EXPO_PUBLIC_OPENPANEL_CLIENT_SECRET;
-  if (
-    __DEV__ ||
-    process.env.EXPO_PUBLIC_APP_ENV !== "production" ||
-    !clientId ||
-    !clientSecret ||
-    (Platform.OS !== "ios" && Platform.OS !== "android")
-  )
-    return undefined;
-  reports = new ReportQueue(
-    storage,
-    openPanelTransport({ clientId, clientSecret }),
-    {
-      surface: "mobile",
-      platform: Platform.OS,
-      app_version: Application.nativeApplicationVersion ?? "unknown",
-      event_schema_version: ANALYTICS_GENERATIONS.mobile,
-    },
-    Date.now,
-    Math.random,
-    randomUUID,
-  );
-  return reports;
+  // DS never creates an upstream reporting transport.
+  return undefined;
+
 }
 
 export function reportMobileNotification(

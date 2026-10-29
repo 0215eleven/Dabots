@@ -149,7 +149,7 @@ export function AgentPinTransitionProvider({ children }: PropsWithChildren) {
       chatId: string,
       avatar: AgentPinTransitionState["avatar"],
       isPinned: boolean,
-      commit: () => string,
+      commit: () => string | Promise<string>,
       options?: { haptic: boolean },
     ) => {
       const { pinnedAgentIds, pinnedChannelIds } = workspace();
@@ -159,8 +159,8 @@ export function AgentPinTransitionProvider({ children }: PropsWithChildren) {
       const sourceNode = avatarRefs.get(chatId)?.[source];
       const container = containerRef.current;
 
-      const commitWithoutMovement = () => {
-        if (commit() === "error") {
+      const commitWithoutMovement = async () => {
+        if (await commit() === "error") {
           finishTransition();
           return;
         }
@@ -185,8 +185,8 @@ export function AgentPinTransitionProvider({ children }: PropsWithChildren) {
           setTransition(nextTransition);
           progress.set(0);
 
-          requestAnimationFrame(() => {
-            if (commit() === "error") {
+          requestAnimationFrame(async () => {
+            if (await commit() === "error") {
               finishTransition();
               return;
             }

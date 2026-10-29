@@ -1,4 +1,4 @@
-import { isAndroid } from "@/shared/lib/platform";
+import { isAndroid } from "@legacy/shared/lib/platform";
 
 /**
  * A header in a sheet does not touch the status bar, but on Android the native header still adds the

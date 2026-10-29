@@ -1,5 +1,5 @@
 // DS Bot Mobile home list drawn with OpenBot components (PolyForm Noncommercial 1.0.0, see ./LICENSE).
-import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
+import { markdownPreviewText } from "@legacy/pkg/contracts/markdown-preview-text";
 import { Stack } from "expo-router";
 import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
@@ -14,14 +14,14 @@ import { tr } from "../i18n";
 import { useSession } from "../session/SessionProvider";
 import type { TeamState } from "../types";
 import { agentFor } from "./adapters/chat-model";
-import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
-import { ChannelAvatar } from "@/features/channels/components/channel-avatar";
-import type { MobileAgent } from "@/features/workspace/model/workspace-types";
-import { LargeTitle, LargeTitleBar, useLargeTitleScroll } from "@/shared/components/large-title";
-import { haptics } from "@/shared/lib/haptics";
-import { isAndroid, longPressDelay } from "@/shared/lib/platform";
-import { useText } from "@/shared/lib/text";
-import { typeScale } from "@/shared/lib/type-scale";
+import { BloubAvatar } from "@legacy/features/agents/components/bloub-avatar";
+import { ChannelAvatar } from "@legacy/features/channels/components/channel-avatar";
+import type { MobileAgent } from "@legacy/features/workspace/model/workspace-types";
+import { LargeTitle, LargeTitleBar, useLargeTitleScroll } from "@legacy/shared/components/large-title";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { isAndroid, longPressDelay } from "@legacy/shared/lib/platform";
+import { useText } from "@legacy/shared/lib/text";
+import { typeScale } from "@legacy/shared/lib/type-scale";
 
 function stamp(value: number, language: string) {
   if (!value) return "";

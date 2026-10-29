@@ -6,31 +6,33 @@
     "allowImportingTsExtensions": true,
     "paths": {
       "@/*": [
-        "./src/openbot/*"
+        "./openbot/mobile/src/*"
       ],
       "@/assets/*": [
-        "./assets/openbot/*"
+        "./openbot/mobile/assets/*"
       ],
-      "@openbot/i18n/mobile": [
-        "./src/openbot/pkg/i18n/mobile.ts"
+      "@ds/*": [
+        "./src/ds/*"
       ],
-      "@openbot/contracts/*": [
-        "./src/openbot/pkg/contracts/*"
-      ],
-      "@openbot/brand/*": [
-        "./src/openbot/pkg/brand/*"
-      ],
-      "@openbot/user-errors": [
-        "./src/openbot/pkg/user-errors/index.ts"
+      "@legacy/*": [
+        "./src/openbot/*"
       ]
-    }
+    },
+    "lib": [
+      "esnext",
+      "dom",
+      "dom.iterable"
+    ]
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx"
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "test/**/*.ts",
+    "sdk/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "openbot"
+    "openbot/adaptations"
   ]
 }

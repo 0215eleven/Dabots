@@ -3,8 +3,8 @@ import type { StyleProp, ViewStyle } from "react-native";
 import { View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
-import { ProgressiveSheetBlur } from "@/shared/components/progressive-sheet-blur";
-import { isIOS } from "@/shared/lib/platform";
+import { ProgressiveSheetBlur } from "@legacy/shared/components/progressive-sheet-blur";
+import { isIOS } from "@legacy/shared/lib/platform";
 
 interface SheetScrollEdgeEffectProps {
   style: StyleProp<ViewStyle>;

@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { TurboModuleRegistry } from "react-native";
+import { Platform, TurboModuleRegistry } from "react-native";
 
 export interface HtmlPageProps {
   source: string;
@@ -19,7 +19,7 @@ export interface HtmlPageProps {
  * build from before Android linked it has none: there this is null, and the caller shows the page
  * with no scripts.
  */
-const pageView: typeof import("./html-page-view.native") | null = TurboModuleRegistry.get("RNCWebViewModule")
+const pageView: typeof import("./html-page-view.native") | null = Platform.OS !== "web" && TurboModuleRegistry.get("RNCWebViewModule")
   ? require("./html-page-view.native")
   : null;
 export const HtmlPage: ComponentType<HtmlPageProps> | null = pageView ? pageView.HtmlPageView : null;

@@ -12,8 +12,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import type { TransitionMode } from "@/shared/lib/motion";
-import { isIOS } from "@/shared/lib/platform";
+import type { TransitionMode } from "@legacy/shared/lib/motion";
+import { isIOS } from "@legacy/shared/lib/platform";
 
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 // Only iOS draws the blur. On Android, `BlurTargetView` moves its children into a native view of its

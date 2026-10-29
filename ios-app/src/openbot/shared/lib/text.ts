@@ -1,7 +1,7 @@
-import { formatLocale, resolveLocale, type TranslatedLocale } from "@openbot/i18n/mobile";
+import { formatLocale, resolveLocale, type TranslatedLocale } from "@legacy/pkg/i18n/mobile";
 import { useSyncExternalStore } from "react";
 import { AppState } from "react-native";
-import { useAppLanguage } from "@/features/settings/model/app-language";
+import { useAppLanguage } from "@legacy/features/settings/model/app-language";
 import { phoneLanguages } from "./phone-languages";
 import { type MobileText, textFor } from "./text-value";
 

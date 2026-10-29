@@ -13,8 +13,8 @@ import {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { useReducedMotion } from "@/shared/lib/motion";
-import { isAndroid } from "@/shared/lib/platform";
+import { useReducedMotion } from "@legacy/shared/lib/motion";
+import { isAndroid } from "@legacy/shared/lib/platform";
 import { chatContentIsVisible } from "../model/chat-layout";
 
 /** The space under each row of the list. */

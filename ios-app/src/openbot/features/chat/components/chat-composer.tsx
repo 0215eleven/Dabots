@@ -1,4 +1,4 @@
-import { rankAgentMentions } from "@openbot/contracts/agent-mention-rank";
+import { rankAgentMentions } from "@legacy/pkg/contracts/agent-mention-rank";
 import { GlassView } from "expo-glass-effect";
 import { useIsFocused } from "expo-router";
 import { Button, Spinner, Typography } from "heroui-native";
@@ -40,15 +40,15 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
-import type { ChatBubbleMessage } from "@/features/chat/model/chat-messages";
-import type { MobileAgent } from "@/features/workspace/model/workspace-types";
-import { haptics } from "@/shared/lib/haptics";
-import { useMotionPreference, useReducedMotion } from "@/shared/lib/motion";
-import { isAndroid } from "@/shared/lib/platform";
-import { selectionColorProps } from "@/shared/lib/selection-color";
-import { useText } from "@/shared/lib/text";
+import { BloubAvatar } from "@legacy/features/agents/components/bloub-avatar";
+import { showFailureAlert } from "@legacy/features/analytics/failure-reports";
+import type { ChatBubbleMessage } from "@legacy/features/chat/model/chat-messages";
+import type { MobileAgent } from "@legacy/features/workspace/model/workspace-types";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { useMotionPreference, useReducedMotion } from "@legacy/shared/lib/motion";
+import { isAndroid } from "@legacy/shared/lib/platform";
+import { selectionColorProps } from "@legacy/shared/lib/selection-color";
+import { useText } from "@legacy/shared/lib/text";
 import { editMentionDraft, insertMention, mentionDraft, mentionQuery } from "../model/chat-mentions";
 import { applyMarkdownListEdit, markdownListReturn } from "../model/composer-lists";
 import { largePastedText } from "../model/composer-paste";

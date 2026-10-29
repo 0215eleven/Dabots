@@ -4,8 +4,8 @@ import { type LayoutChangeEvent, type ScrollViewProps, View } from "react-native
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { withUniwind } from "uniwind";
-import { SheetScrollEdgeEffect } from "@/shared/components/sheet-scroll-edge-effect";
-import { isAndroid, isIOS } from "@/shared/lib/platform";
+import { SheetScrollEdgeEffect } from "@legacy/shared/components/sheet-scroll-edge-effect";
+import { isAndroid, isIOS } from "@legacy/shared/lib/platform";
 
 const StyledKeyboardAwareScrollView = withUniwind(KeyboardAwareScrollView);
 

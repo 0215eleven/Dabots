@@ -102,6 +102,11 @@ export class MobileChannelStore {
     }
     return entry;
   }
+  /** DS list projection: no OpenBot protocol capability or account handshake is inferred. */
+  applyDsSnapshot(serverId: string, channels: ChannelSummary[], canCreate: boolean) {
+    this.publish(this.entry(serverId), {channels, supported: canCreate, listed: true, loading: false});
+  }
+
   get(serverId: string) {
     return this.entry(serverId).state;
   }

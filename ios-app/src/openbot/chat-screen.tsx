@@ -10,12 +10,12 @@ import type { Conversation } from "@ds-bot/mobile-sdk";
 import { useChat } from "../chat/useChat";
 import { useSession } from "../session/SessionProvider";
 import { agentFor, chatTarget, outboxRowId, outboxStatuses, pendingChatMessages, toChatMessages } from "./adapters/chat-model";
-import { ChatComposer } from "@/features/chat/components/chat-composer";
-import { ChatMessageList } from "@/features/chat/components/chat-message-list";
-import { useChatMotion } from "@/features/chat/components/use-chat-motion";
-import type { ChatBubbleMessage } from "@/features/chat/model/chat-messages";
-import type { MobileAgentActivity } from "@/features/workspace/model/agent-activity";
-import { useReducedTransparency } from "@/shared/lib/use-reduced-transparency";
+import { ChatComposer } from "@legacy/features/chat/components/chat-composer";
+import { ChatMessageList } from "@legacy/features/chat/components/chat-message-list";
+import { useChatMotion } from "@legacy/features/chat/components/use-chat-motion";
+import type { ChatBubbleMessage } from "@legacy/features/chat/model/chat-messages";
+import type { MobileAgentActivity } from "@legacy/features/workspace/model/agent-activity";
+import { useReducedTransparency } from "@legacy/shared/lib/use-reduced-transparency";
 
 const NO_ALIASES: ReadonlyMap<string, string> = new Map();
 const NO_MESSAGES: never[] = [];

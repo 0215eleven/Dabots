@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { haptics } from "@/shared/lib/haptics";
+import { haptics } from "@legacy/shared/lib/haptics";
 import { replyWordFeedback } from "../model/reply-reveal";
 
 /** A strong knock, a pause, a light knock, then a strong knock, for the rest of a reply that shows at once. */

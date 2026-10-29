@@ -1,5 +1,5 @@
 // DS Bot Mobile adapter for UI code derived from OpenBot (PolyForm Noncommercial 1.0.0, see ../LICENSE).
-import type { TranslatedLocale } from "@openbot/i18n/mobile";
+import type { TranslatedLocale } from "@legacy/pkg/i18n/mobile";
 
 export interface UserErrorDetails {
   message: string;

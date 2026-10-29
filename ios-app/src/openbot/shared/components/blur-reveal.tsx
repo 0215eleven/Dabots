@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { useReducedMotion } from "@/shared/lib/motion";
+import { useReducedMotion } from "@legacy/shared/lib/motion";
 
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 

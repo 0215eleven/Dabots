@@ -1,0 +1,95 @@
+import React, { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Alert } from 'react-native';
+import { Uniwind } from 'uniwind';
+import { WorkspaceContexts } from '@/features/workspace/context/workspace-store';
+import type { MobileAgent, MobileServer, MobileWorkspaceContextValue } from '@/features/workspace/model/workspace-types';
+import { MobileConversationStore } from '@/features/workspace/model/conversation-store';
+import { LiveWorkspaceStore } from '@/features/workspace/model/live-workspace-store';
+import { MobileChannelStore } from '@/features/channels/model/channel-store';
+import { AgentPinTransitionProvider } from '@/features/agents/components/agent-pin-transition';
+import { useAppLanguage } from '@/features/settings/model/app-language';
+import { useMotionPreferences } from '@/features/settings/model/motion';
+import { useAppearance } from '@/features/settings/model/appearance';
+import { useSession } from '../session/SessionProvider';
+import { useTheme, useColorMode } from '../theme';
+import { useI18n } from '../i18n';
+import { bindSessionCore } from './session-binding';
+import type { DsCore, DsView } from './contracts';
+import { createScreenCommands, mutationProblem } from './screen-binding';
+import { unavailableWorkspace, unsupported } from './unavailable-workspace';
+import type { ChannelSummary } from '@openbot/contracts/ipc';
+interface Binding {
+    core: DsCore | null;
+    view: DsView | null;
+    online: boolean;
+    agents: MobileAgent[];
+    commands: ReturnType<typeof createScreenCommands> | null;
+}
+const Context = createContext<Binding>({ core: null, view: null, online: false, agents: [], commands: null });
+export const useDs = () => useContext(Context);
+export function DsProvider({ children }: {
+    children: React.ReactNode;
+}) {
+    const session = useSession();
+    const latest = useRef(session);
+    latest.current = session;
+    const client = session.client, serverId = session.host?.serverId, outbox = session.outbox;
+    const core = useMemo(() => bindSessionCore(session, () => latest.current), [client, serverId, outbox]);
+    useEffect(() => () => core?.dispose(), [core]);
+    const hasSnapshot = Boolean(session.workspace.getSnapshot());
+    const [, notify] = useState(0);
+    useEffect(() => hasSnapshot ? core?.subscribe(() => notify(n => n + 1)) : undefined, [core, hasSnapshot]);
+    const view = core && session.workspace.getSnapshot() ? core.read() : null;
+    const stores = useMemo(() => ({ conversationStore: new MobileConversationStore(flush => { const id = requestAnimationFrame(flush); return () => cancelAnimationFrame(id); }), liveState: new LiveWorkspaceStore(), channelStore: new MobileChannelStore(async () => unsupported('Remote channel protocol')) }), [core]);
+    useEffect(() => () => { stores.conversationStore.dispose(); stores.channelStore.dispose(); }, [stores]);
+    const agents = useMemo<MobileAgent[]>(() => view?.bots.map(bot => ({ id: bot.id, serverId: bot.serverId, name: bot.name, title: bot.role ?? '', description: bot.instructions ?? '', preview: String(view.conversations.find(c => c.id === bot.conversationId)?.source.preview ?? ''), updatedLabel: '', avatarSeed: bot.avatar?.shape ?? bot.sourceId, avatarHue: null, avatarUrl: bot.avatar?.image ?? null })) ?? [], [session.workspace.team, session.workspace.conversations, core]);
+    const channels: ChannelSummary[] = view?.groups.map(group => ({ id: group.id, name: group.name, title: '', instructions: group.notice ?? '', members: group.members.map(agentId => ({ agentId })), leadAgentId: group.admin, archived: false, revision: 0, createdAt: '', unreadCount: 0, activeTasks: view.work[group.id]?.phase === 'working' ? 1 : 0, lastMessage: null })) ?? [];
+    useLayoutEffect(() => {
+        if (!view)
+            return;
+        stores.channelStore.applyDsSnapshot(view.serverId, channels, view.capabilities.actions.includes('create-room'));
+        stores.liveState.update('activityByServer', () => ({ [view.serverId]: Object.fromEntries(Object.entries(view.work).filter(([, w]) => w.phase !== 'idle').map(([id, w]) => [id, { agentId: id, turnId: null, phase: w.phase === 'idle' ? 'working' : w.phase, detail: w.detail }])) }));
+    }, [stores, session.workspace.team, session.workspace.conversations, session.workspace.online]);
+    const host: MobileServer = { id: serverId ?? 'unavailable', name: session.host?.name ?? 'DeepSeek Bot Pro', logoKey: null, kind: 'local', state: session.workspace.online ? 'online' : 'offline', initialConnectionPending: session.loading, connectionMessage: session.error || null, address: null, accent: '', publicKey: '', membershipId: '', role: 'member' };
+    const fail = (error: unknown) => Alert.alert('DeepSeek Bot Pro', mutationProblem(error).message);
+    const flag = async (id: string, patch: {
+        pinned?: boolean;
+        hidden?: boolean;
+    }) => { const target = view?.bots.find(b => b.id === id) ?? view?.groups.find(g => g.id === id); if (!target?.conversationId || !core)
+        return unsupported('Conversation flags'); return (await core.setFlags(target.conversationId, patch)).value; };
+    const value: MobileWorkspaceContextValue = { ...unavailableWorkspace, ...stores,
+        get teamDirectory() { return unsupported('Remote account directory'); },
+        sidebarByServer: {}, servers: session.host ? [host] : [], memberCountByServer: {}, serverDirectoryState: session.loading ? 'loading' : 'ready', serverDirectoryError: session.error || null,
+        agents, activeAgents: agents.filter(a => !view?.bots.find(b => b.id === a.id)?.hidden), hiddenAgents: agents.filter(a => view?.bots.find(b => b.id === a.id)?.hidden), activeServer: host,
+        pinnedAgentIds: view?.bots.filter(b => b.pinned).map(b => b.id) ?? [], pinnedChannelIds: view?.groups.filter(g => g.pinned).map(g => g.id) ?? [], hiddenChannelIds: view?.groups.filter(g => g.hidden).map(g => g.id) ?? [], pinnedWorkflowIds: {},
+        browserViewSupport: () => ({ view: false, clipboard: false, contextMenu: false, viewport: false, navigation: false }),
+        refreshServer: async () => { await core?.refresh(); }, refreshServers: async () => { await core?.refresh(); },
+        deleteAgent: async (id) => { if (!core)
+            return unsupported('delete'); await core.deleteBot(id); }, duplicateAgent: async (id) => { if (!core)
+            return unsupported('duplicate'); await core.duplicateBot(id); },
+        toggleAgentPin: async (id) => { try {
+            const result = await flag(id, { pinned: !view?.bots.find(b => b.id === id)?.pinned });
+            return result.pinned ? 'pinned' : 'unpinned';
+        }
+        catch (error) {
+            fail(error);
+            return 'error';
+        } },
+        toggleChannelPin: async (id) => { try {
+            const result = await flag(id, { pinned: !view?.groups.find(g => g.id === id)?.pinned });
+            return result.pinned ? 'pinned' : 'unpinned';
+        }
+        catch (error) {
+            fail(error);
+            return 'error';
+        } },
+        hideAgent: id => { void flag(id, { hidden: true }).catch(fail); }, unhideAgent: id => { void flag(id, { hidden: false }).catch(fail); },
+        canUnhideAgent: () => Boolean(view?.capabilities.actions.includes('set-flags')), hidesAgentsOnServer: () => true,
+        hideChannel: id => { void flag(id, { hidden: true }).catch(fail); return false; }, unhideChannel: id => { void flag(id, { hidden: false }).catch(fail); return false; },
+    };
+    const commands = useMemo(() => core && serverId ? createScreenCommands(core, serverId) : null, [core, serverId]);
+    const t = useTheme(), mode = useColorMode(), { locale } = useI18n();
+    useEffect(() => { useAppLanguage.setState({ value: locale === 'zh' ? 'zh' : 'en', ready: true }); }, [locale]);
+    useEffect(() => { Uniwind.setTheme(mode); useAppearance.setState({ value: mode, ready: true }); useMotionPreferences.setState({ allAnimations: t.motion !== 'quiet', ready: true }); Uniwind.updateCSSVariables(t.dark ? 'dark' : 'light', { '--background': t.bg, '--foreground': t.ink, '--accent': t.accent, '--accent-foreground': t.accentText, '--openbot-accent': t.accent, '--openbot-text-on-accent': t.accentText, '--openbot-bg-canvas': t.bg, '--openbot-bg-native-canvas': t.bg, '--openbot-bg-native-sidebar': t.sidebar, '--openbot-bg-sheet': t.sheet, '--openbot-bg-control': t.bubble, '--openbot-bg-surface': t.surface, '--openbot-text-primary': t.ink }); }, [mode, t.dark, t.accent, t.accentText, t.bg, t.ink, t.motion, t.sidebar, t.sheet, t.bubble, t.surface]);
+    return <Context.Provider value={{ core, view, online: session.workspace.online, agents, commands }}><WorkspaceContexts value={value} actions={value}><AgentPinTransitionProvider>{children}</AgentPinTransitionProvider></WorkspaceContexts></Context.Provider>;
+}

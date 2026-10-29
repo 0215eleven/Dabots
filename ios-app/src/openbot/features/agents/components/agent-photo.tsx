@@ -2,7 +2,7 @@
 import { Image } from "expo-image";
 import { type ReactNode, useState } from "react";
 import { View } from "react-native";
-import { useMobileWorkspaceSelector } from "@/features/workspace/context/mobile-workspace-context";
+import { useMobileWorkspaceSelector } from "@legacy/features/workspace/context/mobile-workspace-context";
 
 export interface AgentPhotoProps {
   agentId?: string;

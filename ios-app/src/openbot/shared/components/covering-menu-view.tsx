@@ -1,7 +1,7 @@
 import type { MenuComponentProps } from "@expo/ui/community/menu";
 import { type ReactNode, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { MenuView } from "@/shared/components/menu-view";
+import { MenuView } from "@legacy/shared/components/menu-view";
 
 /**
  * A tap menu over content that React Native lays out. The iOS `MenuView` sizes its trigger in SwiftUI

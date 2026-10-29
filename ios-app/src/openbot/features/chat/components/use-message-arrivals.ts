@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ChatMessage } from "@/features/chat/model/chat-messages";
+import type { ChatMessage } from "@legacy/features/chat/model/chat-messages";
 
 // Only messages appended to an already visible conversation get an entrance.
 // Opening history, reconnecting, and returning from the background establish a new baseline.

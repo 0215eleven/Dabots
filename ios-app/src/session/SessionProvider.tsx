@@ -186,7 +186,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const id = typeof target === "string"
       ? workspaceRef.current.conversations.find(item => item.id === target || item.id === `bot:${target}` || item.id === `room:${target}`)?.id || target
       : target.id;
-    router.push({ pathname: "/chat/[id]", params: { id } });
+    router.push({ pathname: "/chat/[agentId]", params: { agentId: id } });
   }, [router]);
   const openRef = useRef(open);
   openRef.current = open;

@@ -1,6 +1,6 @@
 import { Typography } from "heroui-native";
 
-import { useText } from "@/shared/lib/text";
+import { useText } from "@legacy/shared/lib/text";
 
 /**
  * The code of a failure, such as `signal/host_busy`, as muted text that a user can select and copy.

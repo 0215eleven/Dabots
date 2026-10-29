@@ -7,9 +7,9 @@ import Copy from "lucide-react-native/icons/copy";
 import { memo, useEffect, useRef, useState } from "react";
 import { type ColorValue, ScrollView, useWindowDimensions, View } from "react-native";
 import { useCSSVariable } from "uniwind";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
-import { haptics } from "@/shared/lib/haptics";
-import { useText } from "@/shared/lib/text";
+import { showFailureAlert } from "@legacy/features/analytics/failure-reports";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { useText } from "@legacy/shared/lib/text";
 import { type CodeToken, cachedHighlight, codeLanguageLabel, highlightCode } from "../model/code-highlight";
 import { useListSettled } from "./use-list-settled";
 

@@ -7,7 +7,7 @@ import { mobileCatalog } from "./mobile-catalogs";
  * The mobile entry. It carries the shared keys, the source text and the mobile areas only, so the
  * desktop catalog stays out of the Hermes bundle.
  */
-export { APP_LANGUAGES, type AppLanguage, DEFAULT_APP_LANGUAGE, isAppLanguage } from "@openbot/contracts/app-language";
+export { APP_LANGUAGES, type AppLanguage, DEFAULT_APP_LANGUAGE, isAppLanguage } from "@legacy/pkg/contracts/app-language";
 export { type AppFormat, createFormat } from "./format";
 export { formatLocale, resolveLocale, TRANSLATED_LOCALES, type TranslatedLocale } from "./locale";
 export { localizeSourceText, sourceText } from "./source-text";

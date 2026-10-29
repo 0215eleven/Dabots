@@ -1,4 +1,4 @@
-import type { AppLanguage } from "@openbot/contracts/app-language";
+import type { AppLanguage } from "@legacy/pkg/contracts/app-language";
 
 /** The languages a catalog exists for. `"system"` resolves to one of these; it is never one itself. */
 export const TRANSLATED_LOCALES = [

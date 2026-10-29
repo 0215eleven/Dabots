@@ -4,9 +4,9 @@ import type { PropsWithChildren, RefObject } from "react";
 import { Platform, StyleSheet, View, type ViewInstance } from "react-native";
 import Animated, { cubicBezier } from "react-native-reanimated";
 import { useCSSVariable, useUniwind } from "uniwind";
-import { ChromeGlassSheen } from "@/shared/components/chrome-glass-sheen";
-import { useChromeGlass } from "@/shared/lib/chrome-glass";
-import { isAndroid } from "@/shared/lib/platform";
+import { ChromeGlassSheen } from "@legacy/shared/components/chrome-glass-sheen";
+import { useChromeGlass } from "@legacy/shared/lib/chrome-glass";
+import { isAndroid } from "@legacy/shared/lib/platform";
 
 /** The height of the bottom search capsules: home search and the Marketplace field. */
 export const GLASS_CAPSULE_HEIGHT = 52;

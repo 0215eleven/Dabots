@@ -8,7 +8,7 @@ import {
 } from "@norbert_bodziony/bloub";
 import { bloubAvatarProfile } from "@openbot/brand/bloub-avatar";
 import { type AvatarMood, avatarMoodPresentation } from "@openbot/brand/bloub-avatar-motion";
-import type { AvatarHue } from "@openbot/contracts/ipc";
+import type { AvatarHue } from "@legacy/pkg/contracts/ipc";
 
 /**
  * The pose the working cycle holds. It is shape-safe by type, so the cycle can never hand back a

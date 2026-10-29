@@ -1,3 +1,5 @@
+import {tr} from '@ds/text';
+import {useDs} from '@ds/provider';
 import type { ChannelSummary } from "@openbot/contracts/ipc";
 import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 import * as Clipboard from "expo-clipboard";
@@ -32,6 +34,7 @@ import { typeScale } from "@/shared/lib/type-scale";
 import { ChannelAvatar } from "./channel-avatar";
 
 function useChannelMenuActions(channel: ChannelSummary, serverId: string) {
+  const {core,view}=useDs();
   const { t } = useText();
   const workspace = useMobileWorkspaceReader();
   const { toggleChannelPinAnimated } = useAgentPinTransition();
@@ -46,11 +49,11 @@ function useChannelMenuActions(channel: ChannelSummary, serverId: string) {
   const isMember = useMobileWorkspaceSelector(
     ({ servers }) => servers.find((server) => server.id === serverId)?.role === "member",
   );
-  const canDelete = online && !isMember && !channel.archived;
+  const canDelete = online && Boolean(view?.capabilities.actions.includes("delete-room")) && !channel.archived;
   const deleting = useRef(false);
   const handlePin = (withHaptic = true) => toggleChannelPinAnimated(channel, serverId, { haptic: withHaptic });
   const handleHide = () => {
-    if (workspace().hideChannel(channel.id, serverId)) void haptics.impact();
+    if(view?.groups.find(group=>group.id===channel.id)?.hidden)workspace().unhideChannel(channel.id,serverId);else workspace().hideChannel(channel.id,serverId);
   };
   const handleInfo = () =>
     router.push({ pathname: "/channel-info/[channelId]", params: { channelId: channel.id, serverId } });
@@ -66,12 +69,7 @@ function useChannelMenuActions(channel: ChannelSummary, serverId: string) {
         onPress: () => {
           if (deleting.current) return;
           deleting.current = true;
-          workspace()
-            .channelStore.command(serverId, {
-              type: "archive",
-              operationId: Crypto.randomUUID(),
-              channelId: channel.id,
-            })
+          (core ? core.deleteGroup(channel.id) : Promise.reject(new Error("Unavailable")))
             .then(() => haptics.notification())
             .catch((cause: unknown) => {
               void haptics.notification("error");
@@ -89,7 +87,7 @@ function useChannelMenuActions(channel: ChannelSummary, serverId: string) {
         },
       },
     ]);
-  return { isPinned, canPin, canDelete, sectionMenu, handlePin, handleHide, handleInfo, handleCopyId, handleDelete };
+  return { isPinned, canPin: canPin && Boolean(view?.capabilities.actions.includes("set-flags")), canDelete, sectionMenu, handlePin, handleHide, handleInfo, handleCopyId, handleDelete };
 }
 
 /** The chat link of a channel on iOS, with its context menu. Android uses `ChannelAndroidMenu`. */
@@ -260,7 +258,7 @@ export const ChannelListRow = memo(function ChannelListRow({
   // Each long press mounts the Android menu again, so it opens even if an earlier one did not close.
   const [menuKey, setMenuKey] = useState(0);
   const previewLine = useMemo(
-    () => (channel.lastMessage ? markdownPreviewText(channel.lastMessage.text) : t("mobile.channel.list.noMessages")),
+    () => (channel.lastMessage ? markdownPreviewText(channel.lastMessage.text) : tr("Open group conversation")),
     [channel.lastMessage, t],
   );
   const title = channel.title.trim();

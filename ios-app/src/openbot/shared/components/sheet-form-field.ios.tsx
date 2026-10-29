@@ -6,8 +6,8 @@ import { useThemeColor } from "heroui-native/hooks";
 import { useEffect } from "react";
 import { View } from "react-native";
 
-import type { SheetFormFieldProps } from "@/shared/components/sheet-form-field.types";
-import { APP_FONT } from "@/shared/lib/app-font";
+import type { SheetFormFieldProps } from "@legacy/shared/components/sheet-form-field.types";
+import { APP_FONT } from "@legacy/shared/lib/app-font";
 
 export function SheetFormField({
   autoCapitalize,

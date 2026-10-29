@@ -1,6 +1,6 @@
 import type { ColorValue } from "react-native";
 
-import { isAndroid } from "@/shared/lib/platform";
+import { isAndroid } from "@legacy/shared/lib/platform";
 
 /**
  * Android paints `selectionColor` as an opaque highlight behind the text, so a text-colored

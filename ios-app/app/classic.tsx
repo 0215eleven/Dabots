@@ -1,23 +1,9 @@
-import React from "react";
-import { Stack, useLocalSearchParams } from "expo-router";
-import type { Route } from "../src/logic/app-navigation";
-import ClassicApp from "../src/App";
-
-// The previous single-page shell, kept for team and host management until those screens move over.
-function parse(value: string | undefined): Route | undefined {
-  if (!value) return undefined;
-  try {
-    const route = JSON.parse(value) as Route;
-    return route && typeof route === "object" && typeof route.page === "string" ? route : undefined;
-  } catch { return undefined; }
-}
-
-export default function Classic() {
-  const { open } = useLocalSearchParams<{ open?: string }>();
-  return (
-    <>
-      <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
-      <ClassicApp initial={parse(open)} />
-    </>
-  );
-}
+import { router, Stack } from 'expo-router';
+import { Typography } from 'heroui-native';
+import { SettingsContent, SettingsRow, SettingsSection } from '@/features/settings/components/settings-content';
+import { useDs } from '../src/ds/provider';
+import { Unavailable } from '../src/ds/routes';
+import { tr } from '../src/i18n';
+/** Explicit owner-granted DSH Agent surface, separate from Bots and groups. */
+export default function LegacyAgents() { const { view } = useDs(); if (!view?.capabilities.agents)
+    return <Unavailable />; return <SettingsContent><Stack.Screen options={{ title: 'DSH Agent' }}/><SettingsSection title="DSH Agent">{view.agents.map(agent => <SettingsRow key={agent.id} onPress={() => router.push({ pathname: '/legacy-agent/[id]', params: { id: agent.id } })}><Typography.Paragraph>{agent.name}</Typography.Paragraph></SettingsRow>)}</SettingsSection>{!view.agents.length ? <Typography.Paragraph>{tr('No conversations')}</Typography.Paragraph> : null}</SettingsContent>; }

@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { isAndroid } from "@/shared/lib/platform";
+import { isAndroid } from "@legacy/shared/lib/platform";
 
 /**
  * Text in the foreground colour with a muted band that moves across it, as the desktop activity

@@ -1,16 +1,16 @@
-import type { AgentExchangeSummary } from "@openbot/contracts/ipc";
-import type { MobileTranslate } from "@openbot/i18n/mobile";
+import type { AgentExchangeSummary } from "@legacy/pkg/contracts/ipc";
+import type { MobileTranslate } from "@legacy/pkg/i18n/mobile";
 import { Link } from "expo-router";
 import { Typography } from "heroui-native";
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import { useState } from "react";
 import { Pressable, View, type ViewStyle } from "react-native";
-import { BloubAvatarThumbnail } from "@/features/agents/components/bloub-avatar";
-import { ChatLinkPressable } from "@/features/agents/components/chat-link-pressable";
-import type { ChatMessage, ExchangeGroup, ExchangeMarker } from "@/features/chat/model/chat-messages";
-import type { MobileAgent } from "@/features/workspace/context/mobile-workspace-context";
-import { haptics } from "@/shared/lib/haptics";
-import { useText } from "@/shared/lib/text";
+import { BloubAvatarThumbnail } from "@legacy/features/agents/components/bloub-avatar";
+import { ChatLinkPressable } from "@legacy/features/agents/components/chat-link-pressable";
+import type { ChatMessage, ExchangeGroup, ExchangeMarker } from "@legacy/features/chat/model/chat-messages";
+import type { MobileAgent } from "@legacy/features/workspace/context/mobile-workspace-context";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { useText } from "@legacy/shared/lib/text";
 
 type RoutingMarker = Extract<ChatMessage, { kind: "channel-routing" }>;
 

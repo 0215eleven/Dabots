@@ -5,7 +5,7 @@ import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { haptics } from "@/shared/lib/haptics";
+import { haptics } from "@legacy/shared/lib/haptics";
 
 /**
  * A swipe to the right replies, and a touch and hold selects text in the bubble. The action row

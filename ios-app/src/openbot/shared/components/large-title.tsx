@@ -14,10 +14,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
-import { SheetScrollEdgeEffect } from "@/shared/components/sheet-scroll-edge-effect";
-import { useReducedMotion } from "@/shared/lib/motion";
-import { isAndroid, isIOS } from "@/shared/lib/platform";
-import { typeScale } from "@/shared/lib/type-scale";
+import { SheetScrollEdgeEffect } from "@legacy/shared/components/sheet-scroll-edge-effect";
+import { useReducedMotion } from "@legacy/shared/lib/motion";
+import { isAndroid, isIOS } from "@legacy/shared/lib/platform";
+import { typeScale } from "@legacy/shared/lib/type-scale";
 
 const TITLE_EASE = cubicBezier(0.23, 1, 0.32, 1);
 /** The small title shows when the text of the big title reaches the bottom of the bar. */

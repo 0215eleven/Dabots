@@ -1,4 +1,4 @@
-import { type ConversationReaction, MESSAGE_REACTIONS, MORE_MESSAGE_REACTIONS } from "@openbot/contracts/ipc";
+import { type ConversationReaction, MESSAGE_REACTIONS, MORE_MESSAGE_REACTIONS } from "@legacy/pkg/contracts/ipc";
 import { Button, Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
 import Check from "lucide-react-native/icons/check";
@@ -10,10 +10,10 @@ import TextSelect from "lucide-react-native/icons/square-dashed-text";
 import { type PropsWithChildren, useMemo, useState } from "react";
 import { type AccessibilityState, Pressable, View } from "react-native";
 import Animated, { FadeIn, FadeOut, ReduceMotion } from "react-native-reanimated";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
-import type { MobileAgent } from "@/features/workspace/context/mobile-workspace-context";
-import { haptics } from "@/shared/lib/haptics";
-import { useText } from "@/shared/lib/text";
+import { showFailureAlert } from "@legacy/features/analytics/failure-reports";
+import type { MobileAgent } from "@legacy/features/workspace/context/mobile-workspace-context";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { useText } from "@legacy/shared/lib/text";
 import { useCopyMessage } from "./use-copy-message";
 import { useHistoryShown } from "./use-history-shown";
 

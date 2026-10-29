@@ -21,18 +21,20 @@ required notices and third-party attributions remain in `LICENSE` and `NOTICE`.
 file mode, upstream SHA-256, imported SHA-256, and any adaptation. Its catalog field
 preserves the upstream version catalog used to resolve package declarations.
 
-Only the eight imported `package.json` files differ from upstream: `catalog:`
-references become explicit catalog versions and `workspace:*` references become
-relative `file:` dependencies. No source, asset, native module, config plugin or
-upstream notice is trimmed or replaced. There are no upstream tracked-file
-exclusions. Untracked files, `.git`, installed dependencies, caches, generated
-native projects and build output were not imported.
+The eight imported `package.json` files adapt catalog/workspace declarations for
+npm. Task 3 additionally adapts 20 mobile source files for DSH transport, actual
+screens, capability guards and platform boundaries. Their current hashes and
+upstream hashes are distinct in `provenance.json`. Every adapted source file has
+an exact upstream copy in `adaptations/original/`, recorded by path and SHA-256.
+The extracted drawer context is recorded in `additionalFiles`. No original
+tracked path or asset is excluded, and the full original source remains available.
+Untracked upstream files, `.git`, dependencies and build output were not imported.
 
 The installation entry point is **`../package.json`**, using npm workspaces for the
-seven shared packages and local file dependencies named `@openbot/*`. The imported
-mobile directory is an inactive source archive, not an additional npm workspace or
-independent application installation. Its original app/deployment scripts are
-retained as provenance; do not run them from this archive.
+seven shared packages and local file dependencies named `@openbot/*`. The mobile
+source is now actively consumed by the root app; `mobile/` is still not an
+independent Expo project or installation entry point. Its original deployment
+scripts are provenance only and must not be run here.
 
 The existing root Expo SDK 58, React 19.3, React Native 0.88.1, TypeScript 5.9 and
 installed native/UI dependency ranges are retained. Additional mobile runtime
@@ -55,37 +57,42 @@ deployment, provider-runtime or native build script is part of setup. Package
 scripts in this source archive may refer to upstream-only `scripts/` helpers;
 these are not installation prerequisites or commands for this app.
 
-## Activation boundaries for the next tasks
+## Active DSH integration
 
-The active Expo project remains `ios-app/`. Its app identity (`app.dsbot.mobile`),
-`dsbot` scheme, pairing/storage identities, routes, Metro aliases and native config
-remain owned by that root app. Neither the archived `mobile/app.json` and
-`app.config.js`, EAS/fastlane/fingerprint settings, nor its native module directory
-is selected by the root app. Upstream public Firebase identifiers in the tracked
-`google-services.json` are preserved for source completeness; they are not service
-account credentials and are not selected by the root native config.
+The active Expo project remains `ios-app/`. Root identity `app.dsbot.mobile`,
+`dsbot` scheme, pairing credentials, host caches/outbox and lite native config
+are unchanged. Imported app.json/app.config.js, EAS/fastlane/Firebase settings,
+native modules and deployment scripts do not configure this app.
 
-`../tsconfig.json` temporarily excludes this inactive `openbot/` directory, because
-its existing broad `**/*.ts`/`**/*.tsx` include would otherwise typecheck two apps
-with different aliases together. Active source and aliases are unchanged. This
-exclusion is **temporary**: Task 3 must activate the chosen source, update aliases,
-generate required types and typecheck the resulting active app. The preserved
-`mobile/tsconfig.json` describes the original separate upstream project; imported
-source has not yet been claimed to typecheck or run as the root app.
+Root `@/*` and `@/assets/*` aliases select the full imported source/assets.
+`@openbot/*` resolves the real shared npm workspaces. `@legacy/*` explicitly
+isolates the older subset used only for owner-granted DSH Agent conversations.
+The root TypeScript project checks all application roots and their entire active
+import graph; it excludes preserved originals, not active imported source.
 
-Task 2 can consume the full exports in `@openbot/contracts` (especially
-`team-protocol`, IPC/types, capabilities and agent/message definitions) and
-`@openbot/team-client` (Team client, state, framing and platform-neutral helpers).
-Task 3 can consume `mobile/src/`, raw assets, the shared packages, theme and config
-plugin/module sources while integrating with the existing DSH SDK and app
-identities. Root legacy aliases such as `@openbot/contracts/*` still point at the
-existing legacy subset until Task 3 changes them; do not assume a TypeScript alias
-already selects these new packages.
+`/` and `/connected` mount adapted `ConnectedScreen`, preserving original list
+rows, pinned grid, list reveal and large-title components. Bot and group routes
+mount `AgentChatScreen` / `ChannelChatScreen` and `ChatView`, with the original
+header, message list, composer, markdown and motion components. Bot/group forms
+retain original appearance, sheet, member-choice and settings components while
+using DSH fields. Root settings uses the imported settings components.
 
-Upstream account/provider/service UI is preserved as source only. Activation must
-use DSH models and reasoning exclusively and capability-gate unsupported features;
-presence in this archive does not authorize enabling upstream services.
+All transport bindings live in `../src/ds/`. The original root SessionProvider
+still owns pairing, client, outbox, reconnect and host selection. The DS provider
+binds by current refs, disposes on owner changes, and supplies the original
+workspace contexts and presentation stores. It never constructs the archived
+account/directory/WebRTC provider or fabricates a cloud handshake. The original
+provider is preserved byte-for-byte in the adaptations directory.
 
-Native compilation, signing, device behavior, iOS extensions, Android plugins and
-deployment configuration are separate verification work. Source completeness and
-Linux checks do not establish those outcomes.
+Model references and effort IDs come exclusively from DSH. Supported actions
+use canonical DS commands and readback. Unsupported capabilities are false and
+unsupported operations throw; direct unsupported routes render unavailable.
+Pending delivery remains separate from the canonical transcript. Shared
+appearance comes from canonical DS preferences; phone preferences stay local.
+Analytics/report queues are inactive. Native-only WebView probing is guarded on
+web; swipe rows can mount without the account-backed drawer.
+
+Linux typecheck, Node/Python tests, web/iOS Metro exports and browser smoke are
+recorded in the Task 3 implementation report. Browser smoke uses only the
+existing synthetic preview. Real-host pairing/mutations/recovery, native
+compilation/signing and device behavior remain separate Task 4 verification.

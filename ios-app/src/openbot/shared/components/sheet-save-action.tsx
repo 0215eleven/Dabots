@@ -1,9 +1,9 @@
 import { Stack } from "expo-router";
 import Check from "lucide-react-native/icons/check";
-import { AndroidHeaderButton } from "@/shared/components/android-header-button";
-import { haptics } from "@/shared/lib/haptics";
-import { isAndroid, isIOS } from "@/shared/lib/platform";
-import { useText } from "@/shared/lib/text";
+import { AndroidHeaderButton } from "@legacy/shared/components/android-header-button";
+import { haptics } from "@legacy/shared/lib/haptics";
+import { isAndroid, isIOS } from "@legacy/shared/lib/platform";
+import { useText } from "@legacy/shared/lib/text";
 
 export function SheetSaveAction({
   dirty,

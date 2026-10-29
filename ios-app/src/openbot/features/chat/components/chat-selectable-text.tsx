@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { type ColorValue, TextInput, type TextInputInstance, useWindowDimensions } from "react-native";
-import { isIOS } from "@/shared/lib/platform";
-import { useText } from "@/shared/lib/text";
+import { isIOS } from "@legacy/shared/lib/platform";
+import { useText } from "@legacy/shared/lib/text";
 
 /** The body text: 16 points on a 28-point line, as the HeroUI `body` type. */
 const FONT_SIZE = 16;

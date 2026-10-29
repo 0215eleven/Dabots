@@ -1,8 +1,8 @@
 import { Stack } from "expo-router/stack";
 import { useCSSVariable } from "uniwind";
-import { headerFontOptions } from "@/shared/lib/app-font";
-import { isIOS } from "@/shared/lib/platform";
-import { sheetHeaderInsetOptions } from "@/shared/lib/sheet-header";
+import { headerFontOptions } from "@legacy/shared/lib/app-font";
+import { isIOS } from "@legacy/shared/lib/platform";
+import { sheetHeaderInsetOptions } from "@legacy/shared/lib/sheet-header";
 
 /**
  * The layout of a formSheet route that holds one page. Android shows the native header, with its title,

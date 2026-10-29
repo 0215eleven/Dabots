@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, Pressable, View } from "react-native";
-import { Typography } from "heroui-native";
+import { Button, Typography } from "heroui-native";
 import { Host as UiHost, Picker, Switch } from "@expo/ui";
 import Constants from "expo-constants";
 import { Stack, useRouter } from "expo-router";
-import { LargeTitleScrollView } from "../src/openbot/shared/components/large-title";
+import { LargeTitleScrollView } from "@/shared/components/large-title";
 import { hostAddress } from "../src/logic/hosts";
 import { setLiveActivityEnabled } from "../src/liveactivity/controller";
 import { LocalePreference, setLocalePreference, useI18n } from "../src/i18n";
@@ -12,34 +12,23 @@ import { errorFeedback, selectionFeedback, successFeedback } from "../src/media/
 import { useSession } from "../src/session/SessionProvider";
 import { readCache, writeCache } from "../src/storage";
 import { ColorMode, setColorMode, useColorMode } from "../src/theme";
+import { SettingsSection, SettingsRow } from "@/features/settings/components/settings-content";
+import { useDs } from "../src/ds/provider";
+import { mutationProblem } from "../src/ds/screen-binding";
+import { THEMES } from "../src/theme";
 import { errorText } from "../src/types";
 
-function Group({ title, footer, children }: { title: string; footer?: string; children: React.ReactNode }) {
-  return (
-    <View className="gap-1.5">
-      <Typography.Paragraph className="text-muted px-4 uppercase" style={{ fontSize: 13 }}>{title}</Typography.Paragraph>
-      <View className="overflow-hidden bg-grouped" style={{ borderRadius: 16, borderCurve: "continuous" }}>{children}</View>
-      {footer ? <Typography.Paragraph className="text-muted px-4" style={{ fontSize: 12 }}>{footer}</Typography.Paragraph> : null}
-    </View>
-  );
-}
-function Row({ title, detail, onPress, destructive, children }: { title: string; detail?: string; onPress?(): void; destructive?: boolean; children?: React.ReactNode }) {
-  const content = (
-    <View className="min-h-12 flex-row items-center gap-3 px-4 py-2.5">
-      <View className="flex-1">
-        <Typography.Paragraph className={destructive ? "text-danger-text" : onPress ? "text-accent-text" : ""} style={{ fontSize: 16 }}>{title}</Typography.Paragraph>
-        {detail ? <Typography.Paragraph className="text-muted" numberOfLines={2} style={{ fontSize: 13, marginTop: 2 }}>{detail}</Typography.Paragraph> : null}
-      </View>
-      {children}
-    </View>
-  );
-  return onPress ? <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>{content}</Pressable> : content;
-}
+const Group = SettingsSection;
+function Row({title,detail,onPress,destructive,children}:{title:string;detail?:string;onPress?:()=>void;destructive?:boolean;children?:React.ReactNode}) {return <SettingsRow supportingText={detail} onPress={onPress} trailing={children}><Typography.Paragraph className={destructive?'text-danger-text':undefined}>{title}</Typography.Paragraph></SettingsRow>}
 
-export default function Settings() {
+function Settings() {
   const { tr, locale } = useI18n();
   const router = useRouter();
   const session = useSession();
+  const {view,commands}=useDs();
+  const [sharedPending,setSharedPending]=useState(false),[sharedBlocked,setSharedBlocked]=useState(false);
+  const saveShared=async(patch:import('../src/ds/contracts').DsPreferences)=>{if(!commands||sharedPending||sharedBlocked)return;setSharedPending(true);try{await commands.setPreferences(patch);setMessage('')}catch(error){const problem=mutationProblem(error);setMessage(problem.message);setSharedBlocked(!problem.retry)}finally{setSharedPending(false)}};
+
   const mode = useColorMode();
   const [island, setIsland] = useState(true);
   const [language, setLanguage] = useState<LocalePreference>("host");
@@ -85,32 +74,21 @@ export default function Settings() {
 
       <Group title={tr("Computers")}>
         {session.hosts.map(item => (
-          <Row key={item.slot || item.serverId} title={item.name} detail={hostAddress(item)} onPress={host && item.serverId === host.serverId ? undefined : () => { selectionFeedback(); void session.switchHost(item); }}>
+          <Row key={item.slot || item.serverId} title={item.name} detail={hostAddress(item)} onPress={undefined}>
             {host && item.serverId === host.serverId ? <Typography.Paragraph className="text-accent-text" style={{ fontSize: 14 }}>{tr("Selected")}</Typography.Paragraph>
-              : <Pressable accessibilityRole="button" accessibilityLabel={tr("Forget {p0}?", { p0: item.name })} onPress={() => forget(item)} hitSlop={10}><Typography.Paragraph className="text-danger-text" style={{ fontSize: 14 }}>{tr("Forget")}</Typography.Paragraph></Pressable>}
+              : <View className="flex-row gap-2"><Pressable accessibilityRole="button" accessibilityLabel={tr("Select")} onPress={()=>void session.switchHost(item)}><Typography.Paragraph>{tr("Select")}</Typography.Paragraph></Pressable><Pressable accessibilityRole="button" accessibilityLabel={tr("Forget {p0}?", { p0: item.name })} onPress={() => forget(item)} hitSlop={10}><Typography.Paragraph className="text-danger-text" style={{ fontSize: 14 }}>{tr("Forget")}</Typography.Paragraph></Pressable></View>}
           </Row>
         ))}
         <Row title={tr("Pair a computer")} onPress={() => router.push("/pairing")} />
       </Group>
 
-      {host ? (
-        <Group title={tr("Mode")}>
-          <Row
-            title={tr("Classic Agent mode")}
-            detail={session.agentsAvailable ? tr("Show DSH Agent conversations on the home screen.") : tr("Allow this phone to use the DSH Agent on the computer first, under the paired devices of DeepSeek Bot Pro.")}
-          >
-            <UiHost matchContents>
-              <Switch
-                value={session.agentMode}
-                disabled={!session.agentsAvailable}
-                onValueChange={value => { selectionFeedback(); void session.setAgentMode(value).catch(err => setMessage(errorText(err))); }}
-              />
-            </UiHost>
-          </Row>
-        </Group>
-      ) : null}
 
-      <Group title={tr("Appearance")}>
+      <Group title="Computer appearance" footer="Shared with the computer; values update after desktop acknowledgement and readback.">
+        <Row title="Theme" detail={String(view?.preferences.theme??'deepseek')}><UiHost matchContents><Picker enabled={!sharedPending&&!sharedBlocked&&Boolean(view?.capabilities.actions.includes("set-prefs"))} selectedValue={String(view?.preferences.theme??'deepseek')} onValueChange={theme=>void saveShared({theme:String(theme)})}>{Object.entries(THEMES).map(([id,value])=><Picker.Item key={id} label={value.name} value={id}/>)}</Picker></UiHost></Row>
+        <Row title="Accent" detail={String(view?.preferences.accent??'Default')}><View className="flex-row gap-2">{[null,'#3b6fd8','#d97757','#228866'].map(accent=><Button key={accent??'default'} variant="secondary" isDisabled={sharedPending||sharedBlocked||!view?.capabilities.actions.includes('set-prefs')} onPress={()=>void saveShared({accent})}><Button.Label>{accent??'Default'}</Button.Label></Button>)}</View></Row>
+        <Row title="Motion"><UiHost matchContents><Picker enabled={!sharedPending&&!sharedBlocked&&Boolean(view?.capabilities.actions.includes("set-prefs"))} selectedValue={String(view?.preferences.motion??'normal')} onValueChange={motion=>void saveShared({motion:motion as 'quiet'|'normal'|'lively'})}>{['quiet','normal','lively'].map(value=><Picker.Item key={value} label={value} value={value}/>)}</Picker></UiHost></Row>
+      </Group>
+      <Group title="Phone appearance and preferences">
         <Row title={tr("Theme")}>
           <UiHost matchContents>
             <Picker selectedValue={mode} onValueChange={value => changeMode(value as ColorMode)} appearance="menu">
@@ -138,10 +116,12 @@ export default function Settings() {
       </Group>
 
       <Group title={tr("More")}>
-        <Row title={tr("Classic view")} detail={tr("Team, groups, schedules and host settings.")} onPress={() => router.push("/classic")} />
+        {view?.capabilities.agents?<Row title="DSH Agent" detail="Owner-granted Agent conversations" onPress={() => router.push("/classic")} />:null}
         {host ? <Row title={tr("Unpair this computer")} destructive onPress={unpair} /> : null}
       </Group>
       <Typography.Paragraph className="text-muted text-center" style={{ fontSize: 12 }}>DeepSeek Bot Pro {Constants.expoConfig?.version} · {locale}</Typography.Paragraph>
     </LargeTitleScrollView>
   );
 }
+
+export default function SettingsRoute(){const {host}=useSession();return <Settings key={host?.serverId??"unpaired"}/>;}

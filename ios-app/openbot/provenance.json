@@ -2057,8 +2057,12 @@
       "gitBlob": "7f0cf81722410e04bec57db60fc92c18506fd45a",
       "mode": "100644",
       "upstreamSha256": "e52d6d731a4fb993f6701815d7f1ca729fc56d9e405aa7073615e47a633eca46",
-      "importedSha256": "e52d6d731a4fb993f6701815d7f1ca729fc56d9e405aa7073615e47a633eca46",
-      "adaptation": null
+      "importedSha256": "d77705bed84c8acff8dc4d942990adca991d1496f7744bf6c135f4d5986a68dc",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/components/agent-context-menu.tsx",
+        "sha256": "e52d6d731a4fb993f6701815d7f1ca729fc56d9e405aa7073615e47a633eca46"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/components/agent-crowd.tsx",
@@ -2138,8 +2142,12 @@
       "gitBlob": "11cbc052d1512817150952c3d7585a0b585a4157",
       "mode": "100644",
       "upstreamSha256": "a515b72ef2e985f8462aa5280e24e919a558adaee0cbeb3b52457e1e6f9c48d2",
-      "importedSha256": "a515b72ef2e985f8462aa5280e24e919a558adaee0cbeb3b52457e1e6f9c48d2",
-      "adaptation": null
+      "importedSha256": "a1d43d334086e0d59516641fe4ed16c7f0fdfecc9a857827fcb49682e0a6015a",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/components/agent-photo.tsx",
+        "sha256": "a515b72ef2e985f8462aa5280e24e919a558adaee0cbeb3b52457e1e6f9c48d2"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/components/agent-pin-avatar.tsx",
@@ -2156,8 +2164,12 @@
       "gitBlob": "705e4e6c2c1bb74bc95f53eb745597464c006a57",
       "mode": "100644",
       "upstreamSha256": "4e401384b23c2e82b6f2af826a7254a789ad1bb2612863d3590f4d31a35bf33d",
-      "importedSha256": "4e401384b23c2e82b6f2af826a7254a789ad1bb2612863d3590f4d31a35bf33d",
-      "adaptation": null
+      "importedSha256": "8d8a497f486403f0a163c4e7dc299132094fe983a9ab93dc83cceeefa3d95dac",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/components/agent-pin-swipe-row.tsx",
+        "sha256": "4e401384b23c2e82b6f2af826a7254a789ad1bb2612863d3590f4d31a35bf33d"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/components/agent-pin-transition-overlay.tsx",
@@ -2174,8 +2186,12 @@
       "gitBlob": "c12980202f95c76b93f9b9ea3ee490fd562918d5",
       "mode": "100644",
       "upstreamSha256": "6a67561a71b1f32d5f8a20a52568a7fb444a157e7d180b8cad7383dbfad4905a",
-      "importedSha256": "6a67561a71b1f32d5f8a20a52568a7fb444a157e7d180b8cad7383dbfad4905a",
-      "adaptation": null
+      "importedSha256": "2f34f819a1e3557a3597c2c591e817bc9998c8bac2ad98f9432775973fa27e83",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/components/agent-pin-transition.tsx",
+        "sha256": "6a67561a71b1f32d5f8a20a52568a7fb444a157e7d180b8cad7383dbfad4905a"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/components/agent-publish.tsx",
@@ -2543,8 +2559,12 @@
       "gitBlob": "3ad18e9e9ab9095d03a1303349eff7f046955510",
       "mode": "100644",
       "upstreamSha256": "3e7abc7adc71284adeebc610db6fa477033def3174fd2649767976375f7edb21",
-      "importedSha256": "3e7abc7adc71284adeebc610db6fa477033def3174fd2649767976375f7edb21",
-      "adaptation": null
+      "importedSha256": "4ef007ad13a88434cb09c9842c904091cd760ed9983737a13a4769c3a0562b7d",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/screens/add-agent-screen.tsx",
+        "sha256": "3e7abc7adc71284adeebc610db6fa477033def3174fd2649767976375f7edb21"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/screens/connected-screen.tsx",
@@ -2552,8 +2572,12 @@
       "gitBlob": "2d01145d6d1a652a8acf764a86a03b30f51d9700",
       "mode": "100644",
       "upstreamSha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a",
-      "importedSha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a",
-      "adaptation": null
+      "importedSha256": "2a7623aa3a45f63a261dfdf764f599895c732d881bcbd8d960003e4bfef2205a",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/screens/connected-screen.tsx",
+        "sha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/screens/edit-agent-screen.tsx",
@@ -2561,8 +2585,12 @@
       "gitBlob": "824b30b9e6dab54e3143311a8f628af4082dd3a8",
       "mode": "100644",
       "upstreamSha256": "ecab9baa50ebd77fb901bf59b7350f3b740be7d36ed9f7737d69a1e118fdeb72",
-      "importedSha256": "ecab9baa50ebd77fb901bf59b7350f3b740be7d36ed9f7737d69a1e118fdeb72",
-      "adaptation": null
+      "importedSha256": "406ca8c4e97a60b512f5798cb0ca2faf03f6fcda601da72b9567d50ce0ffd09e",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/screens/edit-agent-screen.tsx",
+        "sha256": "ecab9baa50ebd77fb901bf59b7350f3b740be7d36ed9f7737d69a1e118fdeb72"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/screens/hidden-chats-screen.tsx",
@@ -2624,8 +2652,12 @@
       "gitBlob": "d6c426e332a4e7fd5039677b2b86abce8f50cfc2",
       "mode": "100644",
       "upstreamSha256": "bd718557124c7814f4b0283bcfc5e8c121564cf11b3a5ae1d47803c47e0f1dcd",
-      "importedSha256": "bd718557124c7814f4b0283bcfc5e8c121564cf11b3a5ae1d47803c47e0f1dcd",
-      "adaptation": null
+      "importedSha256": "f06dc594eba304093ec48e16fd0a11bd88c41607f30037273acd5345bc360bcd",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/analytics/failure-reports.ts",
+        "sha256": "bd718557124c7814f4b0283bcfc5e8c121564cf11b3a5ae1d47803c47e0f1dcd"
+      }
     },
     {
       "source": "apps/mobile/src/features/analytics/lifecycle.tsx",
@@ -2642,8 +2674,12 @@
       "gitBlob": "9c21dd31deea70a82e2cc494d42dd6ed330a6d87",
       "mode": "100644",
       "upstreamSha256": "1346095f05a028efbb4092c82ae9daec0c10899dbcf6bcce52714cce7ee39328",
-      "importedSha256": "1346095f05a028efbb4092c82ae9daec0c10899dbcf6bcce52714cce7ee39328",
-      "adaptation": null
+      "importedSha256": "6ef75faf0b0c52dd5d20b0d9d4dfc94d6c4259c9fa7138bdb09d2cfcfa8b0c76",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/analytics/mobile-analytics.ts",
+        "sha256": "1346095f05a028efbb4092c82ae9daec0c10899dbcf6bcce52714cce7ee39328"
+      }
     },
     {
       "source": "apps/mobile/src/features/analytics/preference.ts",
@@ -2939,8 +2975,12 @@
       "gitBlob": "aca0e31ae1e7be999af9532d2346edfde7f30520",
       "mode": "100644",
       "upstreamSha256": "97d2fe691686337cc1bf50159bddad95fce2b44b5392635c5340d00ec2bcedfc",
-      "importedSha256": "97d2fe691686337cc1bf50159bddad95fce2b44b5392635c5340d00ec2bcedfc",
-      "adaptation": null
+      "importedSha256": "7dbd8bbca5e7488176316576a02851a1e04a66a779ee053d983b72204e173c05",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/browser/components/use-browser-feature.ts",
+        "sha256": "97d2fe691686337cc1bf50159bddad95fce2b44b5392635c5340d00ec2bcedfc"
+      }
     },
     {
       "source": "apps/mobile/src/features/browser/components/use-browser-live-view.ts",
@@ -3065,8 +3105,12 @@
       "gitBlob": "c03edf8dbb35308776c062fe03979db983643770",
       "mode": "100644",
       "upstreamSha256": "05db8a1ed978f46eb5fbe99262f543c4aa99107bc30baa8b32f8aa3df2c86baf",
-      "importedSha256": "05db8a1ed978f46eb5fbe99262f543c4aa99107bc30baa8b32f8aa3df2c86baf",
-      "adaptation": null
+      "importedSha256": "d8e8752168d7615c3cd9fd95910257568050fc9726fa82bb2fbd18baac60f7d2",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/channels/components/channel-list.tsx",
+        "sha256": "05db8a1ed978f46eb5fbe99262f543c4aa99107bc30baa8b32f8aa3df2c86baf"
+      }
     },
     {
       "source": "apps/mobile/src/features/channels/components/channel-task-actions.tsx",
@@ -3119,8 +3163,12 @@
       "gitBlob": "320980c4f9cdeb6f2b12aa54ff0f913e2687ef5f",
       "mode": "100644",
       "upstreamSha256": "de5c2a059369340454e03d5a67035cdc2ad20c6d9539b95dc101670f7cb7c9fa",
-      "importedSha256": "de5c2a059369340454e03d5a67035cdc2ad20c6d9539b95dc101670f7cb7c9fa",
-      "adaptation": null
+      "importedSha256": "f2ae58497c2b1565a96c11df2f0470db905452e19c937bc917d2521d8a4b2930",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/channels/model/channel-store.ts",
+        "sha256": "de5c2a059369340454e03d5a67035cdc2ad20c6d9539b95dc101670f7cb7c9fa"
+      }
     },
     {
       "source": "apps/mobile/src/features/channels/model/channel-task-actions.ts",
@@ -3146,8 +3194,12 @@
       "gitBlob": "efa1e5c1b016ec14dae587486cb0d6609d78d560",
       "mode": "100644",
       "upstreamSha256": "33366298a96b7cf3702781db9157dd489be66e59272e1f686c66cbf6013dadd8",
-      "importedSha256": "33366298a96b7cf3702781db9157dd489be66e59272e1f686c66cbf6013dadd8",
-      "adaptation": null
+      "importedSha256": "a543bff02d72ced2e2f76962f01d53c531f8103faeeff61e528b97750cfadf38",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/channels/screens/channel-chat-screen.tsx",
+        "sha256": "33366298a96b7cf3702781db9157dd489be66e59272e1f686c66cbf6013dadd8"
+      }
     },
     {
       "source": "apps/mobile/src/features/channels/screens/channel-form-screen.tsx",
@@ -3155,8 +3207,12 @@
       "gitBlob": "39df3ec5fce4795d8eae937998685fef179cf37c",
       "mode": "100644",
       "upstreamSha256": "155add91c7df2c0005a3bad782d5acf74dd3a4e71541ae770e7be9ea259d7acc",
-      "importedSha256": "155add91c7df2c0005a3bad782d5acf74dd3a4e71541ae770e7be9ea259d7acc",
-      "adaptation": null
+      "importedSha256": "98db385c7b2dd66e1f602089ec5d81eb1069125810acbbcfb6559e3e05b03937",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/channels/screens/channel-form-screen.tsx",
+        "sha256": "155add91c7df2c0005a3bad782d5acf74dd3a4e71541ae770e7be9ea259d7acc"
+      }
     },
     {
       "source": "apps/mobile/src/features/channels/screens/channel-records-screen.tsx",
@@ -3506,8 +3562,12 @@
       "gitBlob": "384b75cc6816aafd40f169f74427ecc88ea23494",
       "mode": "100644",
       "upstreamSha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9",
-      "importedSha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9",
-      "adaptation": null
+      "importedSha256": "de3a333070872ec3c6d195c6958cfde858eed69021ec62f60dd488849a5a4f3b",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/chat/components/chat-view.tsx",
+        "sha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9"
+      }
     },
     {
       "source": "apps/mobile/src/features/chat/components/code-document.tsx",
@@ -3578,8 +3638,12 @@
       "gitBlob": "f8f46e4b25f4ef11949f82ecf9aae40c6433fb3c",
       "mode": "100644",
       "upstreamSha256": "0588cda66432ac24a23a80b9ad5ab2ef3c0cc92fa7a75de4fa3141639bb7f4e4",
-      "importedSha256": "0588cda66432ac24a23a80b9ad5ab2ef3c0cc92fa7a75de4fa3141639bb7f4e4",
-      "adaptation": null
+      "importedSha256": "43b4c4cfca02f49968e51a49209ce49a4ae6295cfe4b671853552eb74034a312",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/chat/components/html-page.tsx",
+        "sha256": "0588cda66432ac24a23a80b9ad5ab2ef3c0cc92fa7a75de4fa3141639bb7f4e4"
+      }
     },
     {
       "source": "apps/mobile/src/features/chat/components/html-preview.dom.tsx",
@@ -4280,8 +4344,12 @@
       "gitBlob": "7c7771c84362acc317ff78f8d43cd11e945f703f",
       "mode": "100644",
       "upstreamSha256": "6984fff2ab85a266c6f77552d11c993f4becdee3ec198cbd31d50951d736a13f",
-      "importedSha256": "6984fff2ab85a266c6f77552d11c993f4becdee3ec198cbd31d50951d736a13f",
-      "adaptation": null
+      "importedSha256": "40f3c9677bb53ea559dbeb670f5c834905ea9e5bf8c3a450d89ecceeb536cd9a",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/chat/screens/agent-chat-screen.tsx",
+        "sha256": "6984fff2ab85a266c6f77552d11c993f4becdee3ec198cbd31d50951d736a13f"
+      }
     },
     {
       "source": "apps/mobile/src/features/chat/screens/code-preview-screen.tsx",
@@ -4982,8 +5050,12 @@
       "gitBlob": "9b6af6704bd22d06031823738b6db2323f92148d",
       "mode": "100644",
       "upstreamSha256": "9a5e4e8c46bdc8bc2438222f6f4d9fb3fae52017bf239fd68710baf6cf5d9cba",
-      "importedSha256": "9a5e4e8c46bdc8bc2438222f6f4d9fb3fae52017bf239fd68710baf6cf5d9cba",
-      "adaptation": null
+      "importedSha256": "dbe3dcb5abb353950e50c90900dbf5eb5f913465b130d67c38db017bf2ce0e42",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/servers/components/app-drawer-shell.tsx",
+        "sha256": "9a5e4e8c46bdc8bc2438222f6f4d9fb3fae52017bf239fd68710baf6cf5d9cba"
+      }
     },
     {
       "source": "apps/mobile/src/features/servers/components/bitwarden-connector-page.tsx",
@@ -6440,8 +6512,12 @@
       "gitBlob": "e93b97d5d281c42484d2e6447570557f8021f7db",
       "mode": "100644",
       "upstreamSha256": "b54ea79305141d7e163f3ba879a436e76f912d8351f8a60ea6a28b71e5f9bb03",
-      "importedSha256": "b54ea79305141d7e163f3ba879a436e76f912d8351f8a60ea6a28b71e5f9bb03",
-      "adaptation": null
+      "importedSha256": "0cf027977826ba27fcd76c5b60f254fbcf156e0dc37afeedd52edfb64aacd87b",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/workspace/context/mobile-workspace-context.tsx",
+        "sha256": "b54ea79305141d7e163f3ba879a436e76f912d8351f8a60ea6a28b71e5f9bb03"
+      }
     },
     {
       "source": "apps/mobile/src/features/workspace/context/server-recovery-countdown.ts",
@@ -6692,8 +6768,12 @@
       "gitBlob": "135365c2586d49715e42bd544231e61af9f5df2f",
       "mode": "100644",
       "upstreamSha256": "00b86651aa78ec561c9e616ac05efc68fe143b2786ba4b3072fefa35c875e61a",
-      "importedSha256": "00b86651aa78ec561c9e616ac05efc68fe143b2786ba4b3072fefa35c875e61a",
-      "adaptation": null
+      "importedSha256": "5e6a9953e4878985b60ab45adfee860bd7e3ac84d5a80b24199fe3e396d4227f",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/workspace/model/workspace-types.ts",
+        "sha256": "00b86651aa78ec561c9e616ac05efc68fe143b2786ba4b3072fefa35c875e61a"
+      }
     },
     {
       "source": "apps/mobile/src/images.d.ts",
@@ -23614,6 +23694,22 @@
       "upstreamSha256": "2bee5cac1fd39d7a8eb5f510fbfd6cf4e82f725e37f96706a898159a88e91a4a",
       "importedSha256": "2bee5cac1fd39d7a8eb5f510fbfd6cf4e82f725e37f96706a898159a88e91a4a",
       "adaptation": null
+    }
+  ],
+  "activation": {
+    "task": 3,
+    "entryPoint": "../app/_layout.tsx",
+    "sourceAlias": "@/* -> openbot/mobile/src/*",
+    "binding": "../src/ds",
+    "modifiedSourceFiles": 20,
+    "preservedOriginals": "adaptations/original",
+    "unsupportedServices": "Account, directory, provider configuration, WebRTC and analytics are not activated."
+  },
+  "additionalFiles": [
+    {
+      "path": "mobile/src/features/servers/components/app-drawer-context.ts",
+      "sha256": "dd2923a0887421a542273c3e5d5fbf46861cbe855400ade960d5a69506ca92cb",
+      "adaptation": "Extracted original drawer context so actual swipe rows can mount independently of account-backed drawer shell."
     }
   ]
 }

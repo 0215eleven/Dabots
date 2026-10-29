@@ -1,5 +1,5 @@
 import type { DefaultTheme } from "expo-router/react-navigation";
-import { isIOS } from "@/shared/lib/platform";
+import { isIOS } from "@legacy/shared/lib/platform";
 
 /**
  * The app font, as on desktop and web. The expo-font plugin in app.json embeds it as one family, so
