@@ -1,9 +1,10 @@
+import {createQueueObserver, type QueueState} from './queue-observer.ts';
 import { mergeMessages, type Message } from '@ds-bot/mobile-sdk';
 import type { DsCore, DsMessage } from './contracts.ts';
 import { dsId } from './identity.ts';
 import { projectTranscript } from './projection.ts';
 import { mutationProblem } from './screen-binding.ts';
-export interface ChatScreenState {
+export interface ChatScreenState extends QueueState {
     messages: DsMessage[]; ready: boolean; error: string; cursor: string | null;
     olderLoading: boolean; olderError: boolean;
 }
@@ -12,7 +13,7 @@ export function createChatBinding(core: DsCore, id: string) {
     const owner = core.read();
     const target = [...owner.conversations, ...owner.agents].find(conversation => conversation.id === id);
     if (!target) throw Error('This conversation is no longer visible.');
-    let state: ChatScreenState = { messages: [], ready: false, error: '', cursor: null, olderLoading: false, olderError: false };
+    let state: ChatScreenState = { hostQueue: null, queueStatus: 'unavailable', messages: [], ready: false, error: '', cursor: null, olderLoading: false, olderError: false };
     let active = true, started = false, foreground = true, liveRevision = 0, sessionRevision = 0;
     let sessionId: string | undefined, loadedOlder = false, hasHistory = false, streamEstablished = false;
     let cached: Message[] = [], canonical: Message[] = [], transient: Message[] = [];
@@ -20,6 +21,7 @@ export function createChatBinding(core: DsCore, id: string) {
     let release: (() => void) | undefined;
     const listeners = new Set<() => void>();
     const publish = (patch: Partial<ChatScreenState>) => { if (!active) return; state = { ...state, ...patch }; for (const listener of listeners) listener(); };
+    const queue = createQueueObserver(core, id, publish);
     const inSession = (rows: Message[]) => sessionId ? rows.filter(message => dsId(owner.serverId, 'session', message.sessionId) === sessionId) : rows;
     function publishRows(patch: Partial<ChatScreenState> = {}) {
         const rows = mergeMessages(mergeMessages(cached, canonical), transient);
@@ -30,6 +32,7 @@ export function createChatBinding(core: DsCore, id: string) {
         const rollover = sessionId !== undefined;
         sessionId = next;
         sessionRevision++;
+        queue.event(next);
         cached = inSession(cached);
         // The first authoritative session also filters provisional cache/rows.
         canonical = rollover ? [] : inSession(canonical);
@@ -65,6 +68,7 @@ export function createChatBinding(core: DsCore, id: string) {
             release = core.watchConversation(id, {
                 onSnapshot(snapshot) {
                     if (!active) return;
+                    queue.event(snapshot.sessionId);
                     changeSession(snapshot.sessionId ?? snapshot.messages[0]?.ds.sessionId);
                     // ready/heartbeat sequence and cursor metadata do not establish a transcript.
                     if (!snapshot.established && !snapshot.messages.length) { publishRows(); return; }
@@ -91,6 +95,7 @@ export function createChatBinding(core: DsCore, id: string) {
         start() {
             if (started || !active) return;
             started = true;
+            queue.start();
             void core.cachedHistory(id).then(messages => {
                 if (!active || hasHistory) return;
                 cached = inSession(messages.map(message => message.ds.source)).filter(message => !streamEstablished || !message.pending);
@@ -102,9 +107,10 @@ export function createChatBinding(core: DsCore, id: string) {
         setForeground(value: boolean) {
             if (!active || foreground === value) return;
             foreground = value;
+            queue.setForeground(value);
             if (!value) { release?.(); release = undefined; }
             else { acquire(); if (started && core.capabilities().history) void load(); }
         },
-        dispose() { active = false; release?.(); release = undefined; listeners.clear(); },
+        dispose() { active = false; queue.dispose(); release?.(); release = undefined; listeners.clear(); },
     };
 }

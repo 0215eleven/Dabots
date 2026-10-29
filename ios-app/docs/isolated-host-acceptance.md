@@ -186,3 +186,53 @@ settings above. Final clean package metadata and source/archive audit are record
 in the external fix report. Earlier aggregate and native-prebuild evidence keeps
 its original source boundary; native compilation/signing/device checks remain
 unrun. Screenshot recovery alone does not justify another bundle or broad suite.
+
+## Final whole-branch review correction
+
+The final correction restores `cache.getDraft/setDraft(serverId, originalConversationId)`
+in the active Bot/group chat. Serialized writes retain navigation edits; late reads
+and send completions cannot replace newer input. The offline composer edits locally
+and gates sending separately. Known authorization denial and read-only snapshots
+remain protected. Browser credentials intentionally stay in tab memory, so the
+browser restart check pairs again through the public owner approval flow; native
+credential persistence is covered by existing storage contracts, not browser claims.
+
+Management dispatch now keeps acknowledged or unknown outcomes even if ownership
+changes before/during readback. In-memory review state is keyed by the existing
+server ID and nonsecret pairing slot, surviving fresh clients on host return. No
+management replay journal or backend protocol is introduced. A fresh canonical read
+and explicit user acknowledgement are both needed before another non-idempotent
+intent. Strict old-client guards still forbid new-host requests/readback.
+
+The public Bridge `queue` action is read-only. It returns original conversation and
+session IDs plus items `{id, requestId?, target, text}`; targets remain `next-turn`
+or `next-step`. The core verifies capability, owner, entity, reply IDs and session
+before publishing scoped IDs. Chat displays the host queue separately from local
+message delivery and current work. Reads are single-flight, coalesced to at most one
+per second on stream events, with an eight-second foreground poll. Background,
+session changes and disposal abort/ignore outstanding responses and clear old state.
+Unsupported/denied queues stay unavailable; queue editing is not exposed.
+
+Run the combined isolated-host check with
+`DOTSLASH_CACHE=/workspace/.cache/deepseek-bot-pro/dotslash DS_TEST_SCENARIO=final-all node --experimental-strip-types ios-app/test/browser/ds-isolated-host.cjs`.
+It adds draft lifecycle, actual running + mobile/desktop queue input, and controlled
+public-host create/duplicate ownership races before the existing critical flow suite.
+The race harness uses real public writes and canonical reads with controlled local
+ownership/reply interleavings; it is not a native gesture or device-switch test.
+Deterministic tests cover delayed cache I/O, unconfirmed enqueue, fresh-client review,
+late queue replies, next-step data and foreground cancellation.
+
+The final report records exact combined source hashes, test counts, clean package
+metadata and web/iOS JavaScript exports. Earlier production plugin/TGZ boot/migration,
+packed Bridge/UI and Linux prebuild evidence keeps its own unchanged source boundary.
+All six final Chinese screenshots remain immutable. macOS Xcode compilation,
+archive/unsigned IPA, signing and physical-device checks remain **UNRUN**.
+
+Final correction source gates: root **1392 Node pass + 2 intentional Windows skips**,
+**11 Python pass**; mobile **322** and typecheck included. Actual combined public-host
+UI **29 pass**; true ACK-loss recovery has one POST/one canonical row and automatic
+431ms settlement before reconnect. Host queue visibility805ms; desktop edit1984ms.
+Final web and iOS JS exports run once each on stable production source; all29
+manifested production files (including all13 wave changes) are verified against
+export inputs and final committed blobs. The final report records artifact digests,
+clean package HEAD metadata and audit results without claiming native delivery.

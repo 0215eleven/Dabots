@@ -125,7 +125,7 @@ function useAgentContextMenu(agent: MobileAgent) {
         {t(isPinned ? "mobile.agent.pin.unpin" : "mobile.agent.pin.pin")}
       </Link.MenuAction>
       <Link.MenuAction icon="eye.slash" disabled={!supported("set-flags")} onPress={handleHide}>
-        {view?.bots.find(bot=>bot.id===agent.id)?.hidden?'Show chat':t("mobile.agent.menu.hide")}
+        {view?.bots.find(bot=>bot.id===agent.id)?.hidden?t("mobile.agent.hidden.show"):t("mobile.agent.menu.hide")}
       </Link.MenuAction>
       {sectionMenu.menu}
       <Link.MenuAction icon="info.circle" onPress={handleInfo}>
@@ -226,7 +226,7 @@ function OpenAgentMenu({
       image: isPinned ? "pin.slash" : "pin",
       attributes: { disabled: !canPin },
     },
-    { id: "hide", title: view?.bots.find(bot=>bot.id===agent.id)?.hidden?'Show chat':t("mobile.agent.menu.hide"), image: "eye.slash", attributes:{disabled:!supported("set-flags")} },
+    { id: "hide", title: view?.bots.find(bot=>bot.id===agent.id)?.hidden?t("mobile.agent.hidden.show"):t("mobile.agent.menu.hide"), image: "eye.slash", attributes:{disabled:!supported("set-flags")} },
     ...sectionMenu.androidActions,
     { id: "info", title: t("mobile.agent.menu.info"), image: "info.circle" },
     {

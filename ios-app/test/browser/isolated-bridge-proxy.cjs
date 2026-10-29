@@ -4,7 +4,7 @@ const http = require('node:http');
 exports.startProxy = async function startProxy(bridgeUrl, appOrigin) {
   const target = new URL(bridgeUrl), origin = new URL(appOrigin).origin;
   if (target.protocol !== 'http:' || target.hostname !== '127.0.0.1' || target.pathname !== '/' || target.username || target.password) throw Error('Only an isolated loopback fixture is supported');
-  const sockets = new Set(), controls = { loseNext: null, denyNext: null, writes: [], drops: [], dropped: 0, upgrades: 0 };
+  const sockets = new Set(), controls = { loseNext: null, loseText: null, denyNext: null, writes: [], drops: [], dropped: 0, upgrades: 0 };
   const destination = req => {
     if (req.headers.origin && req.headers.origin !== origin) return null;
     // Validate what will actually be forwarded after URL dot-segment normalization.
@@ -34,9 +34,9 @@ exports.startProxy = async function startProxy(bridgeUrl, appOrigin) {
       const upstream = http.request(url, { method: req.method, headers }, reply => {
         const lose = controls.loseNext === '/mobile/v1/submissions' && req.method === 'POST'
           && url.pathname === '/mobile/v1/submissions' && typeof mutation?.requestId === 'string'
-          && reply.statusCode >= 200 && reply.statusCode < 300;
+          && reply.statusCode >= 200 && reply.statusCode < 300 && (!controls.loseText || mutation.text === controls.loseText);
         if (lose) {
-          controls.loseNext = null;
+          controls.loseNext = null; controls.loseText = null;
           // A bare reset before any headers lets Chromium transparently resend a
           // POST. Deliver only its successful status and an incomplete JSON prefix,
           // then cut the acknowledgement body so the app must reconcile by receipt.

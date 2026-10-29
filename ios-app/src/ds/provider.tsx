@@ -38,7 +38,7 @@ export function DsProvider({ children }: {
     const latest = useRef(session);
     latest.current = session;
     const client = session.client, serverId = session.host?.serverId, outbox = session.outbox;
-    const binding = useMemo(() => { const raw = bindSessionCore(session, () => latest.current); return raw && client ? guardManagement(raw, client) : null; }, [client, serverId, outbox]);
+    const binding = useMemo(() => { const raw = bindSessionCore(session, () => latest.current); return raw && client ? guardManagement(raw, JSON.stringify([serverId, session.host?.slot ?? ''])) : null; }, [client, serverId, session.host?.slot, outbox]);
     const core = binding?.core ?? null;
     useEffect(() => () => core?.dispose(), [core]);
     const hasSnapshot = Boolean(session.workspace.getSnapshot());

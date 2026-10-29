@@ -105,3 +105,14 @@ Task 4 verification evidence and repeatable commands: `ios-app/docs/isolated-hos
 ### Parent completion
 
 - [ ] Independent Task 5 review, final whole-branch review, authorized branch push and reusable cloud configuration draft (parent-owned).
+
+### Final whole-branch correction wave — I1/I2/I3/M1
+
+- [x] Reproduce draft loss/offline editor removal and post-dispatch owner races before fixes.
+- [x] Restore original raw-key draft lifecycle; protect late loads/writes, newer input, offline edits and durable-send clearing.
+- [x] Preserve acknowledged/unknown management outcomes and original-pairing review across fresh clients, without stale-owner reads or writes.
+- [x] Observe the public host queue read-only with capability/session/owner guards, foreground cadence and distinct UI; local outbox semantics remain unchanged.
+- [x] Translate both hidden-Bot native menu branches using the existing reactive catalog; preserve upstream originals/legal notices.
+- [x] Final combined root/mobile/type (1392 Node + 2 expected skips + 11 Python), actual public-host regression (29), and web/iOS JS exports pass; final source package/audit recorded after clean commit in the final fix report.
+- [ ] Parent's single scoped re-review, final branch push and reusable cloud configuration draft.
+- [ ] External macOS Xcode/native compilation, unsigned lite IPA and signed-device checks remain UNRUN.

@@ -144,6 +144,8 @@ interface ChatComposerProps {
   onSuggestionsVisibleChange?: (visible: boolean) => void;
   bottomInset: number;
   disabled: boolean;
+  /** Local drafts remain editable while network sending is unavailable. */
+  sendDisabled?: boolean;
   draft: string;
   fallbackBackground: ViewStyle["backgroundColor"];
   foreground: ViewStyle["backgroundColor"];
@@ -239,6 +241,7 @@ export const ChatComposer = memo(function ChatComposer({
   onSuggestionsVisibleChange,
   bottomInset,
   disabled,
+  sendDisabled = false,
   draft,
   fallbackBackground,
   foreground,
@@ -694,7 +697,7 @@ export const ChatComposer = memo(function ChatComposer({
     size: plusDrawn,
   };
   const control = composerAction({
-    disabled,
+    disabled: disabled || sendDisabled,
     hasDraft,
     busy,
     canStop: Boolean(onStop),
@@ -703,7 +706,7 @@ export const ChatComposer = memo(function ChatComposer({
   });
 
   function requestSend(): void {
-    if (disabled || preparing) return;
+    if (disabled || sendDisabled || preparing) return;
     const action = sendGate.request();
     if (action === "blur") inputRef.current?.blur();
     else if (action === "send") onSend(latestTextRef.current);
@@ -1080,6 +1083,7 @@ export const ChatComposer = memo(function ChatComposer({
                   <ComposerPasteTarget onPasteFiles={pasteFiles}>
                     <TextInput
                       ref={inputRef}
+                      value={Platform.OS === "web" ? displayText : undefined}
                       nativeID="chat-composer-input"
                       accessibilityLabel={t("mobile.chat.composer.messageAgent", { name: agentName })}
                       accessibilityState={{ disabled: disabled || voiceOpen }}
@@ -1118,7 +1122,7 @@ export const ChatComposer = memo(function ChatComposer({
                         // onEndEditing. Consume the same gate here on web only.
                         if (Platform.OS === "web") {
                           latestTextRef.current = editMentionDraft(latestTextRef.current, 'text' in nativeEvent && typeof nativeEvent.text === 'string' ? nativeEvent.text : latestTextRef.current);
-                          if (sendGate.commit() && !disabled) onSend(latestTextRef.current);
+                          if (sendGate.commit() && !disabled && !sendDisabled) onSend(latestTextRef.current);
                         }
                       }}
                       onChangeText={(text) => {
@@ -1158,18 +1162,18 @@ export const ChatComposer = memo(function ChatComposer({
                         onChangeDraft(next);
                       }}
                       onSubmitEditing={({ nativeEvent }) => {
-                        if (!disabled && sendGate.submit())
+                        if (!disabled && !sendDisabled && sendGate.submit())
                           onSend(editMentionDraft(latestTextRef.current, nativeEvent.text));
                       }}
                       onEndEditing={({ nativeEvent: { text } }) => {
                         // Native editing can end before the send button's release event,
                         // while TextInput.isFocused() is still waiting for onBlur.
                         latestTextRef.current = editMentionDraft(latestTextRef.current, text);
-                        if (sendGate.commit() && !disabled) onSend(latestTextRef.current);
+                        if (sendGate.commit() && !disabled && !sendDisabled) onSend(latestTextRef.current);
                       }}
                     >
                       {/* TextInput requires native text children for editable attributed text. */}
-                      <NativeText>
+                      {Platform.OS === "web" ? null : <NativeText>
                         {display.mentions.map((mention, index) => (
                           <NativeText key={mention.start}>
                             {displayText.slice(index ? (display.mentions[index - 1]?.end ?? 0) : 0, mention.start)}
@@ -1179,7 +1183,7 @@ export const ChatComposer = memo(function ChatComposer({
                           </NativeText>
                         ))}
                         {displayText.slice(display.mentions.at(-1)?.end ?? 0)}
-                      </NativeText>
+                      </NativeText>}
                     </TextInput>
                   </ComposerPasteTarget>
                 </Animated.View>

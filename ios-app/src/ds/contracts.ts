@@ -9,6 +9,7 @@ export interface DsSnapshot {
     team: TeamState;
     conversations: Conversation[];
     source: 'live' | 'cache';
+    accessDenied?: boolean;
 }
 export interface DsCoreOptions {
     client: MobileClient;
@@ -99,7 +100,13 @@ export interface DsModelOptions {
     }>;
     defaultEffort?: string;
 }
+export interface DsHostQueue {
+    conversationId: string;
+    sessionId: string;
+    items: Array<{id: string; requestId?: string; target: 'next-turn' | 'next-step'; text: string}>;
+}
 export interface DsCapabilities {
+    editDraft: boolean;
     actions: string[];
     send: boolean;
     history: boolean;
@@ -205,6 +212,7 @@ export interface DsCore {
   history(id: string, options?: { cursor?: string | null; limit?: number }): Promise<DsHistory>;
   cachedHistory(id: string): Promise<DsMessage[]>;
   send(id: string, input: { text: string; attachments?: Attachment[] }): Promise<DsSendState | null>;
+  queue(id: string, signal?: AbortSignal): Promise<DsHostQueue>;
   pending(id: string): DsSendState[];
   retrySend(requestId: string): Promise<void>;
   discardSend(requestId: string): Promise<void>;

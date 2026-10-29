@@ -7,7 +7,7 @@ import { DsCoreError, type DsBotPatch, type DsCore, type DsCoreOptions, type DsC
 import { dsId, parseDsId, type DsKind } from './identity.ts';
 import { projectBot, projectGroup, projectSnapshot, projectTranscript, projectWork } from './projection.ts';
 /** Deliberate supported subset of plugin/bridge/src/actions.mjs. No generic upstream RPC passthrough. */
-export const DS_ACTIONS = ['efforts', 'update-bot', 'create-bot', 'delete-bot', 'duplicate-bot', 'set-main', 'create-room', 'update-room', 'delete-room', 'set-flags', 'set-prefs', 'stop-member-work', 'room-progress'] as const;
+export const DS_ACTIONS = ['queue', 'efforts', 'update-bot', 'create-bot', 'delete-bot', 'duplicate-bot', 'set-main', 'create-room', 'update-room', 'delete-room', 'set-flags', 'set-prefs', 'stop-member-work', 'room-progress'] as const;
 export const DS_UNSUPPORTED = ['provider-configuration', 'accounts', 'marketplace', 'workflows', 'remote-terminal', 'browser', 'workspaces', 'agent-management', 'message-edit', 'message-delete', 'reactions'] as const;
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 function fields(value: object, allowed: readonly string[]): Record<string, unknown> {
@@ -80,8 +80,8 @@ export function createDsCore(options: DsCoreOptions): DsCore {
     function capabilities() {
         const snapshot = current(), trusted = snapshot.source === 'live' && options.isOnline();
         const writable = trusted && !snapshot.team.readOnly;
-        const actions = trusted ? DS_ACTIONS.filter(a => mobileActionAllowed(snapshot.team.mobileCapabilities, a) && (writable || ['efforts', 'room-progress'].includes(a))) : [];
-        return { actions, send: !!outbox && writable && snapshot.team.mobileCapabilities?.send === true, history: trusted && snapshot.team.mobileCapabilities?.history === true, stream: trusted && snapshot.team.mobileCapabilities?.stream === true, cancel: writable && mobileCancelAllowed(snapshot.team.mobileCapabilities), modelSelection: actions.includes('efforts') && actions.includes('update-bot'), agents: trusted && snapshot.team.agentAccess === true, providerConfiguration: false as const, accounts: false as const, unsupported: DS_UNSUPPORTED };
+        const actions = trusted ? DS_ACTIONS.filter(a => mobileActionAllowed(snapshot.team.mobileCapabilities, a) && (writable || ['queue', 'efforts', 'room-progress'].includes(a))) : [];
+        return { editDraft: !snapshot.accessDenied && !snapshot.team.readOnly && (snapshot.source === 'cache' || snapshot.team.mobileCapabilities?.send === true), actions, send: !!outbox && writable && snapshot.team.mobileCapabilities?.send === true, history: trusted && snapshot.team.mobileCapabilities?.history === true, stream: trusted && snapshot.team.mobileCapabilities?.stream === true, cancel: writable && mobileCancelAllowed(snapshot.team.mobileCapabilities), modelSelection: actions.includes('efforts') && actions.includes('update-bot'), agents: trusted && snapshot.team.agentAccess === true, providerConfiguration: false as const, accounts: false as const, unsupported: DS_UNSUPPORTED };
     }
     function textGrant(kind: 'send' | 'history' | 'stream') {
         const snapshot = live(kind === 'send');
@@ -111,19 +111,17 @@ export function createDsCore(options: DsCoreOptions): DsCore {
             ack = await perform();
         }
         catch (error) {
-            current();
+            // Dispatch has happened: a later owner change cannot erase its outcome.
             if (typeof error === 'object' && error !== null && 'status' in error && Number(error.status) >= 400 && Number(error.status) < 500)
                 throw error;
             throw new DsCoreError('MUTATION_UNCONFIRMED', 'The computer may have applied this change. Refresh before retrying.', { mutation: 'unknown', cause: error });
         }
-        current();
         try {
+            current();
             const snapshot = await refresh();
             return { status: 'confirmed', value: readback(snapshot, ack), acknowledgement: ack };
         }
         catch (error) {
-            if (error instanceof DsCoreError && error.code === 'STALE_HOST')
-                throw error;
             throw new DsCoreError('READBACK_FAILED', 'The computer acknowledged the change, but its updated state could not be read. Refresh before retrying.', { acknowledgement: ack, mutation: 'acknowledged', cause: error });
         }
     }
@@ -316,6 +314,18 @@ export function createDsCore(options: DsCoreOptions): DsCore {
             const item = await queue.enqueue({ conversationId: target.id, ...input });
             current();
             return item ? sendState(item) : null;
+        },
+        async queue(id: string, signal?: AbortSignal) {
+            guard('queue', false);
+            const target = conversation(id), sessionId = target.sessionId;
+            const result = await client.action<{conversationId: string; sessionId: string; items: import('./contracts.ts').DsHostQueue['items']}>('queue', {conversationId: target.id}, {signal});
+            guard('queue', false);
+            const latest = conversation(id);
+            if (latest.sessionId !== sessionId || result.sessionId !== sessionId || result.conversationId !== target.id)
+                throw new DsCoreError('STALE_SNAPSHOT', 'The conversation session changed. Refresh its queue.');
+            if (!Array.isArray(result.items) || result.items.length > 100 || result.items.some(item => typeof item.id !== 'string' || typeof item.text !== 'string' || !['next-turn', 'next-step'].includes(item.target) || item.requestId !== undefined && typeof item.requestId !== 'string'))
+                throw new DsCoreError('UNSUPPORTED', 'The computer did not return a supported queue.');
+            return {conversationId: id, sessionId: dsId(serverId, 'session', sessionId), items: result.items};
         },
         pending(id: string): DsSendState[] { const target = conversation(id); return outbox?.list(target.id).map(sendState) ?? []; },
         async retrySend(requestId: string) {

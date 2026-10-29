@@ -62,6 +62,7 @@ export function useWorkspace(client: MobileClient | null, host: Host | null) {
         }
         catch (err) {
             if (scope.current.client === client && scope.current.serverId === host?.serverId) {
+                if (err && typeof err === 'object' && 'status' in err && [401, 403].includes(Number(err.status)) && canonical.current?.client === client) canonical.current = {...canonical.current, accessDenied: true};
                 setOnline(false);
                 setError(errorText(err));
             }

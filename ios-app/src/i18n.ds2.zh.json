@@ -151,5 +151,15 @@
   "High": "高",
   "Max": "最高",
   "Light": "浅色",
-  "sending": "发送中"
+  "sending": "发送中",
+  "Computer queue": "电脑队列",
+  "Queued on computer · separate from current turn": "已在电脑排队 · 与当前轮次分开",
+  "Computer queue is empty": "电脑队列为空",
+  "Reading computer queue…": "正在读取电脑队列…",
+  "Computer queue unavailable": "电脑队列不可用",
+  "Next step": "下一步",
+  "Next turn": "下一轮",
+  "Local message delivery": "本地消息投递",
+  "The computer did not return a supported queue.": "电脑未返回受支持的队列。",
+  "The conversation session changed. Refresh its queue.": "对话会话已更改，请刷新队列。"
 }

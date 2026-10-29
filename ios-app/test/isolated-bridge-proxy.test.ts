@@ -42,7 +42,7 @@ test('lost acknowledgement targets only the exact successful submission POST, pr
   assert.equal(await f.request('/mobile/v1/submissions/extra','POST'),201);
   f.setPostStatus(503);assert.equal(await f.request('/mobile/v1/submissions','POST'),503);
   assert.equal(f.proxy.controls.dropped,0);
-  f.setPostStatus(201);await assert.rejects(f.request('/mobile/v1/submissions','POST'),{code:'ECONNRESET'});
+  f.setPostStatus(201);f.proxy.controls.loseText='other intent';assert.equal(await f.request('/mobile/v1/submissions','POST'),201);assert.equal(f.proxy.controls.dropped,0);f.proxy.controls.loseText='synthetic';await assert.rejects(f.request('/mobile/v1/submissions','POST'),{code:'ECONNRESET'});
   assert.deepEqual(f.proxy.controls.drops,[{method:'POST',path:'/mobile/v1/submissions',requestId:'stable',status:201}]);
   assert.equal(f.proxy.controls.dropped,1);assert.equal(f.proxy.controls.loseNext,null);
   assert.equal(await f.request('/mobile/v1/submissions/stable'),200);

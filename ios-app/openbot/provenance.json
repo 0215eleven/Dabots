@@ -2057,8 +2057,8 @@
       "gitBlob": "7f0cf81722410e04bec57db60fc92c18506fd45a",
       "mode": "100644",
       "upstreamSha256": "e52d6d731a4fb993f6701815d7f1ca729fc56d9e405aa7073615e47a633eca46",
-      "importedSha256": "26a1a44271ddba9fcb25310430a33639d4f432b2004a207173880f33d25ccca6",
-      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved.",
+      "importedSha256": "d7c6116fedd0bc7d084ad6d4b37ed71987b4b02ebd72c0aae9f6760e8122653c",
+      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved. Final review M1: both hidden-Bot native menus use existing reactive mobile.agent.hidden.show catalog.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/components/agent-context-menu.tsx",
         "sha256": "e52d6d731a4fb993f6701815d7f1ca729fc56d9e405aa7073615e47a633eca46"
@@ -3377,8 +3377,8 @@
       "gitBlob": "b3f57df72a2e90674a2cac5fb6e4c9764a788469",
       "mode": "100644",
       "upstreamSha256": "4ff73009d58d0c6cbc7e7027673f40b70f2d4006474982b77af20c6881397ab9",
-      "importedSha256": "74f25bd31259ef2cee7be9c4a2c5b728bee77293cde9cb85e22aae1332d81126",
-      "adaptation": " Task 4: commit browser blur through the existing send gate; native onEndEditing unchanged. Task 4: Guard typed web blur text; retain native end-editing commit.",
+      "importedSha256": "09603fb09b6dbc8e5afe78366d4aa1caaef4e0c4a96f434ccd019fa0cd99821e",
+      "adaptation": " Task 4: commit browser blur through the existing send gate; native onEndEditing unchanged. Task 4: Guard typed web blur text; retain native end-editing commit. Final review I1: independently gate send, keep offline text editing, and reflect asynchronous draft restore in controlled web input; native attributed text retained.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/chat/components/chat-composer.tsx",
         "sha256": "4ff73009d58d0c6cbc7e7027673f40b70f2d4006474982b77af20c6881397ab9"
@@ -3570,8 +3570,8 @@
       "gitBlob": "384b75cc6816aafd40f169f74427ecc88ea23494",
       "mode": "100644",
       "upstreamSha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9",
-      "importedSha256": "45d37f5de0a6d95c8f9126aba0aacfe191611c52ad2b0c88199b3db93b12f8f3",
-      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
+      "importedSha256": "c1c542f728b5ae061fcb6f106aebee702c75f8c0dec8305e7e92cd3a5aca9b3c",
+      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge. Final review I1/I3: restore original DS drafts, separate local editing, and display read-only host queue distinctly from outbox/current turn.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/chat/components/chat-view.tsx",
         "sha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9"

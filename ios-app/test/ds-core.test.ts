@@ -154,7 +154,7 @@ test('same-server replaced client/liveness and disposal invalidate old commands'
 test('canonical refresh is not invoked after host changes during mutation', async () => {
     const f = fixture();
     f.setAction(async () => { f.setActive(false); return { changed: true }; });
-    await assert.rejects(f.core.updateBot(f.bot, { name: 'X' }), { code: 'STALE_HOST' });
+    await assert.rejects(f.core.updateBot(f.bot, { name: 'X' }), (error:any) => {assert.equal(error.code, 'READBACK_FAILED'); assert.equal(error.mutation, 'acknowledged'); assert.equal(error.cause.code, 'STALE_HOST'); return true;});
     assert.equal(f.refreshes(), 0);
 });
 test('CRUD and settings return desktop readback and reject mismatched identity kinds', async () => {
@@ -336,7 +336,7 @@ test('cancellation readback respects old-host liveness and preserves its success
   const f=fixture();f.client.cancel=async()=>({cancelled:true});
   assert.deepEqual(await f.core.cancel(f.chat),{cancelled:true});assert.equal(f.refreshes(),1);
   f.client.cancel=async()=>{f.setActive(false);return {cancelled:true};};
-  await assert.rejects(f.core.cancel(f.chat),{code:'STALE_HOST'});assert.equal(f.refreshes(),1);
+  await assert.rejects(f.core.cancel(f.chat),(error:any)=>{assert.equal(error.code,'READBACK_FAILED');assert.equal(error.mutation,'acknowledged');assert.deepEqual(error.acknowledgement,{cancelled:true});assert.equal(error.cause.code,'STALE_HOST');return true;});assert.equal(f.refreshes(),1);
 });
 
 test('Agent history rechecks its grant after asynchronous outbox settlement',async()=>{

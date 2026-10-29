@@ -16,6 +16,7 @@ import { useChatMotion } from './use-chat-motion';
 import type { ChatTarget } from '../model/chat-target';
 import { useDs } from '@ds/provider';
 import { GroupActivity } from '@ds/group-activity';
+import { useDsDraft } from '@ds/use-draft';
 import { useDsChat } from '@ds/use-chat';
 import { screenMessages } from '@ds/chat-binding';
 import { mutationProblem, sendScreenMessage } from '@ds/screen-binding';
@@ -34,7 +35,8 @@ export function ChatView({ conversationId, ownerId }: {
     const [foreground, muted, fieldBackground, raised, action, actionForeground, background] = useThemeColor(['foreground', 'muted', 'default', 'surface-tertiary', 'accent', 'accent-foreground', 'background']);
     const messages = useMemo(() => screenMessages(state.messages, tr), [state.messages, locale]);
     const motion = useChatMotion(insets.top + 44, Math.max(insets.bottom, 10) - 10, state.ready, messages.length > 0, messages.findLast(m => m.author === 'user')?.id ?? null);
-    const [draft, setDraft] = useState('');
+    const draftState = useDsDraft(state.core, conversationId);
+    const draft = draftState.text, setDraft = draftState.set;
     const [sendRetryVersion, setRetry] = useState(0);
     const sending = useRef(false);
     const [busy, setBusy] = useState(false);
@@ -42,10 +44,10 @@ export function ChatView({ conversationId, ownerId }: {
     const uncertain = state.pending.some(p => p.persistence === 'unconfirmed');
     const canSend = Boolean(state.core && state.view?.capabilities.send && !state.view.readOnly && !uncertain);
     async function send(text: string) { if (!state.core || sending.current || !canSend)
-        return; sending.current = true; setBusy(true); try {
+        return; const sentDraft = draftState.capture(); sending.current = true; setBusy(true); try {
         const result = await sendScreenMessage(state.core, conversationId, text);
         if (result.queued) {
-            setDraft('');
+            draftState.sent(sentDraft);
             state.setError('');
         }
         else if (result.problem) {
@@ -90,8 +92,13 @@ export function ChatView({ conversationId, ownerId }: {
    <ChatMessageList target={target} rowsShown agents={agents} motion={motion} sending={busy} awaitingTurn={false} keyboardOffset={Math.max(insets.bottom, 10) - 10} canSend={canSend} online={state.online} appActive activeTurnId={null} activityAccessory={group ? <GroupActivity groupId={group.id}/> : undefined} activity={work && work.phase !== 'idle' ? { agentId: ownerId, phase: work.phase, detail: work.detail, turnId: null } : undefined} fieldBackground={fieldBackground} foreground={foreground} muted={muted} raised={raised} historyState={state.ready ? 'ready' : state.error ? 'error' : state.online ? 'loading' : 'waiting'} messages={messages} messageAliases={new Map()} referenceMessages={messages} hasOlder={Boolean(state.cursor)} olderLoading={state.olderLoading} olderError={state.olderError} onLoadOlder={() => void state.load(true)} showStarter={false} topInset={insets.top} onDismissStarter={() => { }} onSelectStarter={text => void send(text)} onRetryHistory={() => void state.load()}/>
    <Animated.View style={[{ position: "absolute", left: 0, right: 0, bottom: 0 }, motion.composerStyle]} onLayout={motion.onComposerLayout}>
     {state.error ? <Typography.Paragraph accessibilityRole="alert" className="px-4 text-danger-text">{tr(state.error)}</Typography.Paragraph> : null}
+    <View accessibilityLabel={tr('Computer queue')} className="px-4 py-1">
+     <Typography.Paragraph type="body-xs">{tr(state.queueStatus === 'ready' ? state.hostQueue?.items.length ? 'Queued on computer · separate from current turn' : 'Computer queue is empty' : state.queueStatus === 'loading' ? 'Reading computer queue…' : 'Computer queue unavailable')}</Typography.Paragraph>
+     {state.hostQueue?.items.map(item => <Typography.Paragraph key={item.id} type="body-xs" selectable>{tr(item.target === 'next-step' ? 'Next step' : 'Next turn')}{' · '}{item.text}</Typography.Paragraph>)}
+    </View>
+    {state.pending.length ? <Typography.Paragraph type="body-xs" className="px-4">{tr('Local message delivery')}</Typography.Paragraph> : null}
     {state.pending.map(item => <View key={item.requestId} className="gap-1 px-4 py-2"><Typography.Paragraph selectable>{item.text}</Typography.Paragraph><Typography.Paragraph type="body-xs">{tr(item.state === 'accepted' ? 'Accepted by computer · waiting for transcript' : item.state)}{item.persistence ? ' · '+tr('local storage unconfirmed') : ''}{item.error ? ` · ${tr(item.error)}` : ''}</Typography.Paragraph><View className="flex-row gap-2">{item.state === 'unconfirmed' ? <Button variant="secondary" onPress={() => void pendingAction(item.requestId, 'retry')}><Button.Label>{tr("Retry existing message")}</Button.Label></Button> : null}{item.state === 'unconfirmed' || item.state === 'rejected' ? <Button variant="ghost" onPress={() => void pendingAction(item.requestId, 'discard')}><Button.Label>{tr("Discard")}</Button.Label></Button> : null}</View></View>)}
-    {canSend ? <ChatComposer key={conversationId} sendRetryVersion={sendRetryVersion} replyTarget={null} replyFocusVersion={0} onCancelReply={() => { }} mentionAgents={[]} action={action} actionForeground={actionForeground} agentName={target.name} bottomInset={insets.bottom} disabled={busy} draft={draft} fallbackBackground={fieldBackground} foreground={foreground} liquidGlassAvailable={false} muted={muted} raised={raised} onChangeDraft={setDraft} onSend={text => void send(text)} onStop={work && work.phase !== 'idle' && state.view?.capabilities.cancel ? () => void stop() : undefined} stopping={stopping} keyboardProgress={motion.keyboardProgress}/> : <Typography.Paragraph className="p-4">{tr(state.view?.readOnly || 'Sending is unavailable. Resolve pending messages or check this computer’s capabilities.')}</Typography.Paragraph>}
+    {state.view?.capabilities.editDraft ? <ChatComposer key={conversationId} sendRetryVersion={sendRetryVersion} replyTarget={null} replyFocusVersion={0} onCancelReply={() => { }} mentionAgents={[]} action={action} actionForeground={actionForeground} agentName={target.name} bottomInset={insets.bottom} disabled={busy} sendDisabled={!canSend} draft={draft} fallbackBackground={fieldBackground} foreground={foreground} liquidGlassAvailable={false} muted={muted} raised={raised} onChangeDraft={setDraft} onSend={text => void send(text)} onStop={work && work.phase !== 'idle' && state.view?.capabilities.cancel ? () => void stop() : undefined} stopping={stopping} keyboardProgress={motion.keyboardProgress}/> : <Typography.Paragraph className="p-4">{tr(state.view?.readOnly || 'Sending is unavailable. Resolve pending messages or check this computer’s capabilities.')}</Typography.Paragraph>}
    </Animated.View>
   </KeyboardGestureArea>
  </View>;

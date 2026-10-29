@@ -143,3 +143,18 @@ original; all current hashes are updated in `provenance.json`.
 Task 5 actual-host Chinese screenshots and checks use disposable public DSH with
 the production engine and normal preview-disabled Metro. They are browser-only;
 Linux exports do not establish native Xcode compilation, IPA or device behavior.
+
+## Final whole-branch review fixes
+
+The adapted chat restores drafts through the existing DS cache's server and original
+conversation key. Local editing stays available offline; durable enqueue controls
+clearing. The retained composer adds a separate send gate and controlled web text
+value for asynchronous restoration; native attributed text stays intact. Chat also
+observes the capability-advertised public Bridge queue, displaying next-turn and
+next-step inputs separately from current execution and local delivery. Observation
+is read-only, owner/session scoped, event-coalesced and foreground-only.
+
+Both hidden-Bot native menu branches use the existing reactive
+`mobile.agent.hidden.show` catalog (English “Show”, Chinese “显示”). No user/model
+values are translated. These three adapted files retain their exact upstream
+originals and updated current hashes; original licenses and NOTICE are unchanged.

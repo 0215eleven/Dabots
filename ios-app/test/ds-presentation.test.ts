@@ -82,3 +82,27 @@ test('actual DS provider follows resolved System appearance and invalidates its 
   dark=true;assert.equal(render()[0].avatarColor,colors[1]);
  }finally{react.useMemo=original;}
 });
+
+test('hidden Bot native menu branches react to the locale using the existing Show catalog',()=>{
+ let locale='zh';const agent={id:'b',serverId:'h',name:'User supplied name'};
+ const {transformSync}=require('esbuild');
+ const en=load('../openbot/packages/i18n/src/messages/en/mobile/agent.ts',{'../../../message':{defineMessages:(_:string,m:any)=>m}}),zh=load('../openbot/packages/i18n/src/messages/zh/mobile/agent.ts',{'../../../message':{defineMessages:(_:string,m:any)=>m}});
+ const dictionary=(value:any):any=>Object.values(value).find((v:any)=>v&&typeof v==='object'&&'mobile.agent.hidden.show'in v);
+ const mocks:any={
+  '@ds/provider':{useDs:()=>({view:{bots:[{id:'b',hidden:true}],capabilities:{actions:['set-flags']}}})},
+  'expo-router':{Link:Object.assign('Link',{Menu:'Menu',MenuAction:'MenuAction',Trigger:'Trigger'})},
+  'react-native':{StyleSheet:{create:(v:any)=>v},View:'View'},uniwind:{useUniwind:()=>({theme:'light'})},
+  '@/features/workspace/context/mobile-workspace-context':{useMobileWorkspaceReader:()=>()=>({}),useMobileWorkspaceSelector:(fn:any)=>fn({pinnedAgentIds:[],pinnedChannelIds:[]})},
+  '@/features/agents/components/agent-pin-transition':{useAgentPinTransition:()=>({})},
+  '@/features/agents/components/use-chat-section-menu':{useChatSectionMenu:()=>({menu:null,androidActions:[]})},
+  '@/features/workspace/model/agent-pins':{canToggleAgentPin:()=>true},
+  '@/shared/lib/text':{useText:()=>({t:(key:string)=>(locale==='zh'?dictionary(zh):dictionary(en))[key]??key})},
+  '@/shared/components/menu-view':{MenuView:'MenuView'},
+ };
+ const path='../openbot/mobile/src/features/agents/components/agent-context-menu.tsx';
+ // Export the private Android leaf for this actual-source render only.
+ const code=transformSync(readFileSync(new URL(path,import.meta.url),'utf8')+'\nexport {OpenAgentMenu};',{loader:'tsx',format:'cjs',jsx:'transform'}).code;
+ const module={exports:{} as any};new Function('require','module','exports','React',code)((name:string)=>name==='react'?react:mocks[name]??new Proxy({}, {get:()=>noop}),module,module.exports,react);
+ const walk=(node:any):any[]=>Array.isArray(node)?node.flatMap(walk):node&&typeof node==='object'?[node,...walk(node.props?.children)]:[];
+ for(const selected of ['zh','en','zh']){locale=selected;const expected=selected==='zh'?'显示':'Show';const ios=module.exports.AgentContextMenuLink({agent,preview:null,children:null});assert.ok(walk(ios).some(node=>node.type==='MenuAction'&&node.props.children.includes(expected)));const android=module.exports.OpenAgentMenu({agent,size:{width:30,height:30},onClose:noop});assert.equal(android.props.actions.find((a:any)=>a.id==='hide').title,expected);assert.equal(agent.name,'User supplied name');}
+});
