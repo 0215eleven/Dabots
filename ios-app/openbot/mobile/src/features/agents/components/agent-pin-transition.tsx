@@ -1,3 +1,4 @@
+import { useReducedMotion } from '@/shared/lib/motion';
 import type { AvatarHue, ChannelSummary } from "@openbot/contracts/ipc";
 import {
   createContext,
@@ -53,6 +54,7 @@ const TRANSITION_DURATION = 320;
 export function AgentPinTransitionProvider({ children }: PropsWithChildren) {
   // Read when a pin changes, so the rows that use this context do not render for every workspace update.
   const workspace = useMobileWorkspaceReader();
+  const reducedMotion = useReducedMotion();
   const containerRef = useRef<ViewInstance>(null);
   const avatarRefs = useRef(new Map<string, Partial<Record<AgentAvatarLocation, ViewInstance>>>()).current;
   const avatarRects = useRef(new Map<string, Partial<Record<AgentAvatarLocation, AvatarRect>>>()).current;
@@ -83,7 +85,7 @@ export function AgentPinTransitionProvider({ children }: PropsWithChildren) {
           {
             duration: TRANSITION_DURATION,
             easing: EASE_IN_OUT,
-            reduceMotion: ReduceMotion.System,
+            reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.System,
           },
           (finished) => {
             "worklet";
@@ -92,7 +94,7 @@ export function AgentPinTransitionProvider({ children }: PropsWithChildren) {
         ),
       );
     },
-    [finishTransition, progress],
+    [finishTransition, progress, reducedMotion],
   );
 
   const measureAvatar = useCallback(
@@ -167,7 +169,7 @@ export function AgentPinTransitionProvider({ children }: PropsWithChildren) {
         if (options?.haptic !== false) void haptics.selection();
       };
 
-      if (!sourceNode || !container) {
+      if (reducedMotion || !sourceNode || !container) {
         commitWithoutMovement();
         return;
       }
@@ -196,7 +198,7 @@ export function AgentPinTransitionProvider({ children }: PropsWithChildren) {
         });
       });
     },
-    [avatarRefs, finishTransition, progress, workspace],
+    [avatarRefs, finishTransition, progress, workspace, reducedMotion],
   );
 
   const toggleAgentPinAnimated = useCallback(

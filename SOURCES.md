@@ -22,3 +22,16 @@
 DS Bot 原始头像/算法记录为 Fei2411 0.1.7，939a6635830cb5b246e7dd19c67b0e1352ad1c07，Apache-2.0。原引擎完整 NOTICE、Bridge NOTICE、Happy MIT 和 OpenBot 原始许可均随对应源码保留。独立 Electron 应用与旧交付文档从当前产品树移除，历史仍可由 Git 提交追溯。
 
 [OpenBot 来源细节](ios-app/src/openbot/README.md)说明复制和适配范围；商业使用该 UI/美术需遵守其独立许可。根 LICENSE 不能替代这些条款。
+
+## 当前完整 OpenBot 移动端
+
+实际核心页面使用 `ios-app/openbot/mobile/`，来自 **nightly-labs/openbot
+0be0110737e55622f7a92c06a96a8eaaf516f114**：完整 805 个移动端文件及所需的
+七个 `@openbot/*` 共用包。[SOURCE.md](ios-app/openbot/SOURCE.md) 和
+[provenance.json](ios-app/openbot/provenance.json) 记录 2,618 个上游文件的原始
+Git blob、SHA-256、当前适配哈希与原版保留位置；`adaptations/original/` 保留
+改编文件的原文。`ios-app/src/openbot/` 是较早来源的兼容代码，不代表这次完整导入。
+
+本次适配包括 DS 数据/生命周期绑定、原有 IME 发送门在浏览器 blur 时的提交、
+quiet 动效、隐藏置顶 Bot、精确 Bot/avatar 十六进制颜色。原始 LICENSE、NOTICE
+和 **PolyForm Noncommercial 1.0.0** 条件仍适用，根 Apache-2.0 不能覆盖它们。

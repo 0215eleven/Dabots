@@ -32,6 +32,8 @@ import { AgentPhoto, type AgentPhotoProps } from "./agent-photo";
 interface BloubAvatarProps extends AgentPhotoProps {
   agentId: string;
   hue: AvatarHue | null;
+  /** Explicit DS color; undefined reads the canonical workspace, null uses the hue. */
+  color?: string | null;
   seed: string;
   size?: number;
   animateIdle?: boolean;
@@ -105,10 +107,12 @@ interface AvatarPreviewOptions {
 export const BloubAvatarPreview = memo(function BloubAvatarPreview(
   props: Omit<BloubAvatarProps, "agentId"> & AgentPhotoProps & AvatarPreviewOptions,
 ) {
+  const canonicalColor = useMobileWorkspaceSelector(workspace => workspace.agents.find(agent => agent.id === props.agentId)?.avatarColor);
+  const color = props.color === undefined ? canonicalColor : props.color;
   const size = props.size ?? 54;
   const avatar = (
     <AgentPhoto {...props} size={size}>
-      <AnimatedAvatarPreview {...props} />
+      <AnimatedAvatarPreview {...props} color={color} />
     </AgentPhoto>
   );
   if (!props.rings) return avatar;
@@ -128,11 +132,12 @@ const AnimatedAvatarPreview = memo(function AnimatedAvatarPreview({
   mood = "idle",
   animateIdle = true,
   animatedColor,
+  color: explicitColor,
 }: Omit<BloubAvatarProps, "agentId"> & AvatarPreviewOptions) {
   const appearance = useConnectionAppearance(disconnected);
   const appearanceStyle = useAnimatedStyle(() => ({ opacity: appearance.get().opacity }));
   const frame = useBloubActivityFrame(seed, mood, animateIdle && !disconnected);
-  const color = getBloubAvatarColor(seed, hue);
+  const color = explicitColor ?? getBloubAvatarColor(seed, hue);
   const bodyColor = useDerivedValue(() =>
     saturateColor(animatedColor ? animatedColor.get() : color, appearance.get().saturation),
   );
@@ -174,9 +179,11 @@ function AvatarBody({ frame, color }: { frame: DerivedValue<BloubActivityFrame>;
 export const BloubAvatarThumbnail = memo(function BloubAvatarThumbnail(
   props: Omit<BloubAvatarProps, "agentId"> & AgentPhotoProps & { disconnected?: boolean },
 ) {
+  const canonicalColor = useMobileWorkspaceSelector(workspace => workspace.agents.find(agent => agent.id === props.agentId)?.avatarColor);
+  const color = props.color === undefined ? canonicalColor : props.color;
   return (
     <AgentPhoto {...props} size={props.size ?? 48}>
-      <AvatarThumbnail {...props} />
+      <AvatarThumbnail {...props} color={color} />
     </AgentPhoto>
   );
 });
@@ -188,6 +195,7 @@ export const AvatarThumbnail = memo(function AvatarThumbnail({
   size = 48,
   disconnected = false,
   animateColor = false,
+  color,
 }: Omit<BloubAvatarProps, "agentId"> & {
   disconnected?: boolean;
   /** Eases the body to a new colour, for a picker where the colour changes in place. */
@@ -207,13 +215,13 @@ export const AvatarThumbnail = memo(function AvatarThumbnail({
       {animateColor ? (
         <AnimatedThumbnailBody
           d={frame.bodyPath}
-          color={thumbnailColor(getBloubAvatarColor(seed, hue), disconnected)}
+          color={thumbnailColor(color ?? getBloubAvatarColor(seed, hue), disconnected)}
           opacity={frame.bodyAlpha}
         />
       ) : (
         <Path
           d={frame.bodyPath}
-          fill={thumbnailColor(getBloubAvatarColor(seed, hue), disconnected)}
+          fill={thumbnailColor(color ?? getBloubAvatarColor(seed, hue), disconnected)}
           opacity={frame.bodyAlpha}
         />
       )}

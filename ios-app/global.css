@@ -6,6 +6,12 @@
 @import "./openbot/packages/brand/src/tokens.css";
 @import "./openbot/packages/brand/src/tokens-native.css";
 
+/* This color is read in JS, so retain it even without a generated hover class.
+ * HeroUI colorKit cannot parse CSS color-mix; reuse the existing OpenBot token. */
+@theme static {
+  --color-default-hover: var(--openbot-bg-control-active);
+}
+
 @theme inline {
   --color-sheet: var(--openbot-bg-sheet);
   --color-grouped: var(--openbot-bg-grouped);

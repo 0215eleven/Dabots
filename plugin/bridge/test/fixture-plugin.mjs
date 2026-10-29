@@ -35,7 +35,16 @@ export function apply(ctx, config) {
           for await (const chunk of request) { length += chunk.length; if (length > 65536) throw Error('Too large'); chunks.push(chunk) }
           const { endpoint, payload } = JSON.parse(Buffer.concat(chunks).toString())
           let result
-          if (endpoint === 'test.seed-secret') { await call('secret-set', { name: 'BRIDGE_FIXTURE_TOKEN', value: 'ds-bot-test-known-secret-123456789', scope: 'all' }); result = { seeded: true } }
+          if (endpoint === 'test.bot-call') {
+            // Isolated owner-only acceptance controls; never part of the shipped plugin.
+            if (!['state', 'efforts', 'update-bot', 'delete-bot', 'create-bot', 'update-room', 'set-prefs', 'set-flags', 'bridge.submit'].includes(payload?.action)) throw Error('Unsupported fixture action')
+            result = await call(payload.action, payload.body ?? {})
+          }
+          else if (endpoint === 'test.session-history') {
+            const controller = new AbortController()
+            try { for await (const frame of ctx.sessionController.follow({ address: { kind: 'session', sessionId: payload.sessionId }, maxMessages: 100 }, controller.signal)) { if (frame.type === 'snapshot') { result = frame; break } } } finally { controller.abort() }
+          }
+          else if (endpoint === 'test.seed-secret') { await call('secret-set', { name: 'BRIDGE_FIXTURE_TOKEN', value: 'ds-bot-test-known-secret-123456789', scope: 'all' }); result = { seeded: true } }
           else if (endpoint === 'test.seed-labels') {
             const view = await call('state')
             await call('update-bot', { id: view.bots[0].id, name: 'Bot ds-bot-test-known-secret-123456789' })

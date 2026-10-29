@@ -216,7 +216,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   function resetHostView() {
     setThemePreferences({});
     void endBotActivity();
-    router.dismissAll?.();
+    if (router.canDismiss()) router.dismissAll();
   }
   async function setAgentMode(value: boolean) {
     setAgentChoice(value);

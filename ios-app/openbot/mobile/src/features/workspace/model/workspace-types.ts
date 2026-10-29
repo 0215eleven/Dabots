@@ -178,6 +178,8 @@ export interface MobileAgent {
   description: string;
   preview: string;
   updatedLabel: string;
+  /** Canonical DS hex color; presentation only, separate from OpenBot hue identity. */
+  avatarColor?: string | null;
   avatarUrl?: string | null;
   avatarSeed: string;
   avatarHue: AvatarHue | null;

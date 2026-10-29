@@ -111,3 +111,14 @@ Enabled integration fixtures require __DEV__ and both explicit preview/fixture
 environment flags. They use the actual SessionProvider, DS core, imported forms
 and menu action closure with synthetic DSH-shaped responses. The test-only menu
 observer is inactive otherwise. No fixture enables a provider/cloud account.
+
+Task 4 product acceptance adds browser blur commit to the retained chat composer,
+canonical quiet motion for pin/list transitions, visibility of hidden pinned Bots,
+and exact DS hexadecimal avatar colors (including grayscale). Presentation keeps
+OpenBot's shape/motion components and separate hue fallback; stored DS colors and IDs
+are unchanged. Narrow settings wrap their accent controls. Browser scroll edges use a
+surface fade because the native MaskedView web fallback draws the mask itself, and
+browser large titles use explicit header clearance. Native iOS paths remain intact.
+Every adapted upstream file retains an original under `adaptations/original/` and its
+current SHA-256 in `provenance.json`. See `../docs/isolated-host-acceptance.md` for the
+actual-host harness and the browser/native evidence boundaries.

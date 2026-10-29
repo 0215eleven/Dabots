@@ -1,3 +1,4 @@
+import { botAvatarHue, botAvatarColor } from './presentation';
 import React, { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { Uniwind } from 'uniwind';
@@ -33,6 +34,7 @@ export function DsProvider({ children }: {
     children: React.ReactNode;
 }) {
     const session = useSession();
+    const t = useTheme(), mode = useColorMode(), { locale } = useI18n();
     const latest = useRef(session);
     latest.current = session;
     const client = session.client, serverId = session.host?.serverId, outbox = session.outbox;
@@ -46,7 +48,7 @@ export function DsProvider({ children }: {
     const view = core && session.workspace.getSnapshot() ? core.read() : null;
     const stores = useMemo(() => ({ conversationStore: new MobileConversationStore(flush => { const id = requestAnimationFrame(flush); return () => cancelAnimationFrame(id); }), liveState: new LiveWorkspaceStore(), channelStore: new MobileChannelStore(async () => unsupported('Remote channel protocol')) }), [core]);
     useEffect(() => () => { stores.conversationStore.dispose(); stores.channelStore.dispose(); }, [stores]);
-    const agents = useMemo<MobileAgent[]>(() => view?.bots.map(bot => ({ id: bot.id, serverId: bot.serverId, name: bot.name, title: bot.role ?? '', description: bot.instructions ?? '', preview: String(view.conversations.find(c => c.id === bot.conversationId)?.source.preview ?? ''), updatedLabel: '', avatarSeed: bot.avatar?.shape ?? bot.sourceId, avatarHue: null, avatarUrl: bot.avatar?.image ?? null })) ?? [], [session.workspace.team, session.workspace.conversations, core]);
+    const agents = useMemo<MobileAgent[]>(() => view?.bots.map(bot => ({ id: bot.id, serverId: bot.serverId, name: bot.name, title: bot.role ?? '', description: bot.instructions ?? '', preview: String(view.conversations.find(c => c.id === bot.conversationId)?.source.preview ?? ''), updatedLabel: '', avatarSeed: bot.avatar?.shape ?? bot.sourceId, avatarHue: botAvatarHue(bot), avatarColor: botAvatarColor(bot, mode === 'dark'), avatarUrl: bot.avatar?.image ?? null })) ?? [], [session.workspace.team, session.workspace.conversations, core, mode]);
     const channels: ChannelSummary[] = view?.groups.map(group => ({ id: group.id, name: group.name, title: '', instructions: group.notice ?? '', members: group.members.map(agentId => ({ agentId })), leadAgentId: group.admin, archived: false, revision: 0, createdAt: '', unreadCount: 0, activeTasks: view.work[group.id]?.phase === 'working' ? 1 : 0, lastMessage: null })) ?? [];
     useLayoutEffect(() => {
         if (!view)
@@ -92,7 +94,6 @@ export function DsProvider({ children }: {
         hideChannel: id => { void flag(id, { hidden: true }).catch(fail); return false; }, unhideChannel: id => { void flag(id, { hidden: false }).catch(fail); return false; },
     };
     const commands = useMemo(() => core && serverId ? createScreenCommands(core, serverId) : null, [core, serverId]);
-    const t = useTheme(), mode = useColorMode(), { locale } = useI18n();
     useEffect(() => { useAppLanguage.setState({ value: locale === 'zh' ? 'zh' : 'en', ready: true }); }, [locale]);
     useEffect(() => { Uniwind.setTheme(mode); useAppearance.setState({ value: mode, ready: true }); useMotionPreferences.setState({ allAnimations: t.motion !== 'quiet', ready: true }); Uniwind.updateCSSVariables(t.dark ? 'dark' : 'light', { '--background': t.bg, '--foreground': t.ink, '--accent': t.accent, '--accent-foreground': t.accentText, '--openbot-accent': t.accent, '--openbot-text-on-accent': t.accentText, '--openbot-bg-canvas': t.bg, '--openbot-bg-native-canvas': t.bg, '--openbot-bg-native-sidebar': t.sidebar, '--openbot-bg-sheet': t.sheet, '--openbot-bg-control': t.bubble, '--openbot-bg-surface': t.surface, '--openbot-text-primary': t.ink }); }, [mode, t.dark, t.accent, t.accentText, t.bg, t.ink, t.motion, t.sidebar, t.sheet, t.bubble, t.surface]);
     return <Context.Provider value={{ management: binding, core, view, online: session.workspace.online, agents, commands }}><WorkspaceContexts value={value} actions={value}><AgentPinTransitionProvider>{children}</AgentPinTransitionProvider></WorkspaceContexts></Context.Provider>;

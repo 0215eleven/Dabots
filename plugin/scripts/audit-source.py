@@ -13,6 +13,8 @@ rules={
 # redaction. Each is accepted only for its rule and its exact reviewed content;
 # any edit to the file is audited again.
 reviewed={
+ # OpenBot fixed upstream test: repeated synthetic body and partial PEM marker assertions.
+ ('ios-app/openbot/packages/logging/src/redaction.test.ts','private-key'):'19569c4f750022c9393345227ba848ff03d77e15e7105bdbe98c972c96c9a15e',
  ('plugin/engine/test/diagnostics.test.js','personal-path'):'1cb753fe07f5e5aff9225fbe04edf5ebec54e69900043d7efa1f2284909ef3e0',
  ('plugin/engine/test/memory.test.js','credential'):'0a2285a16bea8e8359cfbcc3cb1104551f6b622c2a181e19572abd1fdab06290',
  ('plugin/engine/test/update.test.js','personal-path'):'0fe8d6ae0de1e51a9ad2e717a2d14801791828dbe26a6c84c2076c0689d640a1',

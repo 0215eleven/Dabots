@@ -14,6 +14,7 @@ import X from "lucide-react-native/icons/x";
 import { memo, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
+  Platform,
   Text as NativeText,
   Pressable,
   ScrollView,
@@ -1111,7 +1112,15 @@ export const ChatComposer = memo(function ChatComposer({
                         sendGate.focus();
                         setFocused(true);
                       }}
-                      onBlur={() => setFocused(false)}
+                      onBlur={({ nativeEvent }) => {
+                        setFocused(false);
+                        // React Native Web emits blur with committed text, but no
+                        // onEndEditing. Consume the same gate here on web only.
+                        if (Platform.OS === "web") {
+                          latestTextRef.current = editMentionDraft(latestTextRef.current, 'text' in nativeEvent && typeof nativeEvent.text === 'string' ? nativeEvent.text : latestTextRef.current);
+                          if (sendGate.commit() && !disabled) onSend(latestTextRef.current);
+                        }
+                      }}
                       onChangeText={(text) => {
                         sendGate.edit();
                         // A text-only composer keeps a long paste as text: it has no file to turn it into.

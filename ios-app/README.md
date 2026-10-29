@@ -29,3 +29,13 @@ SDK 是本目录的 `sdk/` 内部包，原生模块在 `modules/`，没有独立
 ## 来源与许可
 
 项目及连接层使用 Apache-2.0。复用的 OpenBot UI/美术使用 **PolyForm Noncommercial 1.0.0**；见 [源码来源](src/openbot/README.md)、原始 [LICENSE](src/openbot/LICENSE)、[NOTICE.upstream](src/openbot/NOTICE.upstream) 及 [第三方通知](THIRD_PARTY_NOTICES.txt)。这些材料随源码保留。
+
+## 完整 OpenBot 核心与真实宿主验收
+
+当前列表、聊天、Bot/群组表单使用固定版本的完整
+[OpenBot 移动源码](openbot/SOURCE.md)，由 `src/ds/` 接入既有 DS 配对、SDK 和
+持久待发送队列。模型及 reasoning 仅来自当前 DSH；没有新增供应商或账号配置。
+共享设置在宿主确认并回读后显示；手机外观与语言选择保留本地语义。
+
+[隔离宿主验收说明](docs/isolated-host-acceptance.md) 区分实际浏览器与公共 DSH
+联调、模拟/单元测试、Linux bundle/prebuild，以及仍未验证的原生构建和设备行为。

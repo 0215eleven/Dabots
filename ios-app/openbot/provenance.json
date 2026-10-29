@@ -2186,8 +2186,8 @@
       "gitBlob": "c12980202f95c76b93f9b9ea3ee490fd562918d5",
       "mode": "100644",
       "upstreamSha256": "6a67561a71b1f32d5f8a20a52568a7fb444a157e7d180b8cad7383dbfad4905a",
-      "importedSha256": "2f34f819a1e3557a3597c2c591e817bc9998c8bac2ad98f9432775973fa27e83",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "importedSha256": "86271086d85343089062a592dc5935a378bb16a03e2c57b16ae330b489a5582d",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: honor canonical reduced motion during pin movement.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/components/agent-pin-transition.tsx",
         "sha256": "6a67561a71b1f32d5f8a20a52568a7fb444a157e7d180b8cad7383dbfad4905a"
@@ -2280,8 +2280,12 @@
       "gitBlob": "589065843f9d6bf3bbf6c914713f8eeabe4eb639",
       "mode": "100644",
       "upstreamSha256": "f55c912fdceaa7b60d8aedbdfb7cd79dbe92df603c8db581d828685704af8a06",
-      "importedSha256": "f55c912fdceaa7b60d8aedbdfb7cd79dbe92df603c8db581d828685704af8a06",
-      "adaptation": null
+      "importedSha256": "69e0362ee2bffb368e4690579c56e7734298c57fa0788078808381a46fc09df7",
+      "adaptation": " Task 4: exact canonical DS avatar color presentation; original retained.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/components/bloub-avatar.tsx",
+        "sha256": "f55c912fdceaa7b60d8aedbdfb7cd79dbe92df603c8db581d828685704af8a06"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/components/chat-link-pressable.tsx",
@@ -2572,8 +2576,8 @@
       "gitBlob": "2d01145d6d1a652a8acf764a86a03b30f51d9700",
       "mode": "100644",
       "upstreamSha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a",
-      "importedSha256": "2a7623aa3a45f63a261dfdf764f599895c732d881bcbd8d960003e4bfef2205a",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "importedSha256": "9c5f76a6e409987ed83b4c45267501b67b3eb270b14d42a851f639741086a6b7",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: canonical quiet motion and hidden pinned Bot visibility.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/connected-screen.tsx",
         "sha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a"
@@ -2585,8 +2589,8 @@
       "gitBlob": "824b30b9e6dab54e3143311a8f628af4082dd3a8",
       "mode": "100644",
       "upstreamSha256": "ecab9baa50ebd77fb901bf59b7350f3b740be7d36ed9f7737d69a1e118fdeb72",
-      "importedSha256": "406ca8c4e97a60b512f5798cb0ca2faf03f6fcda601da72b9567d50ce0ffd09e",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "importedSha256": "f50dea27f76206d284446bb2214610576a8af94dfe379f5d56625433afcaca63",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: display DS Bot/avatar colors using the retained OpenBot hue palette. Task 4: exact canonical DS avatar color presentation; original retained. Task 4: retain existing DS light/dark named palette.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/edit-agent-screen.tsx",
         "sha256": "ecab9baa50ebd77fb901bf59b7350f3b740be7d36ed9f7737d69a1e118fdeb72"
@@ -3373,8 +3377,12 @@
       "gitBlob": "b3f57df72a2e90674a2cac5fb6e4c9764a788469",
       "mode": "100644",
       "upstreamSha256": "4ff73009d58d0c6cbc7e7027673f40b70f2d4006474982b77af20c6881397ab9",
-      "importedSha256": "4ff73009d58d0c6cbc7e7027673f40b70f2d4006474982b77af20c6881397ab9",
-      "adaptation": null
+      "importedSha256": "74f25bd31259ef2cee7be9c4a2c5b728bee77293cde9cb85e22aae1332d81126",
+      "adaptation": " Task 4: commit browser blur through the existing send gate; native onEndEditing unchanged. Task 4: Guard typed web blur text; retain native end-editing commit.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/chat/components/chat-composer.tsx",
+        "sha256": "4ff73009d58d0c6cbc7e7027673f40b70f2d4006474982b77af20c6881397ab9"
+      }
     },
     {
       "source": "apps/mobile/src/features/chat/components/chat-exchange-marker.tsx",
@@ -6768,8 +6776,8 @@
       "gitBlob": "135365c2586d49715e42bd544231e61af9f5df2f",
       "mode": "100644",
       "upstreamSha256": "00b86651aa78ec561c9e616ac05efc68fe143b2786ba4b3072fefa35c875e61a",
-      "importedSha256": "5e6a9953e4878985b60ab45adfee860bd7e3ac84d5a80b24199fe3e396d4227f",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "importedSha256": "594b6ceae539871199ffe6af196b9dbf7247de8ab8c5176e56db8278b39289e0",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: exact canonical DS avatar color presentation; original retained.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/workspace/model/workspace-types.ts",
         "sha256": "00b86651aa78ec561c9e616ac05efc68fe143b2786ba4b3072fefa35c875e61a"
@@ -6943,8 +6951,12 @@
       "gitBlob": "1aa3b1cf47a58855bd30ea7863e27812d9f2db4b",
       "mode": "100644",
       "upstreamSha256": "0d9893931e0a762b8335b18ea1c1042797baa765c9feb4d60be5e0f08cbaaac9",
-      "importedSha256": "0d9893931e0a762b8335b18ea1c1042797baa765c9feb4d60be5e0f08cbaaac9",
-      "adaptation": null
+      "importedSha256": "f231903565fd7bb1dfeaa61b433f9a6cc9250802a676220819a2c150b498dffd",
+      "adaptation": " Task 4: Browser header clearance uses explicit content inset.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/shared/components/large-title.tsx",
+        "sha256": "0d9893931e0a762b8335b18ea1c1042797baa765c9feb4d60be5e0f08cbaaac9"
+      }
     },
     {
       "source": "apps/mobile/src/shared/components/menu-view.android.tsx",
@@ -7037,8 +7049,12 @@
       "gitBlob": "dc5e0cb79e5b3be15734e97addbc6949cc5f4e23",
       "mode": "100644",
       "upstreamSha256": "80dbae32dbdb7473f1de3551d4abac46867a4ba8d6f21c00d47e5da5b36af90a",
-      "importedSha256": "80dbae32dbdb7473f1de3551d4abac46867a4ba8d6f21c00d47e5da5b36af90a",
-      "adaptation": null
+      "importedSha256": "6d5fa948ff547546b97c162d568847ce3128c78f14f6fe57275ef9520df55e0d",
+      "adaptation": " Task 4: Browser surface fade replaces unsupported native mask; native rendering retained.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/shared/components/sheet-scroll-edge-effect.tsx",
+        "sha256": "80dbae32dbdb7473f1de3551d4abac46867a4ba8d6f21c00d47e5da5b36af90a"
+      }
     },
     {
       "source": "apps/mobile/src/shared/components/sheet-scroll-view.tsx",

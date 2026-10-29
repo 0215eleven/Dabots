@@ -184,7 +184,7 @@ export function LargeTitleBar({
   );
   return (
     <>
-      {isAndroid ? (
+      {!isIOS ? (
         <>
           <View
             pointerEvents="none"
@@ -264,8 +264,8 @@ export function LargeTitleScrollView({
         alwaysBounceVertical={false}
         contentInsetAdjustmentBehavior="always"
         contentContainerClassName="pb-safe-offset-5"
-        // Android has no content inset, so the content starts below the transparent header.
-        contentContainerStyle={isAndroid ? { paddingTop: scroll.headerHeight } : undefined}
+        // Android and web have no native content inset; keep the title below the header.
+        contentContainerStyle={!isIOS ? { paddingTop: scroll.headerHeight } : undefined}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}

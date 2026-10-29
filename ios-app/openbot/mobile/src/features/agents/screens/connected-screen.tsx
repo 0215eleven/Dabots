@@ -1,3 +1,4 @@
+import { useReducedMotion } from '@/shared/lib/motion';
 import { tr } from '@ds/text';
 import type { ChannelSummary } from '@openbot/contracts/ipc';
 import { router, Stack } from 'expo-router';
@@ -18,8 +19,8 @@ import type { MobileSidebarItem } from '@/features/workspace/model/sidebar-layou
 import { LargeTitle, useLargeTitleScroll } from '@/shared/components/large-title';
 import { useDs } from '@ds/provider';
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
-const ROW_ENTER = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
-const LIST_REFLOW = LinearTransition.duration(240).reduceMotion(ReduceMotion.System);
+
+
 /** A chat row: an agent, or a channel with its server and the agents of that server. */
 interface ChatRowTarget {
     agent?: MobileAgent;
@@ -33,6 +34,7 @@ const TransitioningChatRow = memo(function TransitioningChatRow({ agent, channel
     collapsed: boolean;
 }) {
     const { transition } = useAgentPinTransition();
+    const reducedMotion = useReducedMotion();
     const chatId = agent?.id ?? channel?.id;
     const isTarget = transition !== null && transition.chatId === chatId && transition.target === "row";
     const [initiallyExpanded] = useState(!collapsed);
@@ -61,7 +63,7 @@ const TransitioningChatRow = memo(function TransitioningChatRow({ agent, channel
         height.set(withTiming(collapsed ? 0 : measuredHeight, {
             duration: 240,
             easing: EASE_OUT,
-            reduceMotion: ReduceMotion.System,
+            reduceMotion: reducedMotion ? ReduceMotion.Always : ReduceMotion.System,
         }, (finished) => {
             if (!finished)
                 return;
@@ -71,7 +73,7 @@ const TransitioningChatRow = memo(function TransitioningChatRow({ agent, channel
             active = false;
             cancelAnimation(height);
         };
-    }, [collapsed, height, measuredHeight]);
+    }, [collapsed, height, measuredHeight, reducedMotion]);
     const bodyStyle = useAnimatedStyle(() => ({
         height: measuredHeight === null && initiallyExpanded ? undefined : height.get(),
         overflow: "hidden",
@@ -94,7 +96,7 @@ const TransitioningChatRow = memo(function TransitioningChatRow({ agent, channel
                     height.set(nextHeight);
                 setMeasuredHeight(nextHeight);
             }}>
-          <Animated.View collapsable={false} entering={isTarget ? ROW_ENTER : undefined}>
+          <Animated.View collapsable={false} entering={isTarget ? FadeIn.duration(180).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System) : undefined}>
             <AgentListRowReveal index={index} reveal={reveal} skip={isTarget}>
               {agent ? (<AgentListRow agent={agent} leftInset={15} rightInset={24}/>) : channel && serverId && channelAgents ? (<ChannelListRow channel={channel} serverId={serverId} agents={channelAgents} leftInset={15} rightInset={24}/>) : null}
             </AgentListRowReveal>
@@ -108,6 +110,7 @@ function listItemKey(item: MobileSidebarItem) {
 /** Original OpenBot list composition, bound to the selected DS computer. */
 export function ConnectedScreen() {
     const { view, core, online } = useDs();
+    const reducedMotion = useReducedMotion();
     const { activeAgents, activeServer, agents, pinnedAgentIds, pinnedChannelIds, hiddenChannelIds } = useMobileWorkspace();
     const channels = useChannels(activeServer.id);
     const insets = useSafeAreaInsets();
@@ -115,13 +118,13 @@ export function ConnectedScreen() {
     const listReveal = useAgentListReveal(true, activeServer.id);
     const channelAgents = useMemo(() => new Map(agents.map(a => [a.id, a])), [agents]);
     const [showHidden, setShowHidden] = useState(false);
-    const pinnedAgents = activeAgents.filter(a => pinnedAgentIds.includes(a.id));
     const shownAgents = showHidden ? agents : activeAgents;
+    const pinnedAgents = shownAgents.filter(a => pinnedAgentIds.includes(a.id));
     const shownGroups = channels.channels.filter(c => showHidden || !hiddenChannelIds.includes(c.id));
     const items = [...shownAgents.filter(a => !pinnedAgentIds.includes(a.id)).map(agent => ({ id: agent.id, agent })), ...shownGroups.filter(c => !pinnedChannelIds.includes(c.id)).map(channel => ({ id: channel.id, channel }))];
     return <View className="flex-1 bg-background">
   <Stack.Screen options={{ title: 'DeepSeek Bot Pro', headerTransparent: false, headerRight: () => <Button variant="ghost" onPress={() => router.push('/settings')}><Button.Label>{tr("Settings")}</Button.Label></Button> }}/>
-  <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LIST_REFLOW} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
+  <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
    <LargeTitle scroll={scroll} title={activeServer.name}/>
    <View className="gap-3 px-5 pb-5">
     <Typography.Paragraph>{online ? 'Connected' : 'Offline · saved desktop state'}</Typography.Paragraph>
