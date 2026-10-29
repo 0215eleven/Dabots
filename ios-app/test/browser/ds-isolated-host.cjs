@@ -20,7 +20,7 @@ async function until(run, timeout=10000){const start=Date.now();let last;while(D
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')warnings.push(m.text().split('\n')[0])});
  page.on('response',r=>{if(r.status()>=400)httpErrors.push({status:r.status(),path:new URL(r.url()).pathname})});
  const shotDir=process.env.DS_TEST_SCREENSHOTS;
- async function capture(name){if(!shotDir)return;assert.ok(!resolve(shotDir).startsWith(root+'/'));await mkdir(shotDir,{recursive:true,mode:0o700});await page.screenshot({path:join(shotDir,name+'.png'),style:'#error-toast {visibility:hidden !important}'});}
+ async function capture(name){if(!shotDir)return;assert.ok(resolve(shotDir)!==root&&!resolve(shotDir).startsWith(root+'/'));await mkdir(shotDir,{recursive:true,mode:0o700});await page.screenshot({path:join(shotDir,name+'.png'),style:'#error-toast {visibility:hidden !important}'});}
  const visible=text=>page.getByText(text,{exact:true}).filter({visible:true});
  async function back(){const link=page.getByRole('link',{name:/, back$/}).filter({visible:true});if(await link.count())await link.click();else await page.getByRole('button',{name:'Back',exact:true}).click();}
  async function pair(h){const code=await h.op('pairing.create');await page.locator('textarea').fill(JSON.stringify({...code,url:h.p.url}));await page.getByRole('switch').check();await page.getByText('Connect to my host',{exact:true}).click();await until(async()=>{const s=await h.op('status');assert.ok(s.pending.length);await h.op('pairing.approve',{requestId:s.pending[0].requestId??s.pending[0].id})});await visible('Connected').waitFor();}

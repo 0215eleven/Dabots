@@ -73,8 +73,19 @@
 
 - [x] Exercise actual imported UI against isolated public DSH + production engine: pairing, desktop existing records/history, mobile send and desktop history, desktop mutation visible on phone, mobile Bot/group/settings edits reflected on host, running/stopped states, model selection, at least one denied write.
 - [x] Exercise lost acknowledgement/reconnect, host switch, removed entities, revoked device and preserved pairing/pending-send upgrade state. Use deliberate controlled failures with regression evidence where code changes are needed.
-- [ ] Run root check, production Bridge integration, TGZ boot/migration, affected packed delivery, production packaging and source/archive audit. Inspect generated archive/source metadata and unchanged compatibility IDs.
-- [ ] Run iOS prebuild in isolated output, check real web/iOS bundles and browser error logs. Run/observe macOS unsigned build if available through authorized access; otherwise explicitly record unrun native/IPA/device limitations without blocking completed Linux verification.
-- [ ] Update concise product docs and verified environment instructions, commit and push reviewable branch. Request final whole-branch review and resolve material findings. No tag or release publication is authorized by this implementation request.
+- [x] Run root check, production Bridge integration, TGZ boot/migration, affected packed delivery, production packaging and source/archive audit. Inspect generated archive/source metadata and unchanged compatibility IDs.
+- [x] Run isolated iOS prebuild, baseline web export and actual browser error checks. Baseline runtime commit `538b6df` passed; no macOS/Xcode/IPA/device access is available. Per the newly authorized Task 5 scope, defer the final iOS export and repeat web export to stable Task 5 source; do not duplicate baseline iOS export.
+- [x] Update product docs, source/provenance and repeatable verified environment commands; commit reviewable Task 4 changes.
+- [ ] Parent: save reusable cloud draft, request independent whole-branch review, resolve material findings and push the reviewed branch. No tag or release publication is authorized.
 
 Task 4 verification evidence and repeatable commands: `ios-app/docs/isolated-host-acceptance.md`. Final branch push, reusable cloud draft and independent whole-branch review remain owned by the parent task; no release/tag publication is authorized. Native Xcode/IPA/signing/device checks remain unrun on this Linux environment.
+
+### Task 5: Simplified Chinese and home navigation polish (new user request)
+
+Authorized by the user after Task 4 screenshots: offer Simplified Chinese and translate currently available core pages; show one home title and use a settings gear icon. Parent assigns a fresh implementer after Task 4 review; preserve all existing DS identities, capabilities and host semantics.
+
+- [ ] Add Simplified Chinese selection and reachable core-page translations using existing locale storage and translation infrastructure.
+- [ ] Remove duplicate home title and use a settings gear with an accessible label, without adding product scope.
+- [ ] Verify affected behavior and real isolated-host screens; retain existing Metro 8093 for reuse.
+- [ ] Run final web and iOS exports once on stable Task 5 product source. Task 4 baseline web export passed; its iOS export is explicitly NOT RUN/deferred here. Native compilation, IPA, signing and device checks remain unverified on Linux.
+- [ ] Update evidence/docs and submit for parent review and authorized branch push.

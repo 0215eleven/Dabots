@@ -52,3 +52,14 @@ The existing final validation chain is `npm run check`, `npm run check:integrati
 `npm run check:suite`, the affected Bridge/UI `test:delivery`, clean-source
 `npm run pack:plugin`, and `npm run audit`. Web/iOS Metro exports and iOS prebuild run
 in temporary output; no generated artifacts or new release workflow are committed.
+
+Task 4 runtime baseline `538b6df` passed 17 actual UI/host scenarios plus the browser
+error assertion (desktop rename visible in 7785 ms), production Bridge integration
+21, TGZ boot 5/migration 6, Bridge delivery 11 and companion delivery 7. Companion
+delivery uses the existing reviewed compatibility fixture; the integration, browser
+and single-package suite use the production engine. The root check passed before
+the final palette addition; affected mobile typecheck and 293 Node/11 Python tests
+passed afterward. Baseline web export passed (4476 modules), as did isolated iOS
+prebuild. New user-requested Chinese/home changes are tracked as Task 5: final web
+and iOS exports belong to that stable source, so baseline iOS export was deferred.
+These results do not claim native compilation or physical-device acceptance.
