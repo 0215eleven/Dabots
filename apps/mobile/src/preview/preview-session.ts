@@ -57,7 +57,7 @@ export function previewClient(): MobileClient {
     messages: async (id: string) => ({ messages: transcripts[id] ?? [], cursor: null, sessionId: "s" }),
     settings: async () => ({ writable: false, hasDocument: false, namespaces: [] }),
     target: async (id: string) => ({ sessionId: `s-${id}` }),
-    submission: async () => { throw Object.assign(new Error("Not found"), { status: 404 }); },
+    submission: async () => { throw Object.assign(new Error("This send was already resolved. Reopen this conversation."), { status: 404 }); },
     submit: async (payload: { requestId: string }) => ({ requestId: payload.requestId, status: "accepted" }),
     rememberAcceptedSubmission: async () => {},
     action: async () => ({}),
