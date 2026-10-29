@@ -25,7 +25,8 @@ function Settings() {
   const { tr, locale } = useI18n();
   const router = useRouter();
   const session = useSession();
-  const {view,commands}=useDs();
+  const {view,commands,management}=useDs();
+  const [reviewed,setReviewed]=useState<import("../src/ds/management").ManagementIssue[]>([]);
   const [sharedPending,setSharedPending]=useState(false),[sharedBlocked,setSharedBlocked]=useState(false);
   const saveShared=async(patch:import('../src/ds/contracts').DsPreferences)=>{if(!commands||sharedPending||sharedBlocked)return;setSharedPending(true);try{await commands.setPreferences(patch);setMessage('')}catch(error){const problem=mutationProblem(error);setMessage(problem.message);setSharedBlocked(!problem.retry)}finally{setSharedPending(false)}};
 
@@ -83,6 +84,11 @@ function Settings() {
       </Group>
 
 
+      {management?.issues().length ? <Group title="Changes need review" footer="Check the current desktop state before allowing another operation.">
+        {management.issues().map(issue=><Row key={issue.key} title={`${({createBot:'Create Bot',updateBot:'Edit Bot',duplicateBot:'Duplicate Bot',deleteBot:'Delete Bot',setMainBot:'Change main Bot',createGroup:'Create group',updateGroup:'Edit group',deleteGroup:'Delete group',setFlags:'Change chat visibility or pin',setPreferences:'Computer appearance',cancel:'Stop response',stopGroupMember:'Stop group member'} as Record<string,string>)[issue.key.split(':')[0]] ?? 'Change'}${[...(view?.bots??[]),...(view?.groups??[])].find(item=>issue.key.includes(item.id))?.name ? ' · '+[...(view?.bots??[]),...(view?.groups??[])].find(item=>issue.key.includes(item.id))!.name : ''}`} detail={issue.message}/>)}
+        <Row title="Read current desktop state" onPress={()=>void management.review().then(setReviewed).catch(error=>setMessage(errorText(error)))}/>
+        {reviewed.length ? <Row title="I checked the current state" onPress={()=>{management.acknowledge(reviewed);setReviewed([]);setSharedBlocked(false);setMessage('')}}/> : null}
+      </Group> : null}
       <Group title="Computer appearance" footer="Shared with the computer; values update after desktop acknowledgement and readback.">
         <Row title="Theme" detail={String(view?.preferences.theme??'deepseek')}><UiHost matchContents><Picker enabled={!sharedPending&&!sharedBlocked&&Boolean(view?.capabilities.actions.includes("set-prefs"))} selectedValue={String(view?.preferences.theme??'deepseek')} onValueChange={theme=>void saveShared({theme:String(theme)})}>{Object.entries(THEMES).map(([id,value])=><Picker.Item key={id} label={value.name} value={id}/>)}</Picker></UiHost></Row>
         <Row title="Accent" detail={String(view?.preferences.accent??'Default')}><View className="flex-row gap-2">{[null,'#3b6fd8','#d97757','#228866'].map(accent=><Button key={accent??'default'} variant="secondary" isDisabled={sharedPending||sharedBlocked||!view?.capabilities.actions.includes('set-prefs')} onPress={()=>void saveShared({accent})}><Button.Label>{accent??'Default'}</Button.Label></Button>)}</View></Row>

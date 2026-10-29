@@ -13,6 +13,7 @@ import { useAppearance } from '@/features/settings/model/appearance';
 import { useSession } from '../session/SessionProvider';
 import { useTheme, useColorMode } from '../theme';
 import { useI18n } from '../i18n';
+import { guardManagement } from './management';
 import { bindSessionCore } from './session-binding';
 import type { DsCore, DsView } from './contracts';
 import { createScreenCommands, mutationProblem } from './screen-binding';
@@ -20,12 +21,13 @@ import { unavailableWorkspace, unsupported } from './unavailable-workspace';
 import type { ChannelSummary } from '@openbot/contracts/ipc';
 interface Binding {
     core: DsCore | null;
+    management: ReturnType<typeof guardManagement> | null;
     view: DsView | null;
     online: boolean;
     agents: MobileAgent[];
     commands: ReturnType<typeof createScreenCommands> | null;
 }
-const Context = createContext<Binding>({ core: null, view: null, online: false, agents: [], commands: null });
+const Context = createContext<Binding>({ management: null, core: null, view: null, online: false, agents: [], commands: null });
 export const useDs = () => useContext(Context);
 export function DsProvider({ children }: {
     children: React.ReactNode;
@@ -34,10 +36,12 @@ export function DsProvider({ children }: {
     const latest = useRef(session);
     latest.current = session;
     const client = session.client, serverId = session.host?.serverId, outbox = session.outbox;
-    const core = useMemo(() => bindSessionCore(session, () => latest.current), [client, serverId, outbox]);
+    const binding = useMemo(() => { const raw = bindSessionCore(session, () => latest.current); return raw && client ? guardManagement(raw, client) : null; }, [client, serverId, outbox]);
+    const core = binding?.core ?? null;
     useEffect(() => () => core?.dispose(), [core]);
     const hasSnapshot = Boolean(session.workspace.getSnapshot());
     const [, notify] = useState(0);
+    useEffect(() => binding?.subscribe(() => notify(n => n + 1)), [binding]);
     useEffect(() => hasSnapshot ? core?.subscribe(() => notify(n => n + 1)) : undefined, [core, hasSnapshot]);
     const view = core && session.workspace.getSnapshot() ? core.read() : null;
     const stores = useMemo(() => ({ conversationStore: new MobileConversationStore(flush => { const id = requestAnimationFrame(flush); return () => cancelAnimationFrame(id); }), liveState: new LiveWorkspaceStore(), channelStore: new MobileChannelStore(async () => unsupported('Remote channel protocol')) }), [core]);
@@ -91,5 +95,5 @@ export function DsProvider({ children }: {
     const t = useTheme(), mode = useColorMode(), { locale } = useI18n();
     useEffect(() => { useAppLanguage.setState({ value: locale === 'zh' ? 'zh' : 'en', ready: true }); }, [locale]);
     useEffect(() => { Uniwind.setTheme(mode); useAppearance.setState({ value: mode, ready: true }); useMotionPreferences.setState({ allAnimations: t.motion !== 'quiet', ready: true }); Uniwind.updateCSSVariables(t.dark ? 'dark' : 'light', { '--background': t.bg, '--foreground': t.ink, '--accent': t.accent, '--accent-foreground': t.accentText, '--openbot-accent': t.accent, '--openbot-text-on-accent': t.accentText, '--openbot-bg-canvas': t.bg, '--openbot-bg-native-canvas': t.bg, '--openbot-bg-native-sidebar': t.sidebar, '--openbot-bg-sheet': t.sheet, '--openbot-bg-control': t.bubble, '--openbot-bg-surface': t.surface, '--openbot-text-primary': t.ink }); }, [mode, t.dark, t.accent, t.accentText, t.bg, t.ink, t.motion, t.sidebar, t.sheet, t.bubble, t.surface]);
-    return <Context.Provider value={{ core, view, online: session.workspace.online, agents, commands }}><WorkspaceContexts value={value} actions={value}><AgentPinTransitionProvider>{children}</AgentPinTransitionProvider></WorkspaceContexts></Context.Provider>;
+    return <Context.Provider value={{ management: binding, core, view, online: session.workspace.online, agents, commands }}><WorkspaceContexts value={value} actions={value}><AgentPinTransitionProvider>{children}</AgentPinTransitionProvider></WorkspaceContexts></Context.Provider>;
 }

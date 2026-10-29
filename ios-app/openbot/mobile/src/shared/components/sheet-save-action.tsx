@@ -1,3 +1,5 @@
+import {Platform} from "react-native";
+import {Button} from "heroui-native";
 import { Stack } from "expo-router";
 import Check from "lucide-react-native/icons/check";
 import { AndroidHeaderButton } from "@/shared/components/android-header-button";
@@ -23,6 +25,7 @@ export function SheetSaveAction({
   const { t } = useText();
   const label = labelProp ?? t("mobile.shared.save.changes");
   const pendingLabel = pendingLabelProp ?? t("common.saving");
+  if (Platform.OS === "web") return dirty || pending ? <Button accessibilityLabel={pending ? pendingLabel : label} isDisabled={!dirty || !canSave || pending} onPress={onSave}><Button.Label>{pending ? pendingLabel : label}</Button.Label></Button> : null;
   if (isAndroid)
     return (
       <AndroidHeaderButton

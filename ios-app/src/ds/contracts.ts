@@ -73,6 +73,8 @@ export interface DsMessage extends ConversationMessage {
     };
 }
 export interface DsConversationSnapshot {
+    established?: boolean;
+    sessionId?: string;
     messages: DsMessage[];
     running: boolean;
     cursor?: string | null;

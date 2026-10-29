@@ -2057,8 +2057,8 @@
       "gitBlob": "7f0cf81722410e04bec57db60fc92c18506fd45a",
       "mode": "100644",
       "upstreamSha256": "e52d6d731a4fb993f6701815d7f1ca729fc56d9e405aa7073615e47a633eca46",
-      "importedSha256": "d77705bed84c8acff8dc4d942990adca991d1496f7744bf6c135f4d5986a68dc",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "importedSha256": "26a1a44271ddba9fcb25310430a33639d4f432b2004a207173880f33d25ccca6",
+      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/components/agent-context-menu.tsx",
         "sha256": "e52d6d731a4fb993f6701815d7f1ca729fc56d9e405aa7073615e47a633eca46"
@@ -3207,8 +3207,8 @@
       "gitBlob": "39df3ec5fce4795d8eae937998685fef179cf37c",
       "mode": "100644",
       "upstreamSha256": "155add91c7df2c0005a3bad782d5acf74dd3a4e71541ae770e7be9ea259d7acc",
-      "importedSha256": "98db385c7b2dd66e1f602089ec5d81eb1069125810acbbcfb6559e3e05b03937",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "importedSha256": "860ef11762609df2063f9e3f525ec78933357dd6b2bdf77d1b99e8e9830cd5b5",
+      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/channels/screens/channel-form-screen.tsx",
         "sha256": "155add91c7df2c0005a3bad782d5acf74dd3a4e71541ae770e7be9ea259d7acc"
@@ -3562,8 +3562,8 @@
       "gitBlob": "384b75cc6816aafd40f169f74427ecc88ea23494",
       "mode": "100644",
       "upstreamSha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9",
-      "importedSha256": "de3a333070872ec3c6d195c6958cfde858eed69021ec62f60dd488849a5a4f3b",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "importedSha256": "e32df461a1cec83a6093ec7221f91a454d1e4498a26c614b63227f26aa9c546e",
+      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/chat/components/chat-view.tsx",
         "sha256": "84dbc0f8a813520246bc6cfd18b0c8251fd47e9bed2cae400c89b550e71daec9"
@@ -7024,8 +7024,12 @@
       "gitBlob": "897ebc1fb676485a08d2831111f6cca220e5ca46",
       "mode": "100644",
       "upstreamSha256": "46ad76ddc935ba402558ff6bf4c96630a768409f0dc56e3072f268b86d0f2e1e",
-      "importedSha256": "46ad76ddc935ba402558ff6bf4c96630a768409f0dc56e3072f268b86d0f2e1e",
-      "adaptation": null
+      "importedSha256": "c2b42b9342363d5ceae18c21afd08b384637236653380a9927008df5951504c1",
+      "adaptation": "Task 3 with review fix 1: canonical touched-field forms, persistent DS management guard integration, actual pagination error, enabled-fixture menu observer, or web Save fallback; original preserved.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/shared/components/sheet-save-action.tsx",
+        "sha256": "46ad76ddc935ba402558ff6bf4c96630a768409f0dc56e3072f268b86d0f2e1e"
+      }
     },
     {
       "source": "apps/mobile/src/shared/components/sheet-scroll-edge-effect.tsx",
@@ -23701,7 +23705,7 @@
     "entryPoint": "../app/_layout.tsx",
     "sourceAlias": "@/* -> openbot/mobile/src/*",
     "binding": "../src/ds",
-    "modifiedSourceFiles": 20,
+    "modifiedSourceFiles": 21,
     "preservedOriginals": "adaptations/original",
     "unsupportedServices": "Account, directory, provider configuration, WebRTC and analytics are not activated."
   },

@@ -22,7 +22,7 @@ file mode, upstream SHA-256, imported SHA-256, and any adaptation. Its catalog f
 preserves the upstream version catalog used to resolve package declarations.
 
 The eight imported `package.json` files adapt catalog/workspace declarations for
-npm. Task 3 additionally adapts 20 mobile source files for DSH transport, actual
+npm. Task 3 additionally adapts 21 mobile source files for DSH transport, actual
 screens, capability guards and platform boundaries. Their current hashes and
 upstream hashes are distinct in `provenance.json`. Every adapted source file has
 an exact upstream copy in `adaptations/original/`, recorded by path and SHA-256.
@@ -96,3 +96,18 @@ Linux typecheck, Node/Python tests, web/iOS Metro exports and browser smoke are
 recorded in the Task 3 implementation report. Browser smoke uses only the
 existing synthetic preview. Real-host pairing/mutations/recovery, native
 compilation/signing and device behavior remain separate Task 4 verification.
+
+## Task 3 review fix 1
+
+Foreground chat leases now reacquire after the session lifecycle closes streams.
+Host transcript/session metadata distinguishes connecting placeholders; merged
+history keeps loaded pages and live overlap precedence. Group forms track touched
+fields against current canonical values. Client-owned management uncertainty
+survives control remounts and requires a fresh desktop read plus explicit review
+before another intent. The shared sheet Save component has a real web button
+where native Stack.Toolbar does not render. The actual pagination error is shown.
+
+Enabled integration fixtures require __DEV__ and both explicit preview/fixture
+environment flags. They use the actual SessionProvider, DS core, imported forms
+and menu action closure with synthetic DSH-shaped responses. The test-only menu
+observer is inactive otherwise. No fixture enables a provider/cloud account.

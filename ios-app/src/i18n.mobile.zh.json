@@ -770,5 +770,6 @@
   "Avatar shape": "头像形状",
   "Select": "选择",
   "No conversations": "暂无对话",
-  "Open group conversation": "打开群聊"
+  "Open group conversation": "打开群聊",
+  "This operation is already pending.": "此操作正在进行中。"
 }

@@ -1,6 +1,9 @@
 import { applyConversationEvent, mergeMessages, type ConnectionStatus, type Message, type MobileClient, type MobileEvent } from "@ds-bot/mobile-sdk";
 
 export interface ConversationSnapshot {
+  /** Host transcript observed, distinct from the connecting placeholder. */
+  established?: boolean;
+  sessionId?: string;
   messages: Message[];
   running: boolean;
   queue?: MobileEvent["queue"];
@@ -96,15 +99,19 @@ export function createConversationStreamPool({
           onEvent(event) {
             if (!current.valid || (event.conversationId && event.conversationId !== id)) return;
             const previous = current.snapshot;
+            const changedSession = Boolean(event.sessionId && previous.sessionId && event.sessionId !== previous.sessionId);
             let running = previous.running;
             if (typeof event.busy === "boolean") running = event.busy;
             else if (event.phase === "running" || event.type === "delta") running = true;
             else if (event.phase === "idle") running = false;
             current.snapshot = {
               ...previous, running,
-              messages: applyConversationEvent(previous.messages, event).slice(-400),
+              ...(changedSession ? { cursor: null, established: false } : {}),
+              ...(event.type === "reset" || event.type === "delta" ? { established: true } : {}),
+              ...(event.sessionId ? { sessionId: event.sessionId } : {}),
+              messages: applyConversationEvent(changedSession ? [] : previous.messages, event).slice(-400),
               ...(Array.isArray(event.queue) ? { queue: event.queue, queueSession: event.sessionId || "" } : {}),
-              ...(event.type === "reset" ? { cursor: previous.cursor ?? event.cursor ?? null } : {}),
+              ...(event.type === "reset" ? { cursor: changedSession ? event.cursor ?? null : previous.cursor ?? event.cursor ?? null } : {}),
               ...(typeof event.eventSeq === "number" && event.eventSeq > (previous.eventSeq ?? -1) ? { eventSeq: event.eventSeq } : {}),
             };
             if (event.type === "error") current.error = new Error(event.error?.message || "Connection error.");

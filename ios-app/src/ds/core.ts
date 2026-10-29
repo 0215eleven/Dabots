@@ -367,7 +367,7 @@ export function createDsCore(options: DsCoreOptions): DsCore {
                     void outbox?.settle(target.id, snapshot.messages).catch(error => {
                         if (valid()) listener.onError?.(error);
                     });
-                    listener.onSnapshot({ ...snapshot, messages: projectTranscript(serverId, target, snapshot.messages) });
+                    listener.onSnapshot({ ...snapshot, ...(snapshot.sessionId ? { sessionId: dsId(serverId, 'session', snapshot.sessionId) } : {}), messages: projectTranscript(serverId, target, snapshot.messages) });
                 },
                 onStatus(status) { if (valid())
                     listener.onStatus?.(status); },

@@ -1,6 +1,7 @@
 // Development-only offline data for the DS 2.0 screens (EXPO_PUBLIC_DS_BOT_DESIGN_PREVIEW=1).
 // No host, credentials or real conversations; used for layout review and screenshots.
 import type { Conversation, Message, MobileClient, MobileEvent } from "@ds-bot/mobile-sdk";
+import { enableFixture } from "./enabled-fixture";
 import type { Host } from "../storage";
 
 export const designPreview = __DEV__ && process.env.EXPO_PUBLIC_DS_BOT_DESIGN_PREVIEW === "1";
@@ -47,7 +48,7 @@ export const previewHosts: Host[] = [
   { url: "https://studio.local:7443", serverId: "studio", name: "Studio PC", slot: "b" },
 ];
 
-export function previewClient(): MobileClient {
+export function previewClient(serverId = "preview"): MobileClient {
   const state = {
     bots, rooms: [room], models: [], agentAccess: true, mainBotIds: ["preview-chief"], prefs: {},
     work: { bots: { "preview-design": { said: "正在调整首页的配色", since: now - 90_000 } }, approvals: [] },
@@ -76,5 +77,5 @@ export function previewClient(): MobileClient {
       return { close() { clearTimeout(timer); }, reconnectNow() {}, cursor: 1 };
     },
   };
-  return client as unknown as MobileClient;
+  return enableFixture(client as unknown as MobileClient, state, conversations, serverId);
 }

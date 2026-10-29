@@ -20,6 +20,7 @@ import { LocalePreference, setHostLocale, setLocalePreference } from "../i18n";
 import { errorText } from "../types";
 import { createDurableOutboxStore } from "../outbox/store";
 import { openHost } from "./open-host";
+import { enabledFixture, fixtureControl } from "../preview/enabled-fixture";
 import { designPreview, previewClient, previewHosts } from "../preview/preview-session";
 
 type Workspace = ReturnType<typeof useWorkspace>;
@@ -79,6 +80,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void readCache<ColorMode>("app", "colorMode").then(value => { if (value === "dark" || value === "light") setColorMode(value); }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!enabledFixture || !fixtureControl) return;
+    fixtureControl.refresh = () => workspaceRef.current.refreshSnapshot({fresh:true});
+    fixtureControl.replaceHost = () => { if(client) conversationStreams.clear(client); setHost(previewHosts[1]); setClient(previewClient('studio')); };
+  }, [client]);
 
   // Restore saved computers and open the active one.
   useEffect(() => {

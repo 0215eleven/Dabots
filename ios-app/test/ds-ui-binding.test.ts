@@ -6,7 +6,7 @@ import { dsId } from '../src/ds/identity.ts';
 
 function fixture() {
   const calls: unknown[][] = [];
-  const view = { serverId: 'A', bots: [{ id: dsId('A','bot','b'), conversationId: dsId('A','conversation','b') }], groups: [{ id: dsId('A','group','g'), conversationId: dsId('A','conversation','g') }], conversations: [{ id: dsId('A','conversation','b'), sourceId: 'b', kind: 'bot', ownerId: dsId('A','bot','b') }], models: [{ ref: 'dsh/custom:model', name: 'Desktop model' }], preferences: {}, capabilities: { actions: ['create-bot', 'update-bot', 'create-group', 'update-group', 'set-prefs'] } };
+  const view = { serverId: 'A', bots: [{ id: dsId('A','bot','b'), conversationId: dsId('A','conversation','b') }], groups: [{ id: dsId('A','group','g'), conversationId: dsId('A','conversation','g') }], conversations: [{ id: dsId('A','conversation','b'), sourceId: 'b', kind: 'bot', ownerId: dsId('A','bot','b') }], models: [{ ref: 'dsh/custom:model', name: 'Desktop model' }], preferences: {}, capabilities: { actions: ['create-bot', 'update-bot', 'create-room', 'update-room', 'set-prefs'] } };
   const core: any = { read: () => view, modelOptions: async (ref: string) => ({model: view.models[0], efforts: [{id:'host-effort',name:'Host effort'}]}), ...Object.fromEntries(['createBot','updateBot','createGroup','updateGroup','setPreferences'].map(name => [name, async (...args: unknown[]) => {calls.push([name,...args]); return {status:'confirmed',value: args.at(-1)};}])) };
   return { calls, core, view };
 }
@@ -48,8 +48,8 @@ test('chat binding starts cache/history/stream, prevents cache overwrite and rel
  const binding=createChatBinding(core,'chat');binding.start();
  listener.onSnapshot({messages:[{id:'live'}],cursor:null});
  historyResolve({messages:[{id:'older-history'}],cursor:null});cacheResolve([{id:'stale-cache'}]);
- await new Promise(r=>setImmediate(r));assert.equal(binding.get().messages[0].id,'live');
- binding.dispose();listener.onSnapshot({messages:[{id:'old-host'}]});assert.equal(binding.get().messages[0].id,'live');assert.equal(released,1);
+ await new Promise(r=>setImmediate(r));assert.ok(binding.get().messages.some(message=>message.id==='live'));
+ binding.dispose();listener.onSnapshot({messages:[{id:'old-host'}]});assert.ok(binding.get().messages.some(message=>message.id==='live'));assert.equal(released,1);
 });
 test('offline chat reads preserved cache without opening an unsupported stream',async()=>{
  const {createChatBinding}=await import('../src/ds/chat-controller.ts');let streams=0;

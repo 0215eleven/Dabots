@@ -1,3 +1,4 @@
+import {enabledFixture,fixtureControl} from '../../../../../../src/preview/enabled-fixture';
 import {useDs} from '@ds/provider';
 import * as Clipboard from "expo-clipboard";
 import { Link, router } from "expo-router";
@@ -85,6 +86,11 @@ function useAgentMenuActions(agent: MobileAgent) {
   };
   const handleInfo = () =>
     router.push({ pathname: "/agent-info/[agentId]", params: { agentId: agent.id, serverId: agent.serverId } });
+  useEffect(() => {
+    if (!enabledFixture || !fixtureControl) return;
+    const menus=fixtureControl.menus; menus.set(agent.id, () => void runAgentAction("duplicate"));
+    return () => { menus.delete(agent.id); };
+  }, [agent.id]);
   const handleDuplicate = () => {
     void runAgentAction("duplicate");
   };
