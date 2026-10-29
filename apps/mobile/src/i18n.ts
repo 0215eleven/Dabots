@@ -2,10 +2,12 @@ import { resolveLanguage, translate } from "./logic/localization";
 import { useSyncExternalStore } from "react";
 import originalZh from "./i18n.zh.json";
 import mobileZh from "./i18n.mobile.zh.json";
+import ds2Zh from "./i18n.ds2.zh.json";
 // Original DS Bot wording, supplemented only for mobile-specific controls.
 const zh: Record<string, string> = {
   ...originalZh,
   ...mobileZh,
+  ...ds2Zh,
   "Open navigation": "打开导航",
   "Close navigation": "关闭导航",
   "Search conversations": "搜索对话",

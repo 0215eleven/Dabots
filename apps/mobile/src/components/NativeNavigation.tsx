@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useRef } from 'react';
-import { NavigationContainer, createNavigationContainerRef, CommonActions, StackActions, useIsFocused } from '@react-navigation/native';
+import { NavigationContainer, NavigationIndependentTree, createNavigationContainerRef, CommonActions, StackActions, useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 import { useTheme } from '../theme';
@@ -80,7 +80,7 @@ export function NativeNavigation({ navigator, onRoute, render }: { navigator: Ap
   const t = useTheme();
   const initial = useRef({ destination: { page: 'home' } as Route }).current;
   return <PageContent.Provider value={render}>
-    <NavigationContainer ref={navigator.ref} onStateChange={state => {
+    <NavigationIndependentTree><NavigationContainer ref={navigator.ref} onStateChange={state => {
       const page = state?.routes[state.index ?? 0];
       if (page?.params) onRoute((page.params as Pages['Page']).destination);
     }}>
@@ -101,6 +101,6 @@ export function NativeNavigation({ navigator, onRoute, render }: { navigator: Ap
           gestureEnabled: !(route.params.destination.page === "team" && route.params.destination.create),
         })}/>
       </Stack.Navigator>
-    </NavigationContainer>
+    </NavigationContainer></NavigationIndependentTree>
   </PageContent.Provider>;
 }

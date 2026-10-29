@@ -71,3 +71,18 @@ test('synchronous terminal connect and full active capacity leave no reusable de
   assert.throws(() => f.streams.acquire(f.client, 'fixture', 'e', f.listener()), /Too many/);
   assert.equal(f.calls.filter(call => !call.closed).length, 4); f.streams.clear(f.client);
 });
+
+test('reconnectAll resumes every live stream immediately and acquire passes the persisted cursor', () => {
+  const f = fixture();
+  const resumed: string[] = [];
+  const connect = f.client.connect;
+  f.client.connect = (options: any) => { const stream = connect(options); return { ...stream, reconnectNow() { resumed.push(options.conversationId); } }; };
+  f.streams.acquire(f.client, 'fixture', 'a', f.listener(), { after: 41 });
+  f.streams.acquire(f.client, 'fixture', 'b', f.listener());
+  assert.equal(f.calls[0].options.after, 41); assert.equal('after' in f.calls[1].options, false);
+  f.streams.reconnectAll(f.client);
+  assert.deepEqual(resumed.sort(), ['a', 'b']);
+  f.calls[0].options.onEvent({ type: 'status', phase: 'running', eventSeq: 44 });
+  const next = f.listener(); f.streams.acquire(f.client, 'fixture', 'a', next);
+  assert.equal(next.snapshots.at(-1).eventSeq, 44);
+});

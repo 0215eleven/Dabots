@@ -6,18 +6,17 @@
     "orientation": "portrait",
     "scheme": "dsbot",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.dsbot.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocalNetworkUsageDescription": "Connect securely to your paired DS Bot computer on Wi-Fi."
+        "NSLocalNetworkUsageDescription": "Connect securely to your paired DS Bot computer on Wi-Fi.",
+        "NSSupportsLiveActivities": true
       }
     },
     "android": {
       "package": "app.dsbot.mobile",
-      "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
       "allowBackup": false,
       "adaptiveIcon": {
@@ -30,6 +29,14 @@
       "name": "DS Bot Mobile App"
     },
     "plugins": [
+      "expo-router",
+      [
+        "expo-widgets",
+        {
+          "enablePushNotifications": false,
+          "widgets": []
+        }
+      ],
       [
         "expo-camera",
         {

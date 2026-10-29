@@ -33,7 +33,7 @@ export function LaunchIntro({onComplete}:{onComplete:()=>void}) {
   },[progress,ready]);
   const opacity=progress.interpolate({inputRange:[0,.88,1],outputRange:[1,1,0]});
   const openEyes=progress.interpolate({inputRange:[0,.48,.50,.67,.69,1],outputRange:[1,1,0,0,1,1]});
-  return <Animated.View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFillObject,{zIndex:100,elevation:12,backgroundColor:t.bg,alignItems:'center',justifyContent:'center',opacity}]}>
+  return <Animated.View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill,{zIndex:100,elevation:12,backgroundColor:t.bg,alignItems:'center',justifyContent:'center',opacity}]}>
     <Animated.View onLayout={()=>setReady(true)} style={{width:148,height:148,transform:[
       {translateY:progress.interpolate({inputRange:[0,.30,.38,.42,1],outputRange:[72,-14,4,0,0]})},
       {scale:progress.interpolate({inputRange:[0,.30,.38,.42,1],outputRange:[.6,1.08,.97,1,1]})},

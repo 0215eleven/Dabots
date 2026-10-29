@@ -9,3 +9,9 @@ export function selectionFeedback() {
 export function tapFeedback() {
   if (enabled) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 }
+export function successFeedback() {
+  if (enabled) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+}
+export function errorFeedback() {
+  if (enabled) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+}

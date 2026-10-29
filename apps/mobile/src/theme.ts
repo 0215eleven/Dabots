@@ -125,7 +125,7 @@ const modeListeners = new Set<() => void>();
 export function setColorMode(value: ColorMode) {
   if (value === colorMode) return;
   colorMode = value;
-  try { Appearance.setColorScheme(value === "system" ? null : value); } catch { /* Unsupported host. */ }
+  try { Appearance.setColorScheme(value === "system" ? "unspecified" : value); } catch { /* Unsupported host. */ }
   modeListeners.forEach((callback) => callback());
 }
 export function useColorMode() {

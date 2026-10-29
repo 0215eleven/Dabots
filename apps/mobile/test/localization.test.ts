@@ -9,7 +9,7 @@ import { contrastText, luminance } from "../src/logic/colors.ts";
 import { notificationTitle, notificationTransportLabel } from "../src/logic/notifications.ts";
 
 const root = fileURLToPath(new URL("../src/", import.meta.url));
-const catalog: Record<string, string> = Object.assign({}, ...["i18n.zh.json", "i18n.mobile.zh.json", "host-settings/locale.zh.json"].map(file => JSON.parse(readFileSync(join(root, file), "utf8"))));
+const catalog: Record<string, string> = Object.assign({}, ...["i18n.zh.json", "i18n.mobile.zh.json", "i18n.ds2.zh.json", "host-settings/locale.zh.json"].map(file => JSON.parse(readFileSync(join(root, file), "utf8"))));
 const main = ts.createSourceFile("i18n.ts", readFileSync(join(root, "i18n.ts"), "utf8"), ts.ScriptTarget.Latest, true);
 function collect(node: ts.Node) {
   if (ts.isPropertyAssignment(node) && ts.isStringLiteral(node.initializer)) catalog[ts.isIdentifier(node.name) ? node.name.text : (node.name as ts.StringLiteral).text] = node.initializer.text;
@@ -64,6 +64,7 @@ test("every literal translated control and known error has Chinese catalog cover
     }
   }
   walk(root);
+  walk(fileURLToPath(new URL("../app/", import.meta.url)));
   assert.deepEqual([...missing].sort(), []);
 });
 

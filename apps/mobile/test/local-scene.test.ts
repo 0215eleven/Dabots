@@ -18,3 +18,7 @@ test('local iOS Scene adaptation is repeatable and rejects unfamiliar Expo templ
   assert.equal(transform(fixed), fixed);
   assert.throws(() => transform('unfamiliar updated Expo template'), /needs review/);
 });
+test('the SDK 58 template already owns the scene life cycle and is left untouched', () => {
+  const sdk58 = '    // The window is created and React Native is started by `SceneDelegate` under the\n    // scene-based life cycle (required by the iOS 27 SDK).\nclass ReactNativeDelegate: ExpoReactNativeFactoryDelegate {';
+  assert.equal(transform(sdk58), sdk58);
+});

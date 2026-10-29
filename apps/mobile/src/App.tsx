@@ -1,4 +1,4 @@
-import { createMobileClient } from "./network/client";
+import { openHost } from "./session/open-host";
 import { useNotifications } from "./hooks/useNotifications";
 import { stopBackgroundNotifications } from './media/background-notifications';
 import { notificationResponses } from './media/notifications';
@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type ScrollViewInstance,
 } from "react-native";
 import { AnimatedPressable as Pressable } from "./components/Motion";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -72,19 +73,6 @@ import { HostPill, HostSheet } from "./components/HostSwitcher";
 import { selectConversation, type Route } from "./logic/app-navigation";
 import { conversationStreams, watchConversationStreamLifecycle } from "./logic/conversation-streams";
 const newSlot = () => Crypto.randomUUID();
-async function openHost(saved: Host) {
-  const session = await tokenStoreFor(saved.slot).get();
-  if (!session || session.serverId !== saved.serverId) throw new Error("This computer is no longer paired. Pair it again.");
-  if (saved.tlsPin !== session.tlsPin) throw new Error("The computer identity has changed. Pair this device again.");
-  return createMobileClient({
-    baseUrl: saved.url,
-    tlsPin: session.tlsPin,
-    ...(saved.relay ? { relay: { ...saved.relay, serverId: saved.serverId } } : {}),
-    tokenStore: tokenStoreFor(saved.slot),
-    cache,
-    allowInsecure: __DEV__ && saved.allowInsecure,
-  });
-}
 function Shell() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -106,7 +94,7 @@ function Shell() {
   const [chatOpening, setChatOpening] = useState({ id: "", revision: 0 });
   const [newChat, setNewChat] = useState(false);
   const [query, setQuery] = useState("");
-  const homeList = useRef<ScrollView>(null);
+  const homeList = useRef<ScrollViewInstance>(null);
   const rowPositions = useRef<Record<string,{y:number;height:number}>>({});
   // Scrolling must not re-render the app; only the unread pill below depends on it.
   const homeScroll = useRef(0);

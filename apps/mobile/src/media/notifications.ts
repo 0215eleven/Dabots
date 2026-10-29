@@ -24,10 +24,15 @@ export async function foregroundNotification(title:string, data:Record<string,un
   await Notifications.scheduleNotificationAsync({content:{title,body:tr("Open DS Bot to view details"),data,sound:true},trigger:null});
 }
 export function notificationResponses(callback:(data:Record<string,unknown>)=>void) {
-  const subscription=Notifications.addNotificationResponseReceivedListener(response=>callback(response.notification.request.content.data));
-  const open = (url:string|null) => { const data=backgroundNotificationLink(url); if(data)callback(data); };
+  const subscription=Notifications.addNotificationResponseReceivedListener(response=>callback(response.notification.request.content.data ?? {}));
+  const open = (url:string|null|undefined) => { const data=backgroundNotificationLink(url); if(data)callback(data); };
   const links=Linking.addEventListener('url',event=>open(event.url));
   void Linking.getInitialURL().then(open).catch(()=>{});
-  void Notifications.getLastNotificationResponseAsync().then(response=>{if(response){callback(response.notification.request.content.data);void Notifications.clearLastNotificationResponseAsync();}});
+  void Notifications.getLastNotificationResponseAsync().then(response=>{if(response){callback(response.notification.request.content.data ?? {});void Notifications.clearLastNotificationResponseAsync();}});
   return ()=>{subscription.remove();links.remove();};
+}
+/** A push delivered while the app is in the foreground: the hub catches the streams up from their cursors. */
+export function notificationArrivals(callback:(data:Record<string,unknown>)=>void) {
+  const subscription=Notifications.addNotificationReceivedListener(notification=>callback(notification.request.content.data ?? {}));
+  return ()=>subscription.remove();
 }

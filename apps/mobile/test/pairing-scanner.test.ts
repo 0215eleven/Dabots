@@ -5,7 +5,7 @@ import { URL, fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 const require=createRequire(import.meta.url);
 const {build}=require('esbuild');
-const bundle=await build({entryPoints:[fileURLToPath(new URL('../src/components/PairingScanner.tsx',import.meta.url))],bundle:true,format:'cjs',platform:'node',write:false,external:['react','expo-camera','./UI','../i18n']});
+const bundle=await build({entryPoints:[fileURLToPath(new URL('../src/components/PairingScanner.tsx',import.meta.url))],bundle:true,tsconfigRaw:{compilerOptions:{jsx:'react'}},format:'cjs',platform:'node',write:false,external:['react','expo-camera','./UI','../i18n']});
 function fixture(){
  const values:unknown[]=[];let cursor=0;const received:string[]=[];
  const react={Fragment:'fragment',createElement:(type:unknown,props:unknown,...children:unknown[])=>({type,props,children:children.flat(Infinity)}),

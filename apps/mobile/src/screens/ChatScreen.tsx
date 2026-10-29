@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  type TextInputInstance,
 } from "react-native";
 import { KeyboardAvoidingView, KeyboardStickyView, useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
 import Reanimated, { useAnimatedStyle } from "react-native-reanimated";
@@ -156,7 +157,7 @@ export function ChatScreen({
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [dismissedMention, setDismissedMention] = useState("");
   const list = useRef<FlatList<Message>>(null);
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
   const [progress, setProgress] = useState<{id: string; rounds: GroupRound[]}>({id:"",rounds:[]});
   const receiveProgress = useCallback((rounds: GroupRound[]) => setProgress({id:conversation.id,rounds}), [conversation.id]);
   useEffect(() => setProgress({id:"",rounds:[]}), [conversation.id]);

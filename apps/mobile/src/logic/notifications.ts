@@ -1,4 +1,4 @@
-export function backgroundNotificationLink(url: string | null): Record<string, unknown> | null {
+export function backgroundNotificationLink(url: string | null | undefined): Record<string, unknown> | null {
   if (!url) return null;
   try {
     const value = new URL(url);

@@ -37,6 +37,9 @@ const sceneDelegate = `class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 function transform(source) {
   if (source.includes('class SceneDelegate: UIResponder, UIWindowSceneDelegate')) return source;
+  // Expo SDK 58 templates already start React Native from a generated SceneDelegate
+  // (ExpoAppSceneDelegate); the local adaptation is only for the older window-based template.
+  if (!source.includes(legacyWindow) && /scene-based life ?cycle/i.test(source)) return source;
   const anchor = 'class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {';
   if (!source.includes(legacyWindow) || !source.includes(anchor)) {
     throw new Error('Local Scene lifecycle patch needs review for this Expo AppDelegate template');

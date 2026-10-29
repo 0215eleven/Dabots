@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { ScrollView, View, type ScrollViewInstance } from "react-native";
 import type { MobileClient } from "@ds-bot/mobile-sdk";
 import { useI18n } from "../i18n";
 import { errorText } from "../types";
@@ -18,7 +18,7 @@ export function WorkingFolderPicker({ client, value, group = false, disabled, ch
   const request = useRef<AbortController | undefined>(undefined);
   const generation = useRef(0);
   const saving = useRef(false);
-  const crumbs = useRef<ScrollView>(null);
+  const crumbs = useRef<ScrollViewInstance>(null);
   useEffect(() => () => { generation.current++; request.current?.abort(); }, []);
   const fallback = tr(group ? "Each Bot's own folder" : "Team workspace");
   async function load(path?: string) {

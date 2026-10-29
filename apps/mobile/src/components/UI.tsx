@@ -232,7 +232,7 @@ export function Sheet({
           justifyContent: "flex-end",
         }}
       >
-        <Pressable accessibilityRole="button" accessibilityLabel={tr("Close")} onPress={onClose} style={StyleSheet.absoluteFillObject} />
+        <Pressable accessibilityRole="button" accessibilityLabel={tr("Close")} onPress={onClose} style={StyleSheet.absoluteFill} />
         <PageTransition distance={48} spring>
         <View pointerEvents="box-none" style={{ flex: 1, justifyContent: 'flex-end' }}>
         <View

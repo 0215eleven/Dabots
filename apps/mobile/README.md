@@ -1,6 +1,6 @@
 # DS Bot Mobile App · Native client
 
-The Expo / React Native client for [DS Bot Mobile App](../../README.en.md), targeting iOS and Android. The current source uses Expo SDK 54, React Native 0.81.5 and React 19.1.
+The Expo / React Native client for [DS Bot Mobile App](../../README.en.md), targeting iOS and Android. The current source (Mobile DS 2.0, see [docs/mobile-ds2.md](../../docs/mobile-ds2.md)) uses Expo SDK 58, React Native 0.88.1 and React 19.3, with Expo Router (native tabs and stack), `@legendapp/list`, `@expo/ui` and an iOS Live Activity via `expo-widgets`. Unsigned IPAs and an APK are built by `.github/workflows/mobile-release.yml`; see [docs/sideloading.md](../../docs/sideloading.md) to install them.
 
 [中文项目说明](../../README.md) · [Documentation](../../docs/README.md) · [Installation](../../docs/installation.md) · [Development](../../docs/development.md) · [Compatibility](../../docs/validation.md)
 

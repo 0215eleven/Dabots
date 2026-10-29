@@ -6,6 +6,8 @@ export interface ConversationSnapshot {
   queue?: MobileEvent["queue"];
   queueSession?: string;
   cursor?: string | null;
+  /** Highest event sequence applied; persisted so a cold start resumes incrementally. */
+  eventSeq?: number;
 }
 export interface ConversationListener {
   onStatus(value: ConnectionStatus): void;
@@ -19,7 +21,7 @@ interface Entry {
   snapshot: ConversationSnapshot;
   error?: unknown;
   listeners: Set<ConversationListener>;
-  stream?: { close(): void };
+  stream?: { close(): void; reconnectNow?(): void };
   timer?: ReturnType<typeof setTimeout>;
   idleOrder: number;
 }
@@ -60,7 +62,7 @@ export function createConversationStreamPool({
     const pool = clients.get(client), entry = pool?.serverId === serverId ? pool.entries.get(id) : undefined;
     return entry?.valid ? { status: entry.status, snapshot: entry.snapshot } : undefined;
   }
-  function acquire(client: MobileClient, serverId: string, id: string, listener: ConversationListener) {
+  function acquire(client: MobileClient, serverId: string, id: string, listener: ConversationListener, options: { after?: number | string } = {}) {
     let pool = clients.get(client);
     if (pool && pool.serverId !== serverId) { clear(client); pool = undefined; }
     if (!pool) { pool = { serverId, entries: new Map() }; clients.set(client, pool); }
@@ -79,6 +81,7 @@ export function createConversationStreamPool({
       try {
         current.stream = client.connect({
           conversationId: id,
+          ...(options.after != null ? { after: options.after } : {}),
           onStatus(status) {
             if (!current.valid) return;
             if (status === "closed" || status === "unauthorized") { remove(owner, current, status); return; }
@@ -102,6 +105,7 @@ export function createConversationStreamPool({
               messages: applyConversationEvent(previous.messages, event).slice(-400),
               ...(Array.isArray(event.queue) ? { queue: event.queue, queueSession: event.sessionId || "" } : {}),
               ...(event.type === "reset" ? { cursor: previous.cursor ?? event.cursor ?? null } : {}),
+              ...(typeof event.eventSeq === "number" && event.eventSeq > (previous.eventSeq ?? -1) ? { eventSeq: event.eventSeq } : {}),
             };
             if (event.type === "error") current.error = new Error(event.error?.message || "Connection error.");
             else current.error = undefined;
@@ -141,7 +145,13 @@ export function createConversationStreamPool({
       },
     };
   }
-  return { acquire, peek, clear };
+  /** Network recovery or foreground: skip every backoff wait and resume from each stream's cursor. */
+  function reconnectAll(client: MobileClient) {
+    const pool = clients.get(client);
+    if (!pool) return;
+    for (const entry of pool.entries.values()) if (entry.valid) entry.stream?.reconnectNow?.();
+  }
+  return { acquire, peek, clear, reconnectAll };
 }
 
 export const conversationStreams = createConversationStreamPool();
@@ -149,7 +159,7 @@ export const conversationStreams = createConversationStreamPool();
 /** Owned by the App/client, so warm streams also close when no chat is mounted. */
 export function watchConversationStreamLifecycle(
   client: MobileClient | null,
-  appState: { currentState: string | null; addEventListener(event: "change", listener: (state: string) => void): { remove(): void } },
+  appState: { currentState: string | null | undefined; addEventListener(event: "change", listener: (state: string) => void): { remove(): void } },
   onForeground: (active: boolean) => void,
   streams = conversationStreams,
 ) {

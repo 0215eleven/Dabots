@@ -36,7 +36,7 @@ function mountNavigator(os = 'ios') {
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText;
   runInNewContext(output, { module, exports: module.exports, require(name: string) {
     if (name === 'react') return react;
-    if (name === '@react-navigation/native') return { NavigationContainer: 'NavigationContainer', createNavigationContainerRef: () => ref, StackActions, CommonActions };
+    if (name === '@react-navigation/native') return { NavigationContainer: 'NavigationContainer', NavigationIndependentTree: 'NavigationIndependentTree', createNavigationContainerRef: () => ref, StackActions, CommonActions };
     if (name === '@react-navigation/native-stack') return { createNativeStackNavigator: () => ({ Navigator: 'Navigator', Screen: 'Screen' }) };
     if (name === 'react-native') return { Platform: { OS: os } };
     if (name === '../logic/app-navigation') return { tabOf, tabRoute };
@@ -134,7 +134,7 @@ test('native interactive transition exposes real previous pages and owns edge re
   const app = mountNavigator();
   let reported: unknown;
   const tree = app.component({ navigator: app.navigator, render: () => null, onRoute: (value: unknown) => { reported = value; } });
-  const container = tree.props.children[0];
+  const container = tree.props.children[0].props.children[0];
   const stack = container.props.children[0];
   assert.equal(stack.props.screenOptions.animation, 'default');
   assert.equal(stack.props.screenOptions.animationMatchesGesture, true);
@@ -153,7 +153,7 @@ test('iOS uses the system push transition; Android keeps the light push', () => 
   const options = (os: string) => {
     const app = mountNavigator(os);
     const tree = app.component({ navigator: app.navigator, render: () => null, onRoute: () => {} });
-    return tree.props.children[0].props.children[0].props.screenOptions;
+    return tree.props.children[0].props.children[0].props.children[0].props.screenOptions;
   };
   assert.equal(options('ios').animation, 'default');
   assert.equal(options('android').animation, 'simple_push');

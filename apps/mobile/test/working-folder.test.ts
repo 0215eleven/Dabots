@@ -5,7 +5,7 @@ import { URL, fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 const require=createRequire(import.meta.url);
 const {build}=require('esbuild');
-const compiled=await build({entryPoints:[fileURLToPath(new URL('../src/components/WorkingFolderPicker.tsx',import.meta.url))],bundle:true,format:'cjs',platform:'node',write:false,external:['react','react-native','../i18n','../types','./UI']});
+const compiled=await build({entryPoints:[fileURLToPath(new URL('../src/components/WorkingFolderPicker.tsx',import.meta.url))],bundle:true,tsconfigRaw:{compilerOptions:{jsx:'react'}},format:'cjs',platform:'node',write:false,external:['react','react-native','../i18n','../types','./UI']});
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function deferred(){let resolve!:(value:any)=>void;const promise=new Promise<any>(done=>{resolve=done;});return{promise,resolve};}
 function fixture(action:(endpoint:string,payload:any,options:any)=>Promise<any>,choose:(path:string)=>Promise<boolean>){
