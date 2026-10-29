@@ -19,6 +19,8 @@ const above = (start) => {
 const installed = join(plugin, 'dev', 'harness')
 const findHarness = () => {
   if (process.env.DSH_HARNESS) return process.env.DSH_HARNESS
+  const bundled = resolve(plugin, '../bridge/fixture/deps')
+  if (existsSync(join(bundled, 'node_modules'))) return bundled
   if (existsSync(join(installed, 'node_modules'))) return installed
   const near = above(dirname(plugin))
   if (near) return near

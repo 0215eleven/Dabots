@@ -8,7 +8,7 @@ import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 
 const plugin = resolve(import.meta.dirname, '..')
-const candidates = [process.env.DSH_HARNESS, join(plugin, 'dev', 'harness'), join(plugin, '..', 'deepseek-harness')]
+const candidates = [process.env.DSH_HARNESS, join(plugin, '../bridge/fixture/deps'), join(plugin, 'dev', 'harness'), join(plugin, '..', 'deepseek-harness')]
 try {
   const common = execFileSync('git', ['-C', plugin, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8' }).trim()
   candidates.push(join(dirname(common), 'deepseek-harness'))

@@ -6,12 +6,12 @@
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import {join,resolve} from 'node:path'
-import {createHome,freePort,installArchive,launch,packDevSuite,writeOwnerPatch,writeProfile} from './dsh-harness.mjs'
+import {createHome,freePort,installArchive,launch,packProductionSuite,writeOwnerPatch,writeProfile} from './dsh-harness.mjs'
 
 const env=await createHome('ds-bot-suite-boot-')
 let passed=0,run;const check=name=>{passed++;console.log(`PASS ${name}`)}
 try{
-  const archive=process.argv[2]?resolve(process.argv[2]):join(env.home,packDevSuite(env.home).filename)
+  const archive=process.argv[2]?resolve(process.argv[2]):join(env.home,packProductionSuite(env.home).filename)
   await installArchive(env.modules,'ds-bot',archive)
   const suite=JSON.parse(await readFile(join(env.modules,'ds-bot/package.json'),'utf8'))
   await writeProfile(env,{dependencies:{'ds-bot':suite.version},bundles:['ds-bot']})

@@ -269,7 +269,7 @@ try {
     assert.equal((await api(urls.bridgeUrl, 'submissions', session.accessToken, { ...agentMessage, requestId: 'agent_after_revoke' })).status, 404)
   }
   check('owner-granted DSH Agent opens, chats in plain text through the real DS Bot channel and closes on revoke')
-  console.log(`${passed} CANDIDATE integration assertions passed; public DSH 0.2.1-rc.2 + reviewed DS Bot fixture source + scripted mock.`)
+  console.log(`${passed} integration assertions passed; public DSH 0.2.1-rc.2 + selected repository engine source + scripted mock.`)
 } catch (error) {
   console.error(`Group integration failed: ${error.code ?? error.name}: ${error.message}`)
   if (fixture) await writeFile(join(fixture.home, 'failure.log'), fixture.diagnostics())

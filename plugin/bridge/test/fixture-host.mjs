@@ -34,7 +34,7 @@ export async function launchFixture() {
   }
   try {
     await mkdir(join(home, 'profiles/web/node_modules'), { recursive: true })
-    const fixtureSource = resolve(process.env.BRIDGE_TEST_BOT ?? join(root, 'fixture/extended/package'))
+    const fixtureSource = resolve(process.env.BRIDGE_TEST_BOT ?? join(root, '../engine'))
     await cp(fixtureSource, join(home, 'profiles/web/node_modules/ds-bot'), { recursive: true, filter: source => !relative(fixtureSource, source).split(sep).includes('node_modules') })
     await symlink(join(deps, '@deepseek-ai'), join(home, 'profiles/web/node_modules/@deepseek-ai'), process.platform === 'win32' ? 'junction' : 'dir')
     await writeFile(join(home, 'profiles/web/package.json'), JSON.stringify({ name: 'candidate-isolated-profile', private: true, dependencies: { 'ds-bot': '0.1.7' }, dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', 'ds-bot'] } } }))

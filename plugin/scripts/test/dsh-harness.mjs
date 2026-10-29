@@ -25,6 +25,9 @@ export async function createHome(prefix='ds-bot-suite-'){
 export function packDevSuite(out){
   return JSON.parse(execFileSync(process.execPath,[join(root,'plugin/scripts/pack-suite.mjs'),'--dev','--engine',devEngine,'--engine-source','dev: public ds-bot@0.1.7 + repository patch (isolated fixture)','--out',out],{encoding:'utf8'}).trim().split('\n').at(-1))
 }
+export function packProductionSuite(out){
+  return JSON.parse(execFileSync(process.execPath,[join(root,'plugin/scripts/pack-suite.mjs'),'--out',out],{encoding:'utf8'}).trim().split('\n').at(-1))
+}
 // Replaces node_modules/<name> the way a package manager would.
 export async function installDir(modules,name,source){
   await rm(join(modules,name),{recursive:true,force:true})

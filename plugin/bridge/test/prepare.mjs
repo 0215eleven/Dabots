@@ -10,7 +10,7 @@ const run = (cmd, args, cwd, input) => {
   return result.stdout
 }
 await mkdir(join(fixture, 'deps'), {recursive: true})
-await writeFile(join(fixture, 'deps/package.json'), JSON.stringify({private: true, dependencies: {'@deepseek-ai/dsh': '0.2.1-rc.2'}}))
+await writeFile(join(fixture, 'deps/package.json'), JSON.stringify({private: true, dependencies: {'@deepseek-ai/dsh': '0.2.1-rc.2', jsdom: '29.1.1', oxlint: '1.76.0'}}))
 run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--registry=https://registry.npmjs.org'], join(fixture, 'deps'))
 const packed = JSON.parse(run('npm', ['pack', 'ds-bot@0.1.7', '--ignore-scripts', '--json', '--registry=https://registry.npmjs.org', '--pack-destination', fixture], root))[0]
 if (packed.integrity !== 'sha512-xRiXIpDfemkZ2l6lDwu7ZKSnn0a2c26BsZ7e+eEOkQ1AknXOKretK52Yuq1yfG6p4XCObmUiXR1tdGo7EQIStw==') throw Error('Unexpected public DS Bot integrity')

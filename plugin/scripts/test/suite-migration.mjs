@@ -8,14 +8,14 @@ import {join} from 'node:path'
 import WebSocket from '../../bridge/node_modules/ws/wrapper.mjs'
 import {MobileClient,MemoryTokenStore} from '../../../ios-app/sdk/index.js'
 import {backup,deselect,inspect,rollback,verify} from '../migrate-suite.mjs'
-import {createHome,devEngine,freePort,installArchive,installDir,launch,packDevSuite,root,writeOwnerPatch,writeProfile} from './dsh-harness.mjs'
+import {createHome,devEngine,freePort,installArchive,installDir,launch,packProductionSuite,root,writeOwnerPatch,writeProfile} from './dsh-harness.mjs'
 
 const env=await createHome('ds-bot-suite-migrate-'),bridgePort=await freePort(),delay=ms=>new Promise(r=>setTimeout(r,ms))
 let passed=0,run;const check=name=>{passed++;console.log(`PASS ${name}`)}
 const options={dshHome:env.home,profile:'web'}
 async function waitFor(task,timeout=60000){const end=Date.now()+timeout;let error;while(Date.now()<end){try{return await task()}catch(cause){error=cause;await delay(150)}}throw error}
 try{
-  const suite=packDevSuite(env.home)
+  const suite=packProductionSuite(env.home)
   // Old layout: separate engine, Bridge and pairing UI bundles, plus an owner override.
   await installDir(env.modules,'ds-bot',devEngine)
   await installDir(env.modules,'ds-bot-mobile-bridge',join(root,'plugin/bridge'))

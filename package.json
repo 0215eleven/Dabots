@@ -4,8 +4,8 @@
   "version": "0.1.9-codex.1",
   "license": "Apache-2.0",
   "scripts": {
-    "setup": "npm --prefix ios-app ci --ignore-scripts && npm --prefix ios-app run patch && npm --prefix ios-app/sdk ci --ignore-scripts && npm --prefix plugin/bridge ci --ignore-scripts && npm --prefix plugin/ui ci --ignore-scripts && npm --prefix plugin/tools/relay ci --ignore-scripts",
-    "check": "npm --prefix ios-app run typecheck && npm --prefix ios-app test && npm --prefix ios-app/sdk test && npm --prefix plugin/tools/relay test && npm --prefix plugin/bridge test && npm --prefix plugin/bridge run lint && npm --prefix plugin/ui run check && npm --prefix plugin/ui run build && npm run test:suite",
+    "setup": "npm --prefix ios-app ci --ignore-scripts && npm --prefix ios-app run patch && npm --prefix ios-app/sdk ci --ignore-scripts && npm --prefix plugin/bridge ci --ignore-scripts && npm --prefix plugin/ui ci --ignore-scripts && npm --prefix plugin/tools/relay ci --ignore-scripts && npm --prefix plugin/engine ci --ignore-scripts --legacy-peer-deps",
+    "check": "npm --prefix plugin/engine test && npm --prefix plugin/engine run lint && node plugin/engine/scripts/build-client.mjs --check && npm --prefix ios-app run typecheck && npm --prefix ios-app test && npm --prefix ios-app/sdk test && npm --prefix plugin/tools/relay test && npm --prefix plugin/bridge test && npm --prefix plugin/bridge run lint && npm --prefix plugin/ui run check && npm --prefix plugin/ui run build && npm run test:suite",
     "check:bridge": "npm --prefix plugin/bridge run test:prepare && npm --prefix plugin/bridge run test:integration",
     "audit": "python3 plugin/scripts/audit-source.py",
     "pack:bridge": "node plugin/scripts/pack-bridge.mjs",
@@ -16,6 +16,11 @@
     "test:suite": "node --test plugin/scripts/test/*.test.mjs",
     "check:suite": "node plugin/scripts/test/suite-boot.mjs && node plugin/scripts/test/suite-migration.mjs",
     "pack:suite": "node plugin/scripts/pack-suite.mjs",
-    "migrate:suite": "node plugin/scripts/migrate-suite.mjs"
+    "migrate:suite": "node plugin/scripts/migrate-suite.mjs",
+    "test:prepare": "npm --prefix plugin/bridge run test:prepare",
+    "pack:plugin": "node plugin/scripts/pack-suite.mjs"
+  },
+  "engines": {
+    "node": ">=24 <25"
   }
 }

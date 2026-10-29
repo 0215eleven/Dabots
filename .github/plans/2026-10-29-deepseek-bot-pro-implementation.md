@@ -35,11 +35,11 @@
 
 **Interfaces:** Root npm scripts orchestrate the two product directories. SDK file dependency becomes `file:./sdk`. Engine and Bridge continue ESM entry points.
 
-- [ ] Install and run baseline checks on ds2, recording any pre-existing failures before changing code.
-- [ ] Move source with history preserved; relocate ignored dependencies/fixtures with their owners, preserving expected generated outputs.
-- [ ] Rewrite only path references using old-to-new file mapping (including source-relative imports, manifests, lockfiles, scripts, fixtures, Metro and test source reads). Preserve all test assertions.
-- [ ] Update root setup/check entry points and verify local npm link resolution, App typecheck and existing component tests.
-- [ ] Commit the structural change after paths and focused checks pass. Expected: no unresolved old source paths in active scripts/imports.
+- [x] Install and run baseline checks on ds2, recording any pre-existing failures before changing code.
+- [x] Move source with history preserved; relocate ignored dependencies/fixtures with their owners, preserving expected generated outputs.
+- [x] Rewrite only path references using old-to-new file mapping (including source-relative imports, manifests, lockfiles, scripts, fixtures, Metro and test source reads). Preserve all test assertions.
+- [x] Update root setup/check entry points and verify local npm link resolution, App typecheck and existing component tests.
+- [x] Commit the structural change after paths and focused checks pass. Expected: no unresolved old source paths in active scripts/imports.
 
 ### Task 2: Build one production desktop plugin from local source
 

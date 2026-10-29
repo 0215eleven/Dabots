@@ -37,7 +37,8 @@
     "web-search.js",
     "cordis.patch.yml",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "PATCHED.md"
   ],
   "scripts": {
     "build": "node scripts/build-client.mjs",
