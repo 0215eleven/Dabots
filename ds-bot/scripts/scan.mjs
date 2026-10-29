@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url'
 const MUST = 'must fix'
 const KEEP = 'can stay'
 
-const SELF = 'scripts/scan.mjs'
+const SELF = 'plugin/scripts/scan.mjs'
 const PLACEHOLDER = /mock|test|fake|dummy|example|placeholder|should-not|xxx|your|<|\$\{|redact|sample/i
 const VENDORS = /\b(qwen|minimax|stepfun|kimi|moonshot|zhipu|glm|mimo|anthropic|claude|openai|gemini|mistral|xai|zai)\b/i
 // Files that define the look (characters, inks, logos, themes). Vendor names there are

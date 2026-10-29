@@ -51,7 +51,7 @@
     "@deepseek-ai/dsh-util-time": "0.2.1-rc.2",
     "@deepseek-ai/dsh-util-workspace-path": "0.2.1-rc.2",
     "@deepseek-ai/dsh-workflow": "0.2.1-rc.2",
-    "ds-bot": "file:../ds-bot",
+    "ds-bot": "file:../../plugin/engine",
     "electron-updater": "6.8.10",
     "pnpm": "11.7.0",
     "yaml": "2.9.1"

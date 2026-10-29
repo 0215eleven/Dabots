@@ -3,7 +3,7 @@
 import { createElement as h, useMemo, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { MENTION_ORIGIN } from '../../../ds-bot/src/client/text.js'
+import { MENTION_ORIGIN } from '../../../../plugin/engine/src/client/text.js'
 
 // The DSH Agent's mark. The app has no DSH Agent, so nothing asks for it.
 export const FishLogo = () => null

@@ -2,16 +2,16 @@
 // engine's `state` endpoint and live feed. The views also read a few Session facts that
 // DSH keeps for them in the plugin; here the window keeps those as well.
 import { useRef, useSyncExternalStore } from 'react'
-import { call } from '../../../ds-bot/src/client/api.js'
-import { workPhrase } from '../../../ds-bot/src/client/cells.js'
-import { language } from '../../../ds-bot/src/client/i18n.js'
-import { toolState } from '../../../ds-bot/src/client/mark.js'
-import { noteLeft, setUnread, sharedMap, toggleReaction } from '../../../ds-bot/src/client/shared-map.js'
-import { createSource, EMPTY_ROSTER, indexRoster } from '../../../ds-bot/src/client/sources.js'
-import { STORAGE, migrateStorage } from '../../../ds-bot/src/client/storage.js'
-import { teamActions } from '../../../ds-bot/src/client/team-actions.js'
-import { currentPart } from '../../../ds-bot/src/client/text.js'
-import { registry } from '../../../ds-bot/src/client/themes.js'
+import { call } from '../../../../plugin/engine/src/client/api.js'
+import { workPhrase } from '../../../../plugin/engine/src/client/cells.js'
+import { language } from '../../../../plugin/engine/src/client/i18n.js'
+import { toolState } from '../../../../plugin/engine/src/client/mark.js'
+import { noteLeft, setUnread, sharedMap, toggleReaction } from '../../../../plugin/engine/src/client/shared-map.js'
+import { createSource, EMPTY_ROSTER, indexRoster } from '../../../../plugin/engine/src/client/sources.js'
+import { STORAGE, migrateStorage } from '../../../../plugin/engine/src/client/storage.js'
+import { teamActions } from '../../../../plugin/engine/src/client/team-actions.js'
+import { currentPart } from '../../../../plugin/engine/src/client/text.js'
+import { registry } from '../../../../plugin/engine/src/client/themes.js'
 import { openFeed } from './api.js'
 
 // Memory news and connector states change without a notice on the feed.
