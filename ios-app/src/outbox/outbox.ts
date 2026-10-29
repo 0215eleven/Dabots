@@ -20,11 +20,27 @@ export interface OutboxItem {
   createdAt: number;
   state: OutboxState;
   attempts: number;
+  /** An initial intent or storage transition whose durable state needs manual reconciliation. */
+  persistence?: "unconfirmed";
   /** Earliest time of the next automatic attempt. */
   retryAt?: number;
   deviceId?: string;
   sessionId?: string;
   error?: string;
+}
+/** A visible pending intent still owns this ID; never replace it with a new send. */
+export class OutboxPersistenceError extends Error {
+  readonly code = "PERSISTENCE_UNCONFIRMED";
+  readonly requestId: string;
+  readonly conversationId: string;
+  readonly operation: "enqueue" | "retry" | "discard";
+  constructor(operation: "enqueue" | "retry" | "discard", item: OutboxItem, cause?: unknown) {
+    super("Local message storage is unconfirmed. Retry or discard this pending message.", { cause });
+    this.name = "OutboxPersistenceError";
+    this.operation = operation;
+    this.requestId = item.requestId;
+    this.conversationId = item.conversationId;
+  }
 }
 export interface OutboxStore {
   load(): Promise<OutboxItem[]>;
@@ -73,9 +89,14 @@ export function createOutbox(options: OutboxOptions) {
   let writes: Promise<void> = Promise.resolve();
 
   const emit = () => { version++; for (const listener of [...listeners]) listener(); };
-  const persist = (required = false) => {
-    const snapshot = items.map(item => ({ ...item }));
-    const saved = writes.then(() => options.store.save(snapshot));
+  const persist = (required = false, excluding?: string, committed?: () => void) => {
+    const saved = writes.then(async () => {
+      // Capture at execution, not when queued: a later save must never revive
+      // an intent removed by an earlier verified discard/rollback.
+      const snapshot = items.filter(item => item.requestId !== excluding).map(item => ({ ...item }));
+      await options.store.save(snapshot);
+      committed?.();
+    });
     writes = saved.catch(() => {});
     return required ? saved : writes;
   };
@@ -88,7 +109,7 @@ export function createOutbox(options: OutboxOptions) {
   function load() {
     loaded ??= options.store.load().then(saved => {
       // Whatever was in flight when the app died is uncertain, not failed: reconcile by receipt.
-      items = saved.map(item => item.state === "sending" ? { ...item, state: "queued" as const, retryAt: undefined } : item);
+      items = saved.map(item => item.persistence === "unconfirmed" ? { ...item, state: "unconfirmed" as const } : item.state === "sending" ? { ...item, state: "queued" as const, retryAt: undefined } : item);
       emit();
     }).catch(error => { loaded = undefined; throw error; });
     return loaded;
@@ -166,37 +187,72 @@ export function createOutbox(options: OutboxOptions) {
       await load();
       const text = input.text.trim(), attachments = input.attachments ?? [];
       if (!text && !attachments.length) return null;
-      const item: OutboxItem = { requestId: options.newId(), conversationId: input.conversationId, text, attachments, createdAt: now(), state: "queued", attempts: 0 };
+      const ambiguous = items.find(item => item.conversationId === input.conversationId && item.persistence === "unconfirmed" && !unpersisted.has(item.requestId));
+      if (ambiguous) throw new OutboxPersistenceError("enqueue", ambiguous);
+      // The first durable record is deliberately non-executable. If the write
+      // succeeds but verification and rollback fail, restart must not send it.
+      const item: OutboxItem = { requestId: options.newId(), conversationId: input.conversationId, text, attachments, createdAt: now(), state: "unconfirmed", persistence: "unconfirmed", attempts: 0 };
       if (disposed) throw new Error("This outbox belongs to a previous host connection.");
       unpersisted.add(item.requestId);
       items = [...items, item];
       emit();
       try { await persist(true); }
       catch (error) {
-        items = items.filter(other => other.requestId !== item.requestId);
-        emit();
-        await persist();
+        try {
+          await persist(true, item.requestId, () => {
+            items = items.filter(other => other.requestId !== item.requestId);
+            emit();
+          });
+        }
+        catch (rollbackError) {
+          item.error = "Local message storage is unconfirmed. Retry or discard this pending message.";
+          emit();
+          throw new OutboxPersistenceError("enqueue", item, { save: error, rollback: rollbackError });
+        }
+        // Only verified removal authorizes an absent-item failure.
         throw error;
       } finally { unpersisted.delete(item.requestId); }
+      const queued: OutboxItem = { ...item, state: "queued", persistence: undefined };
+      items = items.map(other => other.requestId === item.requestId ? queued : other);
+      emit();
+      // The intent is already verified durable. Failed promotion must not turn
+      // that known intent into a rejected/absent enqueue; restart sees either
+      // this queued record or its non-executable unconfirmed predecessor.
+      await persist();
       void flush(item.conversationId).catch(() => {});
-      return item;
+      return queued;
     },
     /** Manual retry of an unconfirmed item. A rejected item is final; discard it instead. */
     async retry(requestId: string) {
       await load();
       const item = find(requestId);
       if (!item || item.state !== "unconfirmed") return;
-      await patch(requestId, { state: "queued", attempts: 0, retryAt: undefined, error: undefined });
-      void flush(item.conversationId);
+      if (unpersisted.has(requestId) || disposed) return;
+      unpersisted.add(requestId);
+      try {
+        await patch(requestId, { state: "queued", persistence: undefined, attempts: 0, retryAt: undefined, error: undefined }, true);
+      } catch (error) {
+        await patch(requestId, { state: "unconfirmed", persistence: "unconfirmed", error: "Local message storage is unconfirmed. Retry or discard this pending message." });
+        throw new OutboxPersistenceError("retry", item, error);
+      } finally { unpersisted.delete(requestId); }
+      void flush(item.conversationId).catch(() => {});
     },
     async discard(requestId: string) {
       await load();
       const item = find(requestId);
       if (!item || item.state === "sending" || item.state === "sent") return;
-      items = items.filter(other => other.requestId !== requestId);
-      emit();
-      await persist();
-      void flush(item.conversationId);
+      if (unpersisted.has(requestId) || disposed) return;
+      unpersisted.add(requestId);
+      try {
+        await persist(true, requestId, () => {
+          items = items.filter(other => other.requestId !== requestId);
+          emit();
+        });
+      } catch (error) {
+        await patch(requestId, { state: "unconfirmed", persistence: "unconfirmed", error: "Local message storage is unconfirmed. Retry or discard this pending message." });
+        throw new OutboxPersistenceError("discard", item, error);
+      } finally { unpersisted.delete(requestId); }
+      void flush(item.conversationId).catch(() => {});
     },
     /** Drop accepted items whose canonical transcript row has arrived. */
     async settle(conversationId: string, transcript: Pick<Message, "requestId">[]) {

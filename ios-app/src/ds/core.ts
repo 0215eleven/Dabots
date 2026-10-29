@@ -103,9 +103,12 @@ export function createDsCore(options: DsCoreOptions): DsCore {
     }
     async function write<T>(action: typeof DS_ACTIONS[number], payload: Record<string, unknown>, readback: (snapshot: DsSnapshot, ack: Record<string, unknown>) => T): Promise<DsWriteResult<T>> {
         guard(action);
+        return mutation(() => client.action(action, payload), readback);
+    }
+    async function mutation<T>(perform: () => Promise<Record<string, unknown>>, readback: (snapshot: DsSnapshot, ack: Record<string, unknown>) => T): Promise<DsWriteResult<T>> {
         let ack: Record<string, unknown>;
         try {
-            ack = await client.action(action, payload);
+            ack = await perform();
         }
         catch (error) {
             current();
@@ -151,10 +154,13 @@ export function createDsCore(options: DsCoreOptions): DsCore {
                 throw new DsCoreError('INVALID_EFFORT', 'Select an actual reasoning choice offered by this model.');
         }
         const latest = live(true);
+        const latestRef = patch.model === null ? latest.team.defaultModel : typeof patch.model === 'string' ? patch.model : original ?? latest.team.defaultModel;
+        if (patch.effort != null && latestRef !== ref)
+            throw new DsCoreError('STALE_SNAPSHOT', 'The Bot model or reasoning choice changed while options were loading. Refresh the selection.');
         if (typeof patch.model === 'string' && !latest.team.models.some(m => m.ref === patch.model))
             throw new DsCoreError('INVALID_MODEL', 'This model is no longer offered by the computer.');
     }
-    const sendState = (item: OutboxItem): DsSendState => ({ requestId: item.requestId, conversationId: dsId(serverId, 'conversation', item.conversationId), state: item.state === 'sent' ? 'accepted' : item.state, text: item.text, attachments: item.attachments, error: item.error });
+    const sendState = (item: OutboxItem): DsSendState => ({ requestId: item.requestId, conversationId: dsId(serverId, 'conversation', item.conversationId), state: item.state === 'sent' ? 'accepted' : item.state, text: item.text, attachments: item.attachments, error: item.error, persistence: item.persistence });
     const stopOutbox = outbox?.subscribe(() => {
         try {
             current();
@@ -195,8 +201,16 @@ export function createDsCore(options: DsCoreOptions): DsCore {
             if (!Object.keys(patch).length)
                 return { status: 'unchanged' as const, value: projectBot(serverId, original, snapshot.conversations), acknowledgement: null };
             const originalRef = original.model ?? snapshot.team.defaultModel;
-            await validateModel(patch, original.model);
+            const originalEffort = original.effort;
+            // Changing the model revalidates the retained effort, even when
+            // changed-field filtering omitted that explicitly selected value.
+            const selection = patch.model !== undefined
+                ? { ...patch, effort: input.effort !== undefined ? input.effort : original.effort }
+                : patch;
+            await validateModel(selection, original.model);
             const latestBot = bot(id);
+            if (patch.model !== undefined && patch.effort === undefined && latestBot.effort !== originalEffort)
+                throw new DsCoreError('STALE_SNAPSHOT', 'The Bot model or reasoning choice changed while options were loading. Refresh the selection.');
             if (patch.model === undefined && patch.effort != null && (latestBot.model ?? current().team.defaultModel) !== originalRef)
                 throw new DsCoreError('STALE_SNAPSHOT', 'The Bot model changed while its reasoning choices were loading. Refresh the selection.');
             return write('update-bot', { id: original.id, ...patch }, s => projectBot(serverId, bot(id, s), s.conversations));
@@ -276,12 +290,12 @@ export function createDsCore(options: DsCoreOptions): DsCore {
             textGrant('history');
             conversation(id);
             await outbox?.settle(target.id, page.messages);
-            current();
+            conversation(id);
             return { messages: projectTranscript(serverId, target, page.messages), cursor: page.cursor, sessionId: dsId(serverId, 'session', page.sessionId) };
         },
         async cachedHistory(id: string): Promise<DsMessage[]> {
             const target = conversation(id), messages = await client.getCachedMessages(target.id);
-            current();
+            conversation(id);
             return projectTranscript(serverId, target, messages);
         },
         async send(id: string, input: {
@@ -318,10 +332,8 @@ export function createDsCore(options: DsCoreOptions): DsCore {
             live(true);
             if (!capabilities().cancel)
                 throw new DsCoreError('UNSUPPORTED', 'This computer does not offer cancellation.');
-            const target = conversation(id), ack = await client.cancel(target.id);
-            current();
-            await refresh();
-            return ack;
+            const target = conversation(id);
+            return (await mutation(() => client.cancel(target.id), (_snapshot, acknowledgement) => acknowledgement)).value;
         },
         async groupProgress(id: string): Promise<GroupRound[]> {
             guard('room-progress', false);

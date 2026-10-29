@@ -67,5 +67,7 @@
   "This Bot is not a member of this group.": "此 Bot 不是该群聊的成员。",
   "This feature is not available through the DS Bridge.": "DS Bridge 暂不支持此功能。",
   "The host receipt did not match this message. Review it on the computer.": "电脑回执与此消息不匹配。请在电脑上检查。",
-  "The outgoing message could not be saved. Keep your draft and retry.": "无法保存待发送消息。请保留草稿并重试。"
+  "The outgoing message could not be saved. Keep your draft and retry.": "无法保存待发送消息。请保留草稿并重试。",
+  "Local message storage is unconfirmed. Retry or discard this pending message.": "无法确认本地消息的存储状态。请重试或删除这条待处理消息。",
+  "The Bot model or reasoning choice changed while options were loading. Refresh the selection.": "加载选项时 Bot 的模型或推理设置已更改。请刷新选项。"
 }

@@ -282,3 +282,75 @@ test('canonical streaming transcript settles an accepted durable send',async()=>
   options.onEvent({type:'message',message:{...f.messages[0],requestId:'request-1'}});await tick();
   assert.equal(f.core.pending(f.chat).length,0);f.core.dispose();conversationStreams.clear(f.client);
 });
+
+test('a model change validates an explicitly unchanged effort before filtering the write fields',async()=>{
+  const f=fixture();f.setAction(async()=>({efforts:[{id:'new-only',name:'New only'}]}));
+  await assert.rejects(f.core.updateBot(f.bot,{model:'dsh/next',effort:'deep/custom'}),{code:'INVALID_EFFORT'});
+  assert.deepEqual(f.calls,[['efforts',{ref:'dsh/next'}]]);
+});
+
+test('a model change validates the retained effort even when the selection omits it',async()=>{
+  const f=fixture();f.setAction(async()=>({efforts:[{id:'new-only',name:'New only'}]}));
+  await assert.rejects(f.core.updateBot(f.bot,{model:'dsh/next'}),{code:'INVALID_EFFORT'});
+  assert.equal(f.calls.some(([name])=>name==='update-bot'),false);
+});
+
+test('a compatible unchanged effort is validated without echoing the unchanged field',async()=>{
+  const f=fixture();await f.core.updateBot(f.bot,{model:'dsh/next',effort:'deep/custom'});
+  assert.deepEqual(f.calls,[['efforts',{ref:'dsh/next'}],['update-bot',{id:'same',model:'dsh/next'}]]);
+});
+
+test('cached Agent history refuses a grant revoked while the cache read is pending',async()=>{
+  const f=fixture();f.team.agentAccess=true;
+  f.client.getCachedMessages=async()=>{f.team.agentAccess=false;return f.messages;};
+  await assert.rejects(f.core.cachedHistory(dsId('host','conversation','agent-session')),{code:'UNSUPPORTED'});
+});
+
+test('cached history rechecks visibility after its read and keeps ordinary offline Bot/group access',async()=>{
+  const f=fixture();f.client.getCachedMessages=async()=>f.messages;f.setOnline(false);f.setSource('cache');
+  assert.equal((await f.core.cachedHistory(f.chat))[0].text,'hello');
+  assert.equal((await f.core.cachedHistory(dsId('host','conversation','group')))[0].text,'hello');
+  f.client.getCachedMessages=async()=>{f.conversations.splice(0,1);return f.messages;};
+  await assert.rejects(f.core.cachedHistory(f.chat),{code:'NOT_FOUND'});
+});
+
+test('acknowledged cancellation retains its receipt when canonical readback fails',async()=>{
+  const f=fixture();const receipt={cancelled:true};let cancels=0;
+  f.client.cancel=async()=>{cancels++;return receipt;};f.failRefresh();
+  await assert.rejects(f.core.cancel(f.chat),(error:any)=>{
+    assert.equal(error.code,'READBACK_FAILED');assert.equal(error.mutation,'acknowledged');assert.equal(error.acknowledgement,receipt);return true;
+  });assert.equal(cancels,1);
+});
+
+test('a lost cancellation reply is unknown, a definite refusal stays refused, and neither auto-retries',async()=>{
+  const f=fixture();let cancels=0;
+  f.client.cancel=async()=>{cancels++;throw new Error('reply lost');};
+  await assert.rejects(f.core.cancel(f.chat),{code:'MUTATION_UNCONFIRMED',mutation:'unknown'});
+  assert.equal(cancels,1);assert.equal(f.refreshes(),0);
+  const refusal=Object.assign(new Error('denied'),{status:403});f.client.cancel=async()=>{throw refusal;};
+  await assert.rejects(f.core.cancel(f.chat),error=>error===refusal);
+});
+
+test('cancellation readback respects old-host liveness and preserves its successful return shape',async()=>{
+  const f=fixture();f.client.cancel=async()=>({cancelled:true});
+  assert.deepEqual(await f.core.cancel(f.chat),{cancelled:true});assert.equal(f.refreshes(),1);
+  f.client.cancel=async()=>{f.setActive(false);return {cancelled:true};};
+  await assert.rejects(f.core.cancel(f.chat),{code:'STALE_HOST'});assert.equal(f.refreshes(),1);
+});
+
+test('Agent history rechecks its grant after asynchronous outbox settlement',async()=>{
+  const f=fixture();f.team.agentAccess=true;f.outbox.settle=async()=>{f.team.agentAccess=false;};
+  await assert.rejects(f.core.history(dsId('host','conversation','agent-session')),{code:'UNSUPPORTED'});
+});
+
+test('a model-only write refuses a retained effort changed during option discovery',async()=>{
+  const f=fixture();f.setAction(async()=>{f.team.bots[0].effort='changed-at-host';return {efforts:[{id:'deep/custom',name:'Deep'}]};});
+  await assert.rejects(f.core.updateBot(f.bot,{model:'dsh/next'}),{code:'STALE_SNAPSHOT'});
+  assert.equal(f.calls.some(([name])=>name==='update-bot'),false);
+});
+
+test('a default-model change during reasoning discovery invalidates the selection',async()=>{
+  const f=fixture();f.setAction(async()=>{f.team.defaultModel='dsh/next';return {efforts:[{id:'auto/42',name:'Auto'}]};});
+  await assert.rejects(f.core.updateBot(f.bot,{model:null,effort:'auto/42'}),{code:'STALE_SNAPSHOT'});
+  assert.equal(f.calls.some(([name])=>name==='update-bot'),false);
+});

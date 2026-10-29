@@ -119,8 +119,8 @@ test('enqueue persistence failure does not report a durable item or submit it', 
   const queue=createOutbox({store:{load:async()=>[],save:async()=>{throw new Error('disk full');}},newId:()=> 'durable',
     transport:()=>({deviceId:async()=> 'device',target:async()=>({sessionId:'s'}),submission:async()=>{throw {status:404};},submit:async()=>{submissions++;return {requestId:'durable',status:'accepted'};}})});
   try {
-    await assert.rejects(queue.enqueue({conversationId:'c',text:'keep this draft'}),/disk full/);
-    await new Promise(resolve=>setImmediate(resolve));assert.equal(submissions,0);assert.equal(queue.list().length,0);
+    await assert.rejects(queue.enqueue({conversationId:'c',text:'keep this draft'}),{code:'PERSISTENCE_UNCONFIRMED',requestId:'durable'});
+    await new Promise(resolve=>setImmediate(resolve));assert.equal(submissions,0);assert.equal(queue.list()[0].state,'unconfirmed');assert.equal(queue.list()[0].persistence,'unconfirmed');
   } finally {queue.dispose();}
 });
 
@@ -151,4 +151,86 @@ test('session identity must be persisted before sending to the host', async () =
     transport:()=>({deviceId:async()=> 'device',target:async()=>({sessionId:'original-session'}),submission:async()=>{throw {status:404};},submit:async()=>{submissions++;return {requestId:'x',status:'accepted'};}})});
   await queue.enqueue({conversationId:'c',text:'hello'});await new Promise(resolve=>setImmediate(resolve));
   assert.equal(submissions,0);assert.notEqual(queue.list()[0].state,'sent');queue.dispose();
+});
+
+test('ambiguous enqueue stays visible and non-executable across restart; retries retain its one request ID', async () => {
+  let disk: OutboxItem[]=[], broken=true, saves=0, ids=0;
+  const submitted:string[]=[];
+  const store={load:async()=>structuredClone(disk),save:async(items:OutboxItem[])=>{
+    if(!broken || ++saves===1)disk=structuredClone(items);
+    if(broken)throw new Error('verification and rollback unavailable');
+  }};
+  const transport={deviceId:async()=> 'device',target:async()=>({sessionId:'session'}),submission:async()=>{throw {status:404};},submit:async(input:{requestId:string})=>{submitted.push(input.requestId);return {requestId:input.requestId,status:'accepted'};}};
+  const queue=createOutbox({store,newId:()=>`stable-${++ids}`,transport:()=>transport});
+  await assert.rejects(queue.enqueue({conversationId:'c',text:'send once'}),{code:'PERSISTENCE_UNCONFIRMED',requestId:'stable-1'});
+  assert.equal(queue.list()[0].state,'unconfirmed');assert.equal(queue.list()[0].requestId,'stable-1');
+  assert.equal(disk[0].state,'unconfirmed');assert.deepEqual(submitted,[]);
+  await assert.rejects(queue.enqueue({conversationId:'c',text:'send once'}),{code:'PERSISTENCE_UNCONFIRMED',requestId:'stable-1'});
+  assert.equal(ids,1);queue.dispose();broken=false;
+  const restored=createOutbox({store,newId:()=>`stable-${++ids}`,transport:()=>transport});
+  await restored.resume();assert.equal(restored.list()[0].state,'unconfirmed');assert.deepEqual(submitted,[]);
+  await restored.retry('stable-1');await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(submitted,['stable-1']);assert.equal(restored.list()[0].state,'sent');restored.dispose();
+});
+
+test('verified enqueue rollback can report absence, but failed discard cannot hide an ambiguous item',async()=>{
+  let disk:OutboxItem[]=[], first=true, broken=false;
+  const store={load:async()=>structuredClone(disk),save:async(items:OutboxItem[])=>{
+    if(broken)throw new Error('storage blocked');disk=structuredClone(items);
+    if(first){first=false;throw new Error('verification failed');}
+  }};
+  const queue=createOutbox({store,newId:()=> 'stable',transport:()=>null});
+  await assert.rejects(queue.enqueue({conversationId:'c',text:'hello'}),/verification failed/);
+  assert.deepEqual(queue.list(),[]);assert.deepEqual(disk,[]);
+  broken=true;
+  await assert.rejects(queue.enqueue({conversationId:'c',text:'hello'}),{code:'PERSISTENCE_UNCONFIRMED'});
+  await assert.rejects(queue.discard('stable'),{code:'PERSISTENCE_UNCONFIRMED',requestId:'stable'});
+  assert.equal(queue.list()[0].requestId,'stable');broken=false;await queue.discard('stable');
+  assert.deepEqual(queue.list(),[]);assert.deepEqual(disk,[]);queue.dispose();
+});
+
+test('uncertain queued promotion never rejects or hides an already verified intent',async()=>{
+  for(const wrote of [false,true]) {
+    let disk:OutboxItem[]=[],writes=0;const submits:string[]=[];
+    const store={load:async()=>structuredClone(disk),save:async(items:OutboxItem[])=>{
+      writes++;if(writes!==2||wrote)disk=structuredClone(items);
+      if(writes===2)throw new Error('promotion verification failed');
+    }};
+    const queue=createOutbox({store,newId:()=> 'same-id',transport:()=>null});
+    const result=await queue.enqueue({conversationId:'c',text:'hello'});
+    assert.equal(result?.requestId,'same-id');assert.equal(queue.list()[0].requestId,'same-id');queue.dispose();
+    const restored=createOutbox({store,newId:()=> 'unused',transport:()=>({deviceId:async()=> 'device',target:async()=>({sessionId:'session'}),submission:async()=>{throw {status:404};},submit:async(input)=>{submits.push(input.requestId);return {requestId:input.requestId,status:'accepted'};}})});
+    await restored.resume();
+    if(!wrote){assert.equal(submits.length,0);assert.equal(restored.list()[0].state,'unconfirmed');await restored.retry('same-id');await new Promise(resolve=>setImmediate(resolve));}
+    assert.deepEqual(submits,['same-id']);restored.dispose();
+  }
+});
+
+
+test('a queued concurrent save cannot resurrect a verified discarded request',async()=>{
+  let disk:OutboxItem[]=[],hold=false,broken=false,release!:()=>void,entered!:()=>void,ids=0;
+  const gate=new Promise<void>(done=>{release=done;});const started=new Promise<void>(done=>{entered=done;});
+  const store={load:async()=>structuredClone(disk),save:async(items:OutboxItem[])=>{
+    if(broken)throw new Error('rollback unavailable');
+    if(hold&&items.length===0){entered();await gate;}
+    disk=structuredClone(items);
+    if(items.some(i=>i.requestId==='second')){broken=true;throw new Error('readback unavailable');}
+  }};
+  const queue=createOutbox({store,newId:()=>++ids===1?'first':'second',transport:()=>null});
+  await queue.enqueue({conversationId:'a',text:'remove me'});hold=true;
+  const discard=queue.discard('first');await started;
+  const second=queue.enqueue({conversationId:'b',text:'pending'});
+  const rejected=assert.rejects(second,{code:'PERSISTENCE_UNCONFIRMED',requestId:'second'});
+  await Promise.resolve();release();await discard;await rejected;
+  assert.equal(queue.list().some(i=>i.requestId==='first'),false);
+  assert.equal(disk.some(i=>i.requestId==='first'),false);
+  queue.dispose();
+});
+
+test('legacy queued and sending records without persistence markers keep receipt-first recovery',async()=>{
+  for(const state of ['queued','sending'] as const) {
+    const saved:OutboxItem[]=[{requestId:'legacy',conversationId:'chief',text:'hello',attachments:[],createdAt:1,state,attempts:0,deviceId:'device-1',sessionId:'s1'}];
+    const f=fixture({receipt:id=>({requestId:id,status:'accepted'})},saved);
+    await f.outbox.resume();assert.deepEqual(f.calls,['receipt:legacy']);assert.equal(f.outbox.list()[0].state,'sent');f.outbox.dispose();
+  }
 });

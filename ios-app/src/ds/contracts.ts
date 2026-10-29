@@ -158,6 +158,7 @@ export interface DsWriteResult<T> {
     acknowledgement: unknown;
 }
 export interface DsSendState {
+    persistence?: "unconfirmed";
     requestId: string;
     conversationId: string;
     state: Exclude<OutboxState, 'sent'> | 'accepted';
