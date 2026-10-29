@@ -76,9 +76,9 @@
 - [x] Run root check, production Bridge integration, TGZ boot/migration, affected packed delivery, production packaging and source/archive audit. Inspect generated archive/source metadata and unchanged compatibility IDs.
 - [x] Run isolated iOS prebuild, baseline web export and actual browser error checks. Baseline runtime commit `538b6df` passed; no macOS/Xcode/IPA/device access is available. Per the newly authorized Task 5 scope, defer the final iOS export and repeat web export to stable Task 5 source; do not duplicate baseline iOS export.
 - [x] Update product docs, source/provenance and repeatable verified environment commands; commit reviewable Task 4 changes.
-- [ ] Parent: save reusable cloud draft, request independent whole-branch review, resolve material findings and push the reviewed branch. No tag or release publication is authorized.
+- [x] Parent: save reusable cloud draft, request independent whole-branch review, resolve material findings and push the reviewed branch. No tag or release publication is authorized.
 
-Task 4 verification evidence and repeatable commands: `ios-app/docs/isolated-host-acceptance.md`. Final branch push, reusable cloud draft and independent whole-branch review remain owned by the parent task; no release/tag publication is authorized. Native Xcode/IPA/signing/device checks remain unrun on this Linux environment.
+Task 4 verification evidence and repeatable commands: `ios-app/docs/isolated-host-acceptance.md`. Final branch push, reusable cloud draft and independent whole-branch review were completed by the parent task; no release/tag publication is authorized. Native Xcode/IPA/signing/device checks remain unrun on this Linux environment.
 
 ### Task 5: Complete Chinese UI and simplify the home header
 
@@ -104,7 +104,7 @@ Task 4 verification evidence and repeatable commands: `ios-app/docs/isolated-hos
 
 ### Parent completion
 
-- [ ] Independent Task 5 review, final whole-branch review, authorized branch push and reusable cloud configuration draft (parent-owned).
+- [x] Independent Task 5 review, final whole-branch review, authorized branch push and reusable cloud configuration draft (parent-owned).
 
 ### Final whole-branch correction wave — I1/I2/I3/M1
 
@@ -114,5 +114,13 @@ Task 4 verification evidence and repeatable commands: `ios-app/docs/isolated-hos
 - [x] Observe the public host queue read-only with capability/session/owner guards, foreground cadence and distinct UI; local outbox semantics remain unchanged.
 - [x] Translate both hidden-Bot native menu branches using the existing reactive catalog; preserve upstream originals/legal notices.
 - [x] Final combined root/mobile/type (1392 Node + 2 expected skips + 11 Python), actual public-host regression (29), and web/iOS JS exports pass; final source package/audit recorded after clean commit in the final fix report.
-- [ ] Parent's single scoped re-review, final branch push and reusable cloud configuration draft.
+- [x] Parent's single scoped re-review, final branch push and reusable cloud configuration draft.
 - [ ] External macOS Xcode/native compilation, unsigned lite IPA and signed-device checks remain UNRUN.
+
+### Parent closeout evidence
+
+The combined runtime source is `7abd1b4ab81b046d53617e29a7a0c169b182b5c0`. The one independent scoped re-review confirmed I1/I2/I3/M1 addressed, with no remaining Critical/Important finding or new scoped breakage. Recorded final checks: 1392 Node passes, two intentional Windows skips, 11 Python passes, type/lint/build checks, and 29 actual public DSH/production-engine browser checks. Both final web and iOS JavaScript/Hermes exports passed; all 29 source-manifest entries match working bytes and committed blobs. Earlier unchanged plugin/native-prebuild evidence retains its original source point.
+
+The reviewed branch `codex/openbot-core-sync` was pushed and its remote SHA verified. Reusable startup instructions and the exact checkout revision were successfully saved to the cloud configuration draft, preserving the existing install script, network rules and credential requirements. Saving is not publication or fresh-task restoration. This closeout update changes documentation only; runtime validation and independent review apply to the identical production source above.
+
+Six Chinese browser screenshots are retained outside Git. No Library upload API was available, so no Library file ID is claimed. No PR, tag, release, Xcode archive, unsigned IPA, signing or device installation was produced by this closeout. The native delivery gate remains open and is not waived by successful Linux checks.
