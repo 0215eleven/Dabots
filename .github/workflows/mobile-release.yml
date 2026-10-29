@@ -29,6 +29,8 @@ jobs:
       - run: npm --prefix apps/mobile run typecheck
       - run: npm --prefix apps/mobile test
       - run: npm --prefix packages/mobile-sdk test
+      # The Bridge tests import a prepared public DSH / DS Bot fixture (bridge/fixture, not committed).
+      - run: npm --prefix bridge run test:prepare
       - run: npm --prefix bridge test
 
   ios:
