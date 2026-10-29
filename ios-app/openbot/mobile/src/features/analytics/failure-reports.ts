@@ -1,67 +1,20 @@
-import {
-  ANALYTICS_GENERATIONS,
-  classifyFailure,
-  type FailureProperties,
-  openPanelTransport,
-  ReportQueue,
-  type ReportStorage,
-  telemetryIO,
-} from "@openbot/telemetry";
-import { errorReference } from "@openbot/user-errors";
-import { Effect } from "effect";
-import * as Application from "expo-application";
-import { randomUUID } from "expo-crypto";
-import { Alert, type AlertButton, Platform } from "react-native";
+// DS adaptation: reporting is disabled; local alerts and safe copyable references remain.
+import type { FailureProperties, ReportQueue } from "@openbot/telemetry";
+import { errorReference } from "@openbot/user-errors/reference";
+import { Alert, type AlertButton } from "react-native";
 import { currentText } from "@/shared/lib/text";
 
-const storage: ReportStorage = {
-  read: () =>
-    telemetryIO(async () => {
-      const { File, Paths } = await import("expo-file-system");
-      const file = new File(Paths.document, "openbot-error-reports-v1.json");
-      if (!file.exists) return null;
-      try {
-        return JSON.parse(await file.text());
-      } catch (error) {
-        if (error instanceof SyntaxError) return null;
-        throw error;
-      }
-    }),
-  write: (value) =>
-    telemetryIO(async () => {
-      const { File, Paths } = await import("expo-file-system");
-      const file = new File(Paths.document, "openbot-error-reports-v1.json");
-      const temporary = new File(Paths.document, "openbot-error-reports-v1.tmp");
-      await temporary.write(JSON.stringify(value));
-      await temporary.move(file, { overwrite: true });
-    }),
-};
-
-let reports: ReportQueue | undefined;
 export function mobileReportQueue(): ReportQueue | undefined {
-  // DS never creates an upstream reporting transport.
   return undefined;
-
 }
 
 export function reportMobileNotification(
-  error: unknown,
-  operation: FailureProperties["operation"],
-  presentation: "alert" | "banner" = "banner",
-  context: Partial<Pick<FailureProperties, "source" | "severity" | "provider" | "model">> = {},
+  _error: unknown,
+  _operation: FailureProperties["operation"],
+  _presentation: "alert" | "banner" = "banner",
+  _context: Partial<Pick<FailureProperties, "source" | "severity" | "provider" | "model">> = {},
 ): void {
-  const queue = mobileReportQueue();
-  if (queue)
-    Effect.runFork(
-      queue.record("notification_shown", {
-        operation,
-        source: "action",
-        severity: "error",
-        presentation,
-        cause_code: classifyFailure(error),
-        ...context,
-      }),
-    );
+  // Intentionally no storage, native application metadata, analytics or network work.
 }
 
 /**

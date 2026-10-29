@@ -7,7 +7,8 @@ export default ({ config }) => ({
   ...config,
   // Mods run in reverse registration order; withLocalPersonalTeam is registered first so it strips the push
   // entitlement after expo-notifications has added it.
-  plugins: ["./plugins/withLocalPersonalTeam.cjs", ...basePlugins(config), "./plugins/withTranslationInputs.cjs", "./plugins/withLocalSceneLifecycle.cjs"],
+  // Register privacy first so it removes automatic plugins' unused purposes after their mods.
+  plugins: ["./plugins/withSupportedPrivacy.cjs", "./plugins/withLocalPersonalTeam.cjs", ...basePlugins(config), "./plugins/withTranslationInputs.cjs", "./plugins/withLocalSceneLifecycle.cjs"],
   ios: {
     ...config.ios,
     bundleIdentifier: process.env.DS_BOT_IOS_BUNDLE_ID || config.ios?.bundleIdentifier || 'app.dsbot.mobile',

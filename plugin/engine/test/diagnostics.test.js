@@ -38,13 +38,14 @@ test('cleanText hides absolute paths outside the user home and keeps useful fram
     'at run (/mnt/private-workspace/project/src/main.js:12:3)',
     'at dependency (/opt/private-install/node_modules/driver/index.js:8:2)',
     'at other (/home/another-person/project/worker.js:4:9)',
+    'path:/mnt/private-workspace/prefixed.js:3:2',
     String.raw`at windows (D:\Private Workspace\project\handler.js:5:6)`,
     String.raw`at unc (\\private-server\secret-share\module.js:9:2)`,
     'at url (file:///srv/private%20checkout/service.js:7:8)',
   ]
   const out = cleanText(frames.join('\n'), { home: '/home/current-user' })
   for (const privatePart of ['private-workspace', 'private-install', 'another-person', 'Private Workspace', 'private-server', 'secret-share', 'private%20checkout']) assert.equal(out.includes(privatePart), false, privatePart)
-  for (const location of ['main.js:12:3', 'index.js:8:2', 'worker.js:4:9', 'handler.js:5:6', 'module.js:9:2', 'service.js:7:8']) assert.ok(out.includes(location), location)
+  for (const location of ['main.js:12:3', 'index.js:8:2', 'worker.js:4:9', 'prefixed.js:3:2', 'handler.js:5:6', 'module.js:9:2', 'service.js:7:8']) assert.ok(out.includes(location), location)
   assert.match(out, /at run \(/)
   assert.doesNotMatch(out, /\/mnt\/|\/opt\/|\/home\/|file:\/\/|D:\\|\\\\private/)
 })

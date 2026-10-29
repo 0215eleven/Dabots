@@ -112,20 +112,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Scan your host's pairing QR code."
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Attach a photo to your Bot conversation.",
-          "cameraPermission": "Take a photo to share with your Bot."
-        }
-      ],
-      [
-        "expo-audio",
-        {
-          "microphonePermission": "Record a message for transcription on your host."
+          "cameraPermission": "Scan your computer’s pairing QR code to connect DeepSeek Bot Pro.",
+          "microphonePermission": false
         }
       ],
       "expo-secure-store",

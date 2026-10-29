@@ -133,5 +133,26 @@
     "openbot/packages/team-client",
     "openbot/packages/telemetry",
     "openbot/packages/user-errors"
-  ]
+  ],
+  "expo": {
+    "autolinking": {
+      "ios": {
+        "exclude": [
+          "expo-local-authentication",
+          "expo-speech-recognition",
+          "expo-device",
+          "expo-web-browser",
+          "expo-updates",
+          "expo-keep-awake",
+          "expo-media-library",
+          "expo-video",
+          "expo-audio",
+          "expo-image-picker",
+          "expo-speech",
+          "expo-document-picker",
+          "expo-image-manipulator"
+        ]
+      }
+    }
+  }
 }

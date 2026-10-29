@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 env:
   npm_config_registry: https://registry.npmjs.org
-  npm_config_replace_registry_host: always
+  npm_config_replace_registry_host: never
 jobs:
   verify:
     runs-on: ubuntu-latest

@@ -4,8 +4,16 @@ Source: https://github.com/nightly-labs/openbot
 
 Commit: `0be0110737e55622f7a92c06a96a8eaaf516f114` (OpenBot mobile 1.4.3).
 
-`mobile/` contains **all 805 tracked files** from upstream `apps/mobile/`, including
+`mobile/` retains **804 of 805 tracked files** from upstream `apps/mobile/`, including
 source, assets, native module sources, config plugins, configuration and documentation.
+The unused upstream `google-services.json` Firebase Android project configuration
+is deliberately excluded. Its source Git blob and hashes are recorded in
+`provenance.json.exclusions`; its values are not copied into preserved originals.
+
+The shared root i18n catalog entry also ships only English and Chinese, so indirect
+imports cannot reintroduce other catalogs. Its exact original remains in
+`adaptations/original/packages/i18n/src/app-catalogs.ts`; unsupported locales use
+the existing English source fallback.
 `packages/` contains all tracked files from the seven shared packages in the mobile
 runtime dependency closure: `brand`, `contracts`, `i18n`, `logging`, `team-client`,
 `telemetry`, and `user-errors` (1,810 files). The upstream shared `tsconfig.base.json`
@@ -27,7 +35,7 @@ screens, capability guards and platform boundaries. Their current hashes and
 upstream hashes are distinct in `provenance.json`. Every adapted source file has
 an exact upstream copy in `adaptations/original/`, recorded by path and SHA-256.
 The extracted drawer context is recorded in `additionalFiles`. No original
-tracked path or asset is excluded, and the full original source remains available.
+source-code path or asset is excluded; the one configuration exclusion is described above.
 Untracked upstream files, `.git`, dependencies and build output were not imported.
 
 The installation entry point is **`../package.json`**, using npm workspaces for the
@@ -158,3 +166,39 @@ Both hidden-Bot native menu branches use the existing reactive
 `mobile.agent.hidden.show` catalog (English “Show”, Chinese “显示”). No user/model
 values are translated. These three adapted files retain their exact upstream
 originals and updated current hashes; original licenses and NOTICE are unchanged.
+
+
+## Pre-packaging runtime and native scope
+
+The active root package uses Expo SDK 58 `expo.autolinking.ios.exclude` to omit
+unused biometric unlock, speech recognition, device metadata, auth browser, OTA,
+keep-awake, media-library/video/audio, image/document picking, image manipulation
+and speech synthesis modules. Dependencies remain installed so the complete
+vendored source and type contracts can still be inspected and checked. Skia and
+WebView remain linked because the active imported components reference them;
+component pruning is outside this change. Existing widget module availability and
+`DS_BOT_NO_WIDGETS=0` opt-in remain intact; default lite mode still omits the widget
+configuration plugin and creates no Live Activity extension.
+
+QR camera and paired-computer local-network purposes are retained. Inactive
+image-picker/audio purpose plugins are removed. A root privacy plugin removes
+FaceID, microphone, speech-recognition and Photos purposes added by Expo's
+automatic plugins; these are not supported first-delivery features. The camera
+plugin explicitly disables microphone purpose text. Neither exclusions nor
+InfoPlist inspection establish a native build or device test.
+
+The mobile, native-mobile, source and format catalog entry modules now reference
+only English and Simplified Chinese. Unsupported saved/system locales resolve to
+English; missing translation dictionaries use source-language plural rules. The
+full upstream `TranslatedLocale` vocabulary and all original language source files
+remain available. System date/number regions are retained. Five newly adapted
+shared files have exact upstream originals under
+`adaptations/original/packages/i18n/src/`; hashes are recorded in `provenance.json`.
+
+The existing adapted failure-report runtime no longer imports Effect, telemetry,
+application metadata or report storage at runtime. Local failure/warning alerts,
+safe diagnostic references and copy-code actions retain their behavior. The exact
+upstream original remains at its previously recorded path. No screen, component,
+route, DS storage identity, model/effort binding or Bridge lifecycle is changed.
+The `prepackage-runtime.test.ts` tests cover language/graph fallback, SDK 58 native
+registration exclusion, resolved lite privacy purposes and real local-alert logic.

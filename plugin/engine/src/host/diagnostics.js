@@ -44,7 +44,7 @@ const cleanPaths = value => value
   .replace(/(^|\(|\bat\s+)((?:[A-Za-z]:[\\/]|\\\\|\/)[^)\r\n]*:\d+(?::\d+)?)(?=\)?(?:\s|$))/gm, (_, prefix, path) => prefix + pathLeaf(path))
   .replace(/(["'])((?:[A-Za-z]:[\\/]|\\\\|\/)[^\r\n]*?)\1/g, (_, mark, path) => mark + pathLeaf(path) + mark)
   // Exclude URL/relative-path prefixes, home '~' and our own '[path]' marker.
-  .replace(/(^|[^\p{L}\p{N}_~.:/\\\]-])((?:[A-Za-z]:[\\/]|\\\\|\/)[^\s"'<>),;]*)/gu, (_, prefix, path) => prefix + pathLeaf(path))
+  .replace(/(^|[^\p{L}\p{N}_~.:/\\\]-]|:(?!\/\/))((?:[A-Za-z]:[\\/]|\\\\|\/)[^\s"'<>),;]*)/gu, (_, prefix, path) => prefix + pathLeaf(path))
 
 export function cleanText(text, { redact = value => value, home = homedir() } = {}) {
   let out = redact(String(text ?? ''))

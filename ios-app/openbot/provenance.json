@@ -51,7 +51,18 @@
     "@tanstack/virtual-core": "3.19.7",
     "effect": "4.0.6"
   },
-  "exclusions": [],
+  "exclusions": [
+    {
+      "source": "apps/mobile/google-services.json",
+      "path": "mobile/google-services.json",
+      "gitBlob": "f3e0ef0029846e6f455502eaf527e110fb7c5a1f",
+      "mode": "100644",
+      "upstreamSha256": "6454b57ca149fabb1e15035bffa91702b6f48679aa191fb82e4d7f7a4ed37cb4",
+      "importedSha256": "6454b57ca149fabb1e15035bffa91702b6f48679aa191fb82e4d7f7a4ed37cb4",
+      "adaptation": null,
+      "reason": "Unused upstream Firebase Android project configuration intentionally removed before delivery. The DS app does not use it; original values are not retained in adaptations/original. Upstream Git blob/hash are attribution only."
+    }
+  ],
   "files": [
     {
       "source": "LICENSE",
@@ -375,15 +386,6 @@
       "mode": "100644",
       "upstreamSha256": "3aaff4e6061ad1a947430429d142660b3c0fd07469fae3a4d81b52543339d945",
       "importedSha256": "3aaff4e6061ad1a947430429d142660b3c0fd07469fae3a4d81b52543339d945",
-      "adaptation": null
-    },
-    {
-      "source": "apps/mobile/google-services.json",
-      "path": "mobile/google-services.json",
-      "gitBlob": "f3e0ef0029846e6f455502eaf527e110fb7c5a1f",
-      "mode": "100644",
-      "upstreamSha256": "6454b57ca149fabb1e15035bffa91702b6f48679aa191fb82e4d7f7a4ed37cb4",
-      "importedSha256": "6454b57ca149fabb1e15035bffa91702b6f48679aa191fb82e4d7f7a4ed37cb4",
       "adaptation": null
     },
     {
@@ -2656,8 +2658,8 @@
       "gitBlob": "d6c426e332a4e7fd5039677b2b86abce8f50cfc2",
       "mode": "100644",
       "upstreamSha256": "bd718557124c7814f4b0283bcfc5e8c121564cf11b3a5ae1d47803c47e0f1dcd",
-      "importedSha256": "f06dc594eba304093ec48e16fd0a11bd88c41607f30037273acd5345bc360bcd",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path.",
+      "importedSha256": "82df3546cf4eafc7214094c07a05b8dc3fe710f0c5d790bc7f1233eda43d1ac4",
+      "adaptation": "Pre-packaging: inactive reporting has no runtime dependencies; local alerts and safe references retained.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/analytics/failure-reports.ts",
         "sha256": "bd718557124c7814f4b0283bcfc5e8c121564cf11b3a5ae1d47803c47e0f1dcd"
@@ -10599,8 +10601,12 @@
       "gitBlob": "a1fb443ca54258dce968c53df946c31ab4a478b5",
       "mode": "100644",
       "upstreamSha256": "cc352038b9bd0927208874a4a82b3b5c7fbad34029f7333c734a16f6c84ade44",
-      "importedSha256": "cc352038b9bd0927208874a4a82b3b5c7fbad34029f7333c734a16f6c84ade44",
-      "adaptation": null
+      "importedSha256": "44a8cf21e7384c3c8a96aa1a60274cd3a976db8cf1146b322a2d9415836061c4",
+      "adaptation": "DS mobile shared root catalog graph ships en/zh only; unsupported locales preserve English source plural fallback. Complete original retained.",
+      "preservedOriginal": {
+        "path": "adaptations/original/packages/i18n/src/app-catalogs.ts",
+        "sha256": "cc352038b9bd0927208874a4a82b3b5c7fbad34029f7333c734a16f6c84ade44"
+      }
     },
     {
       "source": "packages/i18n/src/format-catalogs.ts",
@@ -10608,8 +10614,12 @@
       "gitBlob": "1b3d187cf7fa58b0e34c7976ed0a6243a31efaad",
       "mode": "100644",
       "upstreamSha256": "6d6d9c650d6f11795abc32291e70a755d73f7c9e3feaf48d8d8b3fea77d02432",
-      "importedSha256": "6d6d9c650d6f11795abc32291e70a755d73f7c9e3feaf48d8d8b3fea77d02432",
-      "adaptation": null
+      "importedSha256": "c7a07dee5d66e61bec63cf4bc3666fc3713c98e8041b71760974a5b5f4cd8804",
+      "adaptation": "Pre-packaging: DS mobile ships en/zh with English fallback and retains protocol language types.",
+      "preservedOriginal": {
+        "path": "adaptations/original/packages/i18n/src/format-catalogs.ts",
+        "sha256": "6d6d9c650d6f11795abc32291e70a755d73f7c9e3feaf48d8d8b3fea77d02432"
+      }
     },
     {
       "source": "packages/i18n/src/format.ts",
@@ -10662,8 +10672,12 @@
       "gitBlob": "7b9b530d05592e07135375cc7fba58158efe9d22",
       "mode": "100644",
       "upstreamSha256": "5f41e80a1fe12ea0fd581d7c5758225077c6090c170a80f200d04e4b8161647f",
-      "importedSha256": "5f41e80a1fe12ea0fd581d7c5758225077c6090c170a80f200d04e4b8161647f",
-      "adaptation": null
+      "importedSha256": "7819d06bd136105ebf77813c3dcb63913112e77b14304c2a74f805a8263a1cb0",
+      "adaptation": "Pre-packaging: DS mobile ships en/zh with English fallback and retains protocol language types.",
+      "preservedOriginal": {
+        "path": "adaptations/original/packages/i18n/src/locale.ts",
+        "sha256": "5f41e80a1fe12ea0fd581d7c5758225077c6090c170a80f200d04e4b8161647f"
+      }
     },
     {
       "source": "packages/i18n/src/message.ts",
@@ -23082,8 +23096,12 @@
       "gitBlob": "93d51c2719450cc0487e85148948e43122aada61",
       "mode": "100644",
       "upstreamSha256": "7f74dd2859baf22b840da7dc0860104489c49f7c72ed70ca80ee9f87dde96e78",
-      "importedSha256": "7f74dd2859baf22b840da7dc0860104489c49f7c72ed70ca80ee9f87dde96e78",
-      "adaptation": null
+      "importedSha256": "496f4bc5a528d94ef312b9a5e79344aa5886d0460f810c72292c4fbaa7548c3f",
+      "adaptation": "Pre-packaging: DS mobile ships en/zh with English fallback and retains protocol language types.",
+      "preservedOriginal": {
+        "path": "adaptations/original/packages/i18n/src/mobile-catalogs.native.ts",
+        "sha256": "7f74dd2859baf22b840da7dc0860104489c49f7c72ed70ca80ee9f87dde96e78"
+      }
     },
     {
       "source": "packages/i18n/src/mobile-catalogs.ts",
@@ -23091,8 +23109,12 @@
       "gitBlob": "515014a02a5bfe571363f75507747c1fe98e8349",
       "mode": "100644",
       "upstreamSha256": "66ef0c7339f2d31ae0462761edb7d16e169e999e120313b64a4acbfdf000b09b",
-      "importedSha256": "66ef0c7339f2d31ae0462761edb7d16e169e999e120313b64a4acbfdf000b09b",
-      "adaptation": null
+      "importedSha256": "28d34df3bee36741e609c961f87682a8b77bdbb6a972b9484870ba91e8b14f93",
+      "adaptation": "Pre-packaging: DS mobile ships en/zh with English fallback and retains protocol language types.",
+      "preservedOriginal": {
+        "path": "adaptations/original/packages/i18n/src/mobile-catalogs.ts",
+        "sha256": "66ef0c7339f2d31ae0462761edb7d16e169e999e120313b64a4acbfdf000b09b"
+      }
     },
     {
       "source": "packages/i18n/src/mobile.ts",
@@ -23118,8 +23140,12 @@
       "gitBlob": "766aa43c23173ff34240903ce5901d447cf916ca",
       "mode": "100644",
       "upstreamSha256": "01071c57452bea4ed5fedb9dbbb760ca8d3da17330be9039a87d3f20cd7fac97",
-      "importedSha256": "01071c57452bea4ed5fedb9dbbb760ca8d3da17330be9039a87d3f20cd7fac97",
-      "adaptation": null
+      "importedSha256": "b4a6d29dfac057a497a42ed19ca38c4c570d3daef6fc5a2d1fd039a27b99773c",
+      "adaptation": "Pre-packaging: DS mobile ships en/zh with English fallback and retains protocol language types.",
+      "preservedOriginal": {
+        "path": "adaptations/original/packages/i18n/src/source-catalogs.ts",
+        "sha256": "01071c57452bea4ed5fedb9dbbb760ca8d3da17330be9039a87d3f20cd7fac97"
+      }
     },
     {
       "source": "packages/i18n/src/source-matcher.ts",
