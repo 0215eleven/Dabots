@@ -1,10 +1,10 @@
-# DS Bot Mobile Bridge
+# Dbot pro Bridge
 
-Custom source version **0.0.9-codex.5**, integrating desktop continuity and owner-controlled remote connection settings. Install only with companion **0.2.1-codex.4** built from the same reviewed commit of [this private fork](https://github.com/0215eleven/ds-bot-mobile-app). This is an unpublished source candidate, not the upstream Bridge release. [中文](README.zh.md)
+Custom source version **0.0.9-codex.8**, integrating desktop continuity and owner-controlled remote connection settings. Install only with companion **0.2.1-codex.5** built from the same reviewed commit of [this private fork](https://github.com/0215eleven/ds-bot-mobile-app). This is an unpublished source candidate, not the upstream Bridge release. [中文](README.zh.md)
 
 ## Setup and compatibility
 
-Use the matched files ds-bot-mobile-bridge-0.0.9-codex.5.tgz and ds-bot-mobile-app-0.2.1-codex.4.tgz, checking the commit and SHA-256 in their packaging records before any separately authorized installation. Do not overwrite this custom pair with an upstream asset of the same package name. Preserve the existing compatible DS Bot engine and Bridge home. See [installation](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/installation.md) and [version sources and update behavior](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/version-sources.md).
+Use the matched files ds-bot-mobile-bridge-0.0.9-codex.8.tgz and ds-bot-mobile-app-0.2.1-codex.5.tgz, checking the commit and SHA-256 in their packaging records before any separately authorized installation. Do not overwrite this custom pair with an upstream asset of the same package name. Preserve the existing compatible DS Bot engine and Bridge home. See [installation](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/installation.md) and [version sources and update behavior](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/version-sources.md).
 
 Configure enabled, a dedicated absolute home, and a loopback host/port using cordis.patch.example.yml. The matching companion offers existing HTTPS, your own fixed-domain tunnel, or an explicitly confirmed temporary Cloudflare tunnel. Saving a choice does not start a tunnel. Existing publicUrl settings remain valid. Fixed mode validates and saves an existing HTTPS URL; it does not create Cloudflare resources. See [remote connection](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/remote-connection.md).
 

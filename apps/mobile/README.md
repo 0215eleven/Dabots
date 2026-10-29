@@ -1,4 +1,4 @@
-# DS Bot Mobile App · Native client
+# Dbot pro — Mobile client
 
 The Expo / React Native client for [DS Bot Mobile App](../../README.en.md), targeting iOS and Android. The current source (Mobile DS 2.0, see [docs/mobile-ds2.md](../../docs/mobile-ds2.md)) uses Expo SDK 58, React Native 0.88.1 and React 19.3, with Expo Router (native tabs and stack), `@legendapp/list`, `@expo/ui` and an iOS Live Activity via `expo-widgets`. Unsigned IPAs and an APK are built by `.github/workflows/mobile-release.yml`; see [docs/sideloading.md](../../docs/sideloading.md) to install them.
 
@@ -6,7 +6,7 @@ The Expo / React Native client for [DS Bot Mobile App](../../README.en.md), targ
 
 ## Mobile source for building
 
-This private fork identifies the mobile source package as `0.1.8-codex.3` and native display version as `0.1.8`. Since PR #10 the phone adds the owner-granted DSH Agent entry; without a granted device or the matching Bridge it behaves as before. The bundled SDK `0.1.1-codex.4` adds optional task-event APIs that the current phone does not use. The phone uses the existing handshake and only enables history, streaming and sending when the server explicitly advertises each capability; cached or unknown capabilities do not authorize operations. No IPA/APK or device acceptance is implied. Build from the reviewed commit, select build numbers from the actual target distribution history, and preserve app identity and signing. See the existing [development guide](../../docs/development.md) for build setup and [desktop delivery](../../docs/integrated-delivery.md) for the separately paired plugins.
+This private fork identifies the mobile source package as `0.1.9-codex.1` and native display version as `0.1.9`. Since PR #10 the phone adds the owner-granted DSH Agent entry; without a granted device or the matching Bridge it behaves as before. The bundled SDK `0.1.1-codex.4` adds optional task-event APIs that the current phone does not use. The phone uses the existing handshake and only enables history, streaming and sending when the server explicitly advertises each capability; cached or unknown capabilities do not authorize operations. No IPA/APK or device acceptance is implied. Build from the reviewed commit, select build numbers from the actual target distribution history, and preserve app identity and signing. See the existing [development guide](../../docs/development.md) for build setup and [desktop delivery](../../docs/integrated-delivery.md) for the separately paired plugins.
 
 ## Requirements
 

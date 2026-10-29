@@ -69,7 +69,7 @@ export function composeManifest({engine,bridge,version,suite}){
   return {
     ...engine,
     version,
-    description:`${engine.description??'DS Bot'} — with the Mobile Bridge and phone connection settings in one package`,
+    description:'Dbot pro — DS Bot engine, Mobile Bridge and phone connection settings in one package',
     exports:{...engine.exports,'./bridge':'./bridge/index.mjs'},
     files:[...new Set([...(engine.files??[]),'bridge/','SUITE.md','NOTICE'])],
     dependencies:merge('dependency',engine.dependencies,bridge.dependencies),

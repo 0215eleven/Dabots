@@ -1,10 +1,10 @@
-# DS Bot Mobile Bridge
+# Dbot pro Bridge
 
-本私仓定制源码版本 **0.0.9-codex.5**，整合桌面会话接续、工作状态与远程连接配置。必须配套同一已审查提交构建的 **companion 0.2.1-codex.4**；这不是官方 Bridge 发布，也尚未发布 Release。[English](README.md)
+本私仓定制源码版本 **0.0.9-codex.8**，整合桌面会话接续、工作状态与远程连接配置。必须配套同一已审查提交构建的 **companion 0.2.1-codex.5**；这不是官方 Bridge 发布，也尚未发布 Release。[English](README.md)
 
 ## 安装与兼容
 
-候选文件为 ds-bot-mobile-bridge-0.0.9-codex.5.tgz 与 ds-bot-mobile-app-0.2.1-codex.4.tgz。安装前分别核对源码提交、manifest 和 SHA-256；不要用同名上游包覆盖自定义包。保留现有兼容 DS Bot 引擎与 Bridge 专用 home。本次不安装到日常 DSH，也不升级引擎。见[安装指南](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/installation.md)和[版本来源与更新行为](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/version-sources.md)。
+候选文件为 ds-bot-mobile-bridge-0.0.9-codex.8.tgz 与 ds-bot-mobile-app-0.2.1-codex.5.tgz。安装前分别核对源码提交、manifest 和 SHA-256；不要用同名上游包覆盖自定义包。保留现有兼容 DS Bot 引擎与 Bridge 专用 home。本次不安装到日常 DSH，也不升级引擎。见[安装指南](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/installation.md)和[版本来源与更新行为](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/version-sources.md)。
 
 按 cordis.patch.example.yml 配置 enabled、专用绝对 home、loopback host/port。在配套管理页面选择已有 HTTPS、自有隧道固定域名，或明确确认后手动启动临时 Cloudflare 隧道。保存选项不会启动隧道；原 publicUrl 兼容。固定模式只校验并保存已有 HTTPS 入口，不创建隧道、DNS 或凭据。见[远程连接说明](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/remote-connection.md)。
 

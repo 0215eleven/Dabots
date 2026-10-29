@@ -1,7 +1,7 @@
 {
   "name": "ds-bot-mobile-bridge",
-  "version": "0.0.9-codex.6",
-  "description": "DS Bot Mobile Bridge — secure pairing and scoped access to an existing DS Bot team",
+  "version": "0.0.9-codex.8",
+  "description": "Dbot pro Bridge — secure pairing and scoped access to an existing DS Bot team",
   "license": "Apache-2.0",
   "type": "module",
   "main": "index.mjs",

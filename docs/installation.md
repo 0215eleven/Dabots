@@ -1,6 +1,6 @@
 # 安装与配对
 
-本私仓原生 App 源码为 `0.1.8-codex.3`，客户端显示版本 `0.1.8`，尚无可直接安装的 IPA/APK。希望不构建客户端直接在手机使用，请选择 [Mobile Web](https://github.com/MuQY1818/ds-bot-mobile-web)。[文档首页](README.md)提供其他指南入口。
+本私仓原生 App 源码为 `0.1.9-codex.1`，客户端显示版本 `0.1.9`，尚无可直接安装的 IPA/APK。希望不构建客户端直接在手机使用，请选择 [Mobile Web](https://github.com/MuQY1818/ds-bot-mobile-web)。[文档首页](README.md)提供其他指南入口。
 
 ## 开始前
 
@@ -14,10 +14,10 @@
 
 | 包 | 配套版本 / 文件 | 来源 |
 | --- | --- | --- |
-| Bridge | 0.0.9-codex.5 / ds-bot-mobile-bridge-0.0.9-codex.5.tgz | 本提交运行 npm run pack:bridge |
-| companion | 0.2.1-codex.4 / ds-bot-mobile-app-0.2.1-codex.4.tgz | 同一提交运行 npm run pack:companion |
+| Bridge | 0.0.9-codex.8 / ds-bot-mobile-bridge-0.0.9-codex.8.tgz | 本提交运行 npm run pack:bridge |
+| companion | 0.2.1-codex.5 / ds-bot-mobile-app-0.2.1-codex.5.tgz | 同一提交运行 npm run pack:companion |
 | DS Bot 引擎 | 保留现有满足能力合同的版本 | 本次不升级，不用公共 npm 0.2.0 替换 |
-| 手机 App / SDK | 0.1.8-codex.3（显示版本 0.1.8）/ 0.1.1-codex.4 | 同一固定提交；本次修复源码但未打包，用户当前安装/build 未核实 |
+| 手机 App / SDK | 0.1.9-codex.1（显示版本 0.1.9）/ 0.1.1-codex.4 | 同一固定提交；本次修复源码但未打包，用户当前安装/build 未核实 |
 
 两插件必须配套；只装一半不构成本次验证组合。每个包都有独立的 artifacts/release.json 或 artifacts/companion-release.json 记录源码提交和 SHA-256。比较 manifest、记录与 tgz 哈希，保留旧包、原配置和专用 Bridge home；若相同版本对应不同字节，停止安装并核对来源，不覆盖“同版本”包。构建下一次不同交付内容时再次递增版本。上游历史 tag 与兼容引擎资产只作[来源参考](version-sources.md)，不能当成本次整合包下载地址。
 
@@ -60,7 +60,7 @@ npm --prefix apps/mobile run ios
 DSH Agent 默认对所有手机关闭。需要时按以下顺序开启：
 
 1. **安装兼容引擎 `ds-bot@0.1.7-agent.1`**。它由公共 `ds-bot@0.1.7` 加本仓库补丁生成：`npm --prefix bridge run test:prepare && npm run pack:ds-bot`，产物在 `artifacts/ds-bot-0.1.7-agent.1.tgz`。安装会替换电脑上的 DS Bot；若现有引擎带有其他定制，这些定制不会保留，请先保存旧归档以便回退。
-2. **同时更新 Bridge `0.0.9-codex.5` 与 companion `0.2.1-codex.4`**，并重启 DSH。
+2. **同时更新 Bridge `0.0.9-codex.8` 与 companion `0.2.1-codex.5`**，并重启 DSH。
 3. **在电脑上逐台授权**：打开 DS Bot Mobile 的已授权设备列表，在要使用的手机旁点“允许”，阅读提示后“确认允许”。可随时点“停用”，手机上的 Agent 对话会立即断开。
 4. 手机上点右上角“+”→“新建 DSH Agent”。之后 Agent 会出现在会话列表里。
 

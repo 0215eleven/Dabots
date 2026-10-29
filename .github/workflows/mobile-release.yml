@@ -1,5 +1,5 @@
 name: mobile-release
-# Builds the phone app for sideloading: unsigned IPAs on macOS, an APK on Linux, and attaches them
+# Builds the lite phone app for sideloading: an unsigned IPA on macOS, an APK on Linux, and attaches them
 # to a GitHub Release. Signing material never lives in the repository; see apps/mobile/README.md.
 on:
   push:
@@ -40,10 +40,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # full: Live Activity extension + Dynamic Island. lite: no extension or App Group, for free Apple IDs.
-        variant: [full, lite]
+        # Only the existing lite variant: no extension or App Group, for free Apple IDs.
+        variant: [lite]
     env:
-      DS_BOT_NO_WIDGETS: ${{ matrix.variant == 'lite' && '1' || '0' }}
+      DS_BOT_NO_WIDGETS: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,7 +64,7 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild archive \
-            -workspace DSBotMobile.xcworkspace -scheme DSBotMobile \
+            -workspace Dbotpro.xcworkspace -scheme Dbotpro \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/DSBotMobile.xcarchive" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \

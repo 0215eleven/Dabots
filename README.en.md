@@ -1,17 +1,19 @@
+> Dbot pro 0.1.9 — [改名与构建说明](docs/dbot-pro-brand.md).
+
 > This public repository is a cleaned source snapshot exported from original commit `748f671d267778147641800781d46b4d83ec261e`. Previous commits, PRs, release assets and CI logs were not migrated. The desktop screenshot containing chat previews was removed. Mobile and desktop components were not rebuilt or tested on devices for this publication. CI configurations are stored in `.github/workflow-templates/` and do not run automatically.
 
-> Custom integrated source **0.1.8-codex.3** (native version 0.1.8, SDK 0.1.1-codex.4): **Bridge 0.0.9-codex.5 + companion 0.2.1-codex.4**, from the same reviewed commit. Unpublished and not deployed; retain the existing compatible engine. Includes #6/#7/#8. See [integrated delivery](docs/integrated-delivery.md), [version sources](docs/version-sources.md) and [installation](docs/installation.md). Upstream release assets below are provenance, not this custom pair.
+> Custom integrated source **0.1.9-codex.1** (native version 0.1.9, SDK 0.1.1-codex.4): **Bridge 0.0.9-codex.8 + companion 0.2.1-codex.5**, from the same reviewed commit. Unpublished and not deployed; retain the existing compatible engine. Includes #6/#7/#8. See [integrated delivery](docs/integrated-delivery.md), [version sources](docs/version-sources.md) and [installation](docs/installation.md). Upstream release assets below are provenance, not this custom pair.
 
 <div align="center">
 
-<p><img src="docs/images/whale-mark.png" width="360" alt="DS Bot Mobile App whale and phone mark"></p>
+<p><img src="docs/images/whale-mark.png" width="360" alt="Dbot pro whale and phone mark"></p>
 
-<h1>DS Bot Mobile App</h1>
+<h1>Dbot pro</h1>
 <p>Connect to your existing Bot team from your phone, keep drafts close, and manage access per device.</p>
 
 <p>
-  <a href="https://github.com/0215eleven/ds-bot-mobile-app/actions/workflows/check.yml"><img src="https://github.com/0215eleven/ds-bot-mobile-app/actions/workflows/check.yml/badge.svg?branch=main" alt="CI checks on main"></a>
-  <a href="docs/status.md"><img src="https://img.shields.io/badge/custom%20source-0.1.8--codex.3-5879E8" alt="Custom source 0.1.8-codex.3"></a>
+  <a href="https://github.com/0215eleven/ds-bot-mobile/actions/workflows/mobile-release.yml"><img src="https://github.com/0215eleven/ds-bot-mobile/actions/workflows/mobile-release.yml/badge.svg" alt="Mobile release workflow"></a>
+  <a href="docs/status.md"><img src="https://img.shields.io/badge/custom%20source-0.1.9--codex.1-5879E8" alt="Custom source 0.1.9-codex.1"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-3D8B7D" alt="Apache License 2.0"></a>
 </p>
 
@@ -82,7 +84,7 @@ All three reuse an existing DSH / DS Bot team. Web, the App companion and Bridge
 | Desktop App companion | `0.2.0` | [`ds-bot-mobile-app-0.2.0.tgz`](https://github.com/MuQY1818/ds-bot-mobile-app/releases/download/v0.1.7-preview.1/ds-bot-mobile-app-0.2.0.tgz), installed in DSH |
 | Mobile Bridge | `0.0.6` | [Independent repository and release](https://github.com/MuQY1818/ds-bot-mobile-bridge/releases/tag/v0.0.6); desktop plugin archive |
 
-The local [`bridge/`](bridge/README.md) is custom `0.0.9-codex.5`, combining team management, desktop continuity and remote connection settings, paired with companion `0.2.1-codex.4`. Upstream attribution and historical releases remain distinct from this fork’s delivery.
+The local [`bridge/`](bridge/README.md) is custom `0.0.9-codex.8`, combining team management, desktop continuity and remote connection settings, paired with companion `0.2.1-codex.5`. Upstream attribution and historical releases remain distinct from this fork’s delivery.
 
 Identify archives by source commit and checksum. Do not replace different contents under the same version or overwrite custom companion packages with upstream archives. A higher version does not establish the required Bridge interfaces; retain the existing compatible DS Bot engine.
 
@@ -99,8 +101,8 @@ Bridge requires compatible DS Bot interfaces. Pristine npm DS Bot `0.1.7` does n
 Use **Node.js 24 + npm**. iOS requires macOS, Xcode and a simulator or your own device signing identity. Android requires the Android SDK, its build toolchain and an emulator or device.
 
 ```sh
-git clone https://github.com/0215eleven/ds-bot-mobile-app.git
-cd ds-bot-mobile-app
+git clone https://github.com/0215eleven/ds-bot-mobile.git
+cd ds-bot-mobile
 npm run setup
 npm --prefix apps/mobile run ios
 ```

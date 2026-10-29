@@ -1,6 +1,6 @@
 {
   "name": "@ds-bot/mobile",
-  "version": "0.1.8-codex.3",
+  "version": "0.1.9-codex.1",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {

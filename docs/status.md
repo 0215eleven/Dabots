@@ -1,4 +1,4 @@
-> 2026-10-23 私仓整合说明：当前整合源码为 **手机 0.1.8-codex.3 / 显示版本 0.1.8、SDK 0.1.1-codex.4、Bridge 0.0.9-codex.5 + companion 0.2.1-codex.4**，未发布/部署。下列旧发布和“本机/build”记录来自既有文档，不代表本次已核验用户安装。手机未重打包，兼容引擎未升级。包含 #6/#7/#8；见[整合交付](integrated-delivery.md)、[版本来源](version-sources.md)及[安装指南](installation.md)。
+> 2026-10-23 私仓整合说明：当前整合源码为 **手机 0.1.9-codex.1 / 显示版本 0.1.9、SDK 0.1.1-codex.4、Bridge 0.0.9-codex.8 + companion 0.2.1-codex.5**，未发布/部署。下列旧发布和“本机/build”记录来自既有文档，不代表本次已核验用户安装。手机未重打包，兼容引擎未升级。包含 #6/#7/#8；见[整合交付](integrated-delivery.md)、[版本来源](version-sources.md)及[安装指南](installation.md)。
 
 # 当前状态
 

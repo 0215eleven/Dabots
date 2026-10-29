@@ -1,4 +1,4 @@
-# DS Bot 单包：使用与迁移
+# Dbot pro 单包：使用与迁移
 
 单包把原来的 `ds-bot`（团队引擎）、`ds-bot-mobile-bridge`（手机连接服务）和 `ds-bot-mobile-app`（电脑配对界面）合成一个插件：包名仍是 `ds-bot`，一个版本号，一次安装或更新。`dsh-plugin-mobile-gateway` 不在其中，迁移也不会动它。设计与证据见[单包方案](single-package-plan.md)。
 
@@ -16,7 +16,7 @@ node scripts/pack-suite.mjs --engine <本机 ds-bot 0.2.0 源码目录> --engine
 
 - 引擎目录需要包含已生成的 `client.js`、`cordis.patch.yml` 和 `src/host/channel.js`。
 - 脚本按能力检查引擎是否含 Bridge 合同（`bridge.describe / submit / redact`），缺少就拒绝打包；Agent 能力只做记录。
-- 输出位于 `artifacts/ds-bot-0.2.0-suite.1.tgz`，并打印 SHA-256。包内 `SUITE.md` 写明各部分的版本与来源，`NOTICE` 保留 Happy 的 MIT 署名。
+- 改名后的修订号为 `suite.2`，输出位于 `artifacts/ds-bot-0.2.0-suite.2.tgz`，并打印 SHA-256。包内 `SUITE.md` 写明各部分的版本与来源，`NOTICE` 保留 Happy 的 MIT 署名。旧包和历史验证不因此变成新修订的交付记录；兼容标识见[改名说明](dbot-pro-brand.md)。
 
 ## 二、全新安装（之前没有装过旧插件）
 

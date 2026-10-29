@@ -1,17 +1,19 @@
+> Dbot pro 0.1.9 — [改名与构建说明](docs/dbot-pro-brand.md).
+
 > 本公开仓库是从原项目提交 `748f671d267778147641800781d46b4d83ec261e` 导出的清理后源码快照；未迁移旧提交、PR、发布附件或 CI 日志。已移除包含聊天预览的桌面截图。手机与桌面组件未在本次重新构建或进行真机验收。CI 配置位于 `.github/workflow-templates/`，不会自动运行。
 
-> 本仓库源码快照 **0.1.8-codex.3**（手机显示版本 0.1.8、SDK 0.1.1-codex.4）：**Bridge 0.0.9-codex.5 + companion 0.2.1-codex.4**，必须使用同一提交的配套归档；未发布、未部署，不升级现有兼容 DS Bot。包含 #6/#7/#8；手机保留顶栏电脑切换与新增入口、底部个人头像与搜索。见[整合交付](docs/integrated-delivery.md)、[版本来源核验](docs/version-sources.md)与[安装说明](docs/installation.md)。下方上游发布表是历史来源，不是本分支安装包。
+> 本仓库源码快照 **0.1.9-codex.1**（手机显示版本 0.1.9、SDK 0.1.1-codex.4）：**Bridge 0.0.9-codex.8 + companion 0.2.1-codex.5**，必须使用同一提交的配套归档；未发布、未部署，不升级现有兼容 DS Bot。包含 #6/#7/#8；手机保留顶栏电脑切换与新增入口、底部个人头像与搜索。见[整合交付](docs/integrated-delivery.md)、[版本来源核验](docs/version-sources.md)与[安装说明](docs/installation.md)。下方上游发布表是历史来源，不是本分支安装包。
 
 <div align="center">
 
-<p><img src="docs/images/whale-mark.png" width="360" alt="DS Bot Mobile App 小鲸鱼与手机标识"></p>
+<p><img src="docs/images/whale-mark.png" width="360" alt="Dbot pro 小鲸鱼与手机标识"></p>
 
-<h1>DS Bot Mobile App</h1>
+<h1>Dbot pro</h1>
 <p>在手机上连接已有 Bot 团队，阅读会话、继续草稿，并按设备管理访问权限。</p>
 
 <p>
-  <a href="https://github.com/0215eleven/ds-bot-mobile-app/actions/workflows/check.yml"><img src="https://github.com/0215eleven/ds-bot-mobile-app/actions/workflows/check.yml/badge.svg?branch=main" alt="CI checks on main"></a>
-  <a href="docs/status.md"><img src="https://img.shields.io/badge/custom%20source-0.1.8--codex.3-5879E8" alt="Custom source 0.1.8-codex.3"></a>
+  <a href="https://github.com/0215eleven/ds-bot-mobile/actions/workflows/mobile-release.yml"><img src="https://github.com/0215eleven/ds-bot-mobile/actions/workflows/mobile-release.yml/badge.svg" alt="Mobile release workflow"></a>
+  <a href="docs/status.md"><img src="https://img.shields.io/badge/custom%20source-0.1.9--codex.1-5879E8" alt="Custom source 0.1.9-codex.1"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-3D8B7D" alt="Apache License 2.0"></a>
 </p>
 
@@ -82,7 +84,7 @@
 | 电脑端 App 配套插件 | `0.2.0` | [`ds-bot-mobile-app-0.2.0.tgz`](https://github.com/MuQY1818/ds-bot-mobile-app/releases/download/v0.1.7-preview.1/ds-bot-mobile-app-0.2.0.tgz)，安装到 DSH |
 | Mobile Bridge | `0.0.6` | [独立仓库与发布](https://github.com/MuQY1818/ds-bot-mobile-bridge/releases/tag/v0.0.6)；电脑端插件包 |
 
-本仓库的 [`bridge/`](bridge/README.zh.md) 当前为自定义 `0.0.9-codex.5`，整合团队管理、桌面会话状态和远程连接；配套 companion 为 `0.2.1-codex.4`。原上游归属及历史 release 保留，本分支的交付来源与上游独立。
+本仓库的 [`bridge/`](bridge/README.zh.md) 当前为自定义 `0.0.9-codex.8`，整合团队管理、桌面会话状态和远程连接；配套 companion 为 `0.2.1-codex.5`。原上游归属及历史 release 保留，本分支的交付来源与上游独立。
 
 归档应按来源提交和校验值识别；不要以同一版本号覆盖不同内容，也不要用上游包覆盖自定义配套包。版本号较新不代表具备所需 Bridge 接口，现有兼容 DS Bot 保持不升级。
 
@@ -99,8 +101,8 @@ Bridge 需要兼容的 DS Bot 接口。原版 npm DS Bot `0.1.7` 不满足此要
 需要 **Node.js 24 + npm**。iOS 需要 macOS、Xcode 和模拟器或自己的设备签名；Android 需要 Android SDK、对应构建工具和模拟器或设备。
 
 ```sh
-git clone https://github.com/0215eleven/ds-bot-mobile-app.git
-cd ds-bot-mobile-app
+git clone https://github.com/0215eleven/ds-bot-mobile.git
+cd ds-bot-mobile
 npm run setup
 npm --prefix apps/mobile run ios
 ```

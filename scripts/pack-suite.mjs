@@ -14,7 +14,7 @@ import {npmCommand} from './npm-command.mjs'
 import {composeClient,composeManifest,composePatch,engineContract,stageBridge,stageEngine} from './suite-lib.mjs'
 import {bundleCompanion} from '../companion/build.mjs'
 
-export const SUITE_REVISION=1
+export const SUITE_REVISION=2
 const {values:args}=parseArgs({options:{engine:{type:'string'},'engine-source':{type:'string'},dev:{type:'boolean',default:false},out:{type:'string'}}})
 if(!args.engine||!args['engine-source'])throw Error('Usage: pack-suite.mjs --engine <unpacked ds-bot dir> --engine-source "<origin>" [--dev]')
 const root=new URL('../',import.meta.url),out=args.out?resolve(args.out):fileURLToPath(new URL('artifacts/',root))
@@ -57,7 +57,7 @@ d6b85a0dda14c9582e1f083539fd11d99924022f, Copyright (c) 2026 Happy Coder
 Contributors; full notices are in bridge/THIRD_PARTY_RELAY_NOTICES.txt. It does
 not use Happy's accounts, database or public services.
 `)
-  await writeFile(join(stage,'SUITE.md'),`# DS Bot single package\n\n${args.dev?'**Development build. It uses the isolated public 0.1.7 + repository patch engine and must not be installed in a real Harness.**\n\n':''}| Part | Version | Source |\n| --- | --- | --- |\n| Engine (rows \`bot\`, \`web-search-auto\`) | ${engine.version} | ${args['engine-source']} (digest ${engineDigest}) |\n| Mobile Bridge (row \`ds-bot-mobile-bridge\`, \`ds-bot/bridge\`) | ${bridge.version} | 0215eleven/ds-bot-mobile-app ${commit}${dirty?' (uncommitted changes)':''} |\n| Pairing and connection settings (in client.js) | ${suite.companion.version} | same |\n\nThe engine files are unchanged except package.json, client.js (engine client plus\nthe settings UI), cordis.patch.yml (adds the Bridge row) and NOTICE.\nThe Bridge needs the engine's Bridge contract; DSH Agent from the phone: ${contract.agents?'available':'not offered by this engine'}.\n`)
+  await writeFile(join(stage,'SUITE.md'),`# Dbot pro single package\n\n${args.dev?'**Development build. It uses the isolated public 0.1.7 + repository patch engine and must not be installed in a real Harness.**\n\n':''}| Part | Version | Source |\n| --- | --- | --- |\n| Engine (rows \`bot\`, \`web-search-auto\`) | ${engine.version} | ${args['engine-source']} (digest ${engineDigest}) |\n| Mobile Bridge (row \`ds-bot-mobile-bridge\`, \`ds-bot/bridge\`) | ${bridge.version} | 0215eleven/ds-bot-mobile-app ${commit}${dirty?' (uncommitted changes)':''} |\n| Pairing and connection settings (in client.js) | ${suite.companion.version} | same |\n\nThe engine files are unchanged except package.json, client.js (engine client plus\nthe settings UI), cordis.patch.yml (adds the Bridge row) and NOTICE.\nThe Bridge needs the engine's Bridge contract; DSH Agent from the phone: ${contract.agents?'available':'not offered by this engine'}.\n`)
   await mkdir(out,{recursive:true})
   const [packed]=JSON.parse(execFileSync(...npmCommand(['pack',stage,'--ignore-scripts','--json','--pack-destination',out]),{cwd:root,encoding:'utf8',windowsHide:true}))
   const paths=packed.files.map(f=>f.path)

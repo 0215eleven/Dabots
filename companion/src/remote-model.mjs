@@ -22,7 +22,7 @@ const messages = {
   REMOTE_BUSY: '另一项连接操作正在进行，请刷新状态后重试。',
   REMOTE_CLOSED: 'Bridge 已停止，请检查插件状态后重新打开本页。',
   REMOTE_CLEANUP_REQUIRED: '上次卸载后尚未确认旧 cloudflared 已退出。请先在电脑上确认其停止，再手动移除 Bridge 专用目录中的 remote-cleanup-required.json，然后重新启用 Bridge。',
-  CONFIGURATION_REQUIRED: '请先启用 Mobile Bridge，并配置独立的绝对存储目录与 loopback 监听。',
+  CONFIGURATION_REQUIRED: '请先启用 Dbot pro Bridge，并配置独立的绝对存储目录与 loopback 监听。',
   OPERATOR_REQUIRED: '请在已登录的电脑所有者会话中打开本页。',
   OPERATOR_REFUSED: '操作被拒绝。请刷新状态后检查配置并重试。',
   INVALID_RELAY_URL: '请输入完整的 wss:// 中转服务地址，不含账号、路径、查询或片段。',

@@ -571,7 +571,7 @@ function Shell({ initial }: { initial?: Route }) {
             />
           ) : (
             <>
-              <PageHeader title={tr("DS Bot")} onOpenNavigation={showNavigation} />
+              <PageHeader title={tr("Dbot pro")} onOpenNavigation={showNavigation} />
               <View
                 style={{
                   flex: 1,
@@ -674,7 +674,7 @@ function Shell({ initial }: { initial?: Route }) {
       <Sheet title={tr("New chat")} visible={newChat && !!client} onClose={() => setNewChat(false)}>
         {(!allows("create-bot") || !allows("create-room")) && <Notice text={BRIDGE_UNAVAILABLE}/>}<SettingRow title={tr("New Bot")} disabled={!allows("create-bot")} leading={<Icon name="bots"/>} onPress={() => navigate({page:"team",section:"bots",create:"bot"})}/>
         <SettingRow title={tr("New group chat")} leading={<Icon name="groups"/>} disabled={workspace.team.bots.length<2 || !allows("create-room")} onPress={() => navigate({page:"team",section:"groups",create:"group"})}/>
-        <SettingRow title={tr(creating ? "Creating Agent…" : "New DSH Agent")} hint={allows("agent-open") && !agentAccess ? tr("Allow this phone to use the DSH Agent on the computer first, under the paired devices of DS Bot Mobile.") : undefined} leading={<Icon name="plus"/>} disabled={creating || !workspace.online || !agentAccess} onPress={addAgent} last/>
+        <SettingRow title={tr(creating ? "Creating Agent…" : "New DSH Agent")} hint={allows("agent-open") && !agentAccess ? tr("Allow this phone to use the DSH Agent on the computer first, under the paired devices of Dbot pro.") : undefined} leading={<Icon name="plus"/>} disabled={creating || !workspace.online || !agentAccess} onPress={addAgent} last/>
       </Sheet>
       <HostSheet visible={switcher} hosts={hosts} current={client ? host : null} online={workspace.online}
         onClose={() => setSwitcher(false)} onSwitch={item => void switchHost(item)} onAdd={addHost}

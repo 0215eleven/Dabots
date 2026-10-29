@@ -18,8 +18,8 @@ jobs:
       - run: git diff --exit-code -- companion/client.js
       - run: npm run audit
       - run: npm run pack:bridge
-      - run: npm --prefix bridge run test:delivery -- ../artifacts/ds-bot-mobile-bridge-0.0.9-codex.5.tgz
+      - run: npm --prefix bridge run test:delivery -- ../artifacts/ds-bot-mobile-bridge-0.0.9-codex.8.tgz
       - run: npm run audit
       - run: npm run pack:companion
-      - run: npm --prefix companion run test:delivery -- ../artifacts/ds-bot-mobile-app-0.2.1-codex.4.tgz
+      - run: npm --prefix companion run test:delivery -- ../artifacts/ds-bot-mobile-app-0.2.1-codex.5.tgz
       - run: npm run audit

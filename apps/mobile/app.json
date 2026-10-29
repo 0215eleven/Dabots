@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "DS Bot Mobile",
+    "name": "Dbot pro",
     "slug": "ds-bot-mobile-app",
-    "version": "0.1.8",
+    "version": "0.1.9",
     "orientation": "portrait",
     "scheme": "dsbot",
     "userInterfaceStyle": "automatic",
@@ -11,7 +11,7 @@
       "bundleIdentifier": "app.dsbot.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocalNetworkUsageDescription": "Connect securely to your paired DS Bot computer on Wi-Fi.",
+        "NSLocalNetworkUsageDescription": "Connect securely to your paired Dbot pro computer on Wi-Fi.",
         "NSSupportsLiveActivities": true
       }
     },
@@ -26,7 +26,7 @@
     },
     "web": {
       "bundler": "metro",
-      "name": "DS Bot Mobile App"
+      "name": "Dbot pro"
     },
     "plugins": [
       "expo-router",

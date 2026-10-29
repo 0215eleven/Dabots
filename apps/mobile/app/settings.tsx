@@ -97,7 +97,7 @@ export default function Settings() {
         <Group title={tr("Mode")}>
           <Row
             title={tr("Classic Agent mode")}
-            detail={session.agentsAvailable ? tr("Show DSH Agent conversations on the home screen.") : tr("Allow this phone to use the DSH Agent on the computer first, under the paired devices of DS Bot Mobile.")}
+            detail={session.agentsAvailable ? tr("Show DSH Agent conversations on the home screen.") : tr("Allow this phone to use the DSH Agent on the computer first, under the paired devices of Dbot pro.")}
           >
             <UiHost matchContents>
               <Switch
@@ -141,7 +141,7 @@ export default function Settings() {
         <Row title={tr("Classic view")} detail={tr("Team, groups, schedules and host settings.")} onPress={() => router.push("/classic")} />
         {host ? <Row title={tr("Unpair this computer")} destructive onPress={unpair} /> : null}
       </Group>
-      <Typography.Paragraph className="text-muted text-center" style={{ fontSize: 12 }}>DS Bot Mobile {Constants.expoConfig?.version} · {locale}</Typography.Paragraph>
+      <Typography.Paragraph className="text-muted text-center" style={{ fontSize: 12 }}>Dbot pro {Constants.expoConfig?.version} · {locale}</Typography.Paragraph>
     </LargeTitleScrollView>
   );
 }

@@ -1,13 +1,13 @@
-# DS Bot Mobile App — Desktop companion
+# Dbot pro — Desktop companion
 
-电脑端的原生 App 配对、设备管理和远程连接设置界面，定制源码版本 **0.2.1-codex.4**。认证与传输由单独的 Mobile Bridge 提供。本定制版本的源码和问题追踪入口为私有仓库 [0215eleven/ds-bot-mobile-app](https://github.com/0215eleven/ds-bot-mobile-app)，访问需要仓库权限；这不是上游公开发布版本。
+电脑端的原生 App 配对、设备管理和远程连接设置界面，定制源码版本 **0.2.1-codex.5**。认证与传输由单独的 Mobile Bridge 提供。本定制版本的源码和问题追踪入口为私有仓库 [0215eleven/ds-bot-mobile-app](https://github.com/0215eleven/ds-bot-mobile-app)，访问需要仓库权限；这不是上游公开发布版本。
 
 ## 配套包与能力要求
 
 本版远程连接功能需要从同一源码提交构建的两个配套包：
 
-- `ds-bot-mobile-app-0.2.1-codex.4.tgz`：本电脑管理界面。
-- `ds-bot-mobile-bridge-0.0.9-codex.5.tgz`：设备认证、HTTP/WebSocket 传输和隧道生命周期。
+- `ds-bot-mobile-app-0.2.1-codex.5.tgz`：本电脑管理界面。
+- `ds-bot-mobile-bridge-0.0.9-codex.8.tgz`：设备认证、HTTP/WebSocket 传输和隧道生命周期。
 
 这些名称用于识别本地构建或交付包，不表示已有公开 Release。本仓库的隔离验证使用公开 DSH `0.2.1-rc.2`；需要宿主公开的 owner Connection、WebServer 与插件管理 API。远程设置使用 Bridge 的 owner-only `remote.configure`、`remote.start`、`remote.stop`，并读取 `status.remote`。旧 Bridge 没有这份远程设置合同时，仅保留原设备管理兼容界面。
 
@@ -32,7 +32,7 @@
 
 ## Development and provenance
 
-This private companion source revision is **0.2.1-codex.4** and requires the matching **Bridge 0.0.9-codex.5** for remote connection management. Preserve existing custom packages until their capabilities and an explicit replacement plan are verified. This change does not install packages into a user's running environment, upgrade DS Bot, or alter the host update mechanism.
+This private companion source revision is **0.2.1-codex.5** and requires the matching **Bridge 0.0.9-codex.8** for remote connection management. Preserve existing custom packages until their capabilities and an explicit replacement plan are verified. This change does not install packages into a user's running environment, upgrade DS Bot, or alter the host update mechanism.
 
 See the repository [installation guide](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/installation.md) and [development guide](https://github.com/0215eleven/ds-bot-mobile-app/blob/codex/integrated-desktop-remote/docs/development.md). Tests use isolated fixtures and mocked cloudflared; they do not establish real Cloudflare tunnel or phone-device acceptance. No IPA/APK is built by this change.
 

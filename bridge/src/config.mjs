@@ -12,7 +12,7 @@ export const Config = z.object({
   certPath: z.string(),
   keyPath: z.string(),
   devAllowInsecure: z.boolean().default(false),
-  name: z.string().default('DS Bot'),
+  name: z.string().default('Dbot pro'),
 })
 
 export function validateConfig(config) {
