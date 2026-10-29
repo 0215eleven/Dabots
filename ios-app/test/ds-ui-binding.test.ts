@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import { createScreenCommands, resolveScreenRoute, mutationProblem } from '../src/ds/screen-binding.ts';
 import { DsCoreError } from '../src/ds/contracts.ts';
 import { dsId } from '../src/ds/identity.ts';
+import { projectTranscript } from '../src/ds/projection.ts';
+const chatSource={id:'chat',kind:'bot',name:'Bot',sessionId:'s'};
+const chatId=dsId('A','conversation','chat');
+const chatRows=(id:string)=>projectTranscript('A',chatSource,[{id,sessionId:'s',seq:1,role:'assistant',text:id,createdAt:1}]);
+const chatView=()=>({serverId:'A',conversations:[{id:chatId,source:chatSource}],agents:[]});
 
 function fixture() {
   const calls: unknown[][] = [];
@@ -44,17 +49,17 @@ test('management uncertainty blocks resubmission and distinguishes acknowledged 
 test('chat binding starts cache/history/stream, prevents cache overwrite and releases old host',async()=>{
  const {createChatBinding}=await import('../src/ds/chat-controller.ts');
  let cacheResolve!: (rows:any[])=>void;let historyResolve!: (page:any)=>void;let listener:any;let released=0;
- const core:any={cachedHistory:()=>new Promise(r=>cacheResolve=r),history:()=>new Promise(r=>historyResolve=r),capabilities:()=>({stream:true,history:true}),watchConversation:(_id:string,l:any)=>{listener=l;return()=>released++}};
- const binding=createChatBinding(core,'chat');binding.start();
- listener.onSnapshot({messages:[{id:'live'}],cursor:null});
- historyResolve({messages:[{id:'older-history'}],cursor:null});cacheResolve([{id:'stale-cache'}]);
- await new Promise(r=>setImmediate(r));assert.ok(binding.get().messages.some(message=>message.id==='live'));
- binding.dispose();listener.onSnapshot({messages:[{id:'old-host'}]});assert.ok(binding.get().messages.some(message=>message.id==='live'));assert.equal(released,1);
+ const core:any={read:chatView,cachedHistory:()=>new Promise(r=>cacheResolve=r),history:()=>new Promise(r=>historyResolve=r),capabilities:()=>({stream:true,history:true}),watchConversation:(_id:string,l:any)=>{listener=l;return()=>released++}};
+ const binding=createChatBinding(core,chatId);binding.start();
+ listener.onSnapshot({messages:chatRows('live'),cursor:null});
+ historyResolve({messages:chatRows('older-history'),cursor:null,sessionId:dsId('A','session','s')});cacheResolve(chatRows('stale-cache'));
+ await new Promise(r=>setImmediate(r));assert.ok(binding.get().messages.some(message=>message.ds.source.id==='live'));
+ binding.dispose();listener.onSnapshot({messages:chatRows('old-host')});assert.ok(binding.get().messages.some(message=>message.ds.source.id==='live'));assert.equal(released,1);
 });
 test('offline chat reads preserved cache without opening an unsupported stream',async()=>{
  const {createChatBinding}=await import('../src/ds/chat-controller.ts');let streams=0;
- const binding=createChatBinding({cachedHistory:async()=>[{id:'saved'}],capabilities:()=>({stream:false,history:false}),watchConversation:()=>{streams++;throw Error('denied')}} as any,'chat');
- binding.start();await new Promise(r=>setImmediate(r));assert.equal(binding.get().messages[0].id,'saved');assert.equal(streams,0);binding.dispose();
+ const binding=createChatBinding({read:chatView,cachedHistory:async()=>chatRows('saved'),capabilities:()=>({stream:false,history:false}),watchConversation:()=>{streams++;throw Error('denied')}} as any,chatId);
+ binding.start();await new Promise(r=>setImmediate(r));assert.equal(binding.get().messages[0].ds.source.id,'saved');assert.equal(streams,0);binding.dispose();
 });
 test('screen transcript renders DS reasoning/tool/attachment details and author IDs',async()=>{
  const {screenMessages}=await import('../src/ds/chat-binding.ts');
