@@ -22,5 +22,6 @@ engine digest and component versions are recorded in every composed TGZ.
 (MIT `@norbert_bodziony/bloub` 0.4.1, static paths in `scripts/bloub-paths.json`):
 the brand chip, footer, launcher, welcome and About marks, every Bot avatar
 through `characterMarkup`, and one face per group row. `scripts/patch-bloub-brand.mjs`
-is idempotent and runs inside `scripts/pack-suite.mjs`, so a rebuilt package stays
-branded without a manual step.
+is idempotent and runs in the source client builder (`engine/scripts/build-client.mjs`)
+and `scripts/pack-suite.mjs`, so normal builds, freshness checks and packaged clients
+all retain the same branding without a manual step.

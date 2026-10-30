@@ -2,9 +2,8 @@
 // the "DS Bot" brand chip, the footer avatar and the About page, and every Bot
 // avatar in the sidebar, lists and messages.
 //
-// It works on a built client.js, because the DS Bot 0.1.7 engine ships the browser
-// half prebuilt: there is no src/client to edit. The transformation is idempotent,
-// so the pack pipeline can run it on every build.
+// The source-client builder and pack pipeline share this idempotent transformation.
+// It also accepts the prebuilt DS Bot 0.1.7 clients used by compatibility fixtures.
 //
 //   node scripts/patch-bloub-brand.mjs <path/to/client.js>
 //

@@ -11,6 +11,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
+import { patchBloubBrand } from '../../scripts/patch-bloub-brand.mjs'
 
 const PLUGIN = dirname(dirname(fileURLToPath(import.meta.url)))
 const OUTPUT = join(PLUGIN, 'client.js')
@@ -34,7 +35,7 @@ export async function bundleClient() {
     logLevel: 'silent',
   })
   if (result.warnings.length > 0) throw new Error(`esbuild warnings:\n${result.warnings.map(warning => warning.text).join('\n')}`)
-  return [
+  return patchBloubBrand([
     '// Generated from src/client by `npm run build` (scripts/build-client.mjs). Do not edit by hand.',
     'window.__ModuleLoader__.load({',
     '  id: \'ds-bot\',',
@@ -47,7 +48,7 @@ export async function bundleClient() {
     '  },',
     '})',
     '',
-  ].join('\n')
+  ].join('\n'))
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
