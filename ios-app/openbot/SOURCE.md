@@ -323,3 +323,15 @@ use history back. Native gesture behavior still requires an iPhone check.
 The chat header places its flexible spacer before the identity capsule so the
 Bot/group icon and name sit on the right while Back stays on the left. Existing
 info/menu actions, truncation, optional trailing controls and glass are retained.
+
+
+## Bot creation feedback
+
+Creation failures now invoke the native Alert and retain inline feedback beside
+the submission action instead of below the long form. Name requirements, known
+invalid/reserved names, duplicates, offline status and unavailable management
+permissions explain disabled creation; optional fields remain optional. Inputs
+are retained after rejection. An unknown mutation outcome still blocks retries
+until desktop state is reviewed; no automatic mutation replay was added. Models
+and reasoning continue to come exclusively from DSH, and absence of a model is
+not invented as a prerequisite for creating a Bot.

@@ -2577,8 +2577,8 @@
       "gitBlob": "3ad18e9e9ab9095d03a1303349eff7f046955510",
       "mode": "100644",
       "upstreamSha256": "3e7abc7adc71284adeebc610db6fa477033def3174fd2649767976375f7edb21",
-      "importedSha256": "d9ae44934325b9552714616ea6a65d2c15456f54dd19b18f4f9863a9d197ad25",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
+      "importedSha256": "cd76800f75cc32cf0fcd5674cea2246bcd0052ae8e1779b573c94c070ecd7237",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.; creation reports failures with a native alert and inline feedback beside Save, explains unavailable/invalid/duplicate names, preserves draft and uncertainty protection, and retains DSH-only model choices.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/add-agent-screen.tsx",
         "sha256": "3e7abc7adc71284adeebc610db6fa477033def3174fd2649767976375f7edb21"

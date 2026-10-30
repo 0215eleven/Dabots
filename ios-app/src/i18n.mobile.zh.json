@@ -783,5 +783,14 @@
   "Could not read saved computer names. Try again.": "无法读取已保存的电脑昵称，请重试。",
   "Could not confirm the computer name was saved. Please try again.": "未能确认电脑昵称已保存，请重试。",
   "Computer is no longer saved.": "这台电脑已被移除。",
-  "Try again": "重试"
+  "Try again": "重试",
+  "This computer is offline. Reconnect before creating a Bot.": "电脑已离线，请恢复连接后再创建机器人。",
+  "This form belongs to another computer. Reopen it on the current computer.": "此表单属于另一台电脑，请在当前电脑上重新打开。",
+  "Creating Bots is not allowed on this computer. Ask its owner to enable Bot management.": "此电脑尚未允许创建机器人，请让电脑端开启机器人管理权限。",
+  "This name is reserved for group mentions.": "此名称用于群聊全体提醒，不能作为机器人名称。",
+  "Use up to 40 characters for the Bot name.": "机器人名称最多 40 个字符。",
+  "Required. Up to 40 characters.": "必填，最多 40 个字符。",
+  "Optional": "选填",
+  "Could not create Bot": "创建机器人失败",
+  "The computer did not provide a failure reason. Check its connection and DSH configuration.": "电脑未返回具体失败原因，请检查连接和电脑端 DSH 配置。"
 }
