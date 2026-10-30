@@ -356,3 +356,14 @@ other consumers. Native regular Liquid Glass and the opaque native reduced-
 transparency fallback keep their previous rendering. No new blur dependency or
 parallel button component was added. Visual evidence is a synthetic browser
 preview, including cropped Back and plus controls; it is not an iPhone capture.
+
+
+## Settings sheet presentation
+
+Settings uses the existing native formSheet presentation with a stable 0.85
+detent, a visible grabber and gestures enabled. The OS owns bottom-up entry and
+downward dismissal; overflowing content scrolls inside the fixed sheet. Its
+container uses the same sheet background token as SettingsContent. The title
+and navigation header remain hidden. No custom pan handler or second inset
+layer was added. Browser checks validate route configuration and content, not
+iOS sheet gesture/animation behavior; those require a device build.
