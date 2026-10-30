@@ -5,6 +5,7 @@ import Animated, { type CSSTransitionProperties, cubicBezier } from "react-nativ
 import { useThemeColor } from "heroui-native/hooks";
 import { useUniwind } from "uniwind";
 import { ChromeGlassSheen } from "@/shared/components/chrome-glass-sheen";
+import { useChromeGlass } from "@/shared/lib/chrome-glass";
 
 const FADE: CSSTransitionProperties = {
   transitionProperty: "opacity",
@@ -49,6 +50,9 @@ export function ChatGlassButton({
 }: ChatGlassButtonProps) {
   const { theme } = useUniwind();
   const edge = useThemeColor("separator");
+  const chrome = useChromeGlass();
+  const web = Platform.OS === "web";
+  const dark = colorScheme === "dark" || (colorScheme !== "light" && theme === "dark");
   return (
     <GlassView
       glassEffectStyle={{
@@ -67,6 +71,7 @@ export function ChatGlassButton({
         overflow: "hidden",
         opacity: disabled ? 0.45 : 1,
         width,
+        ...(web ? { boxShadow: chrome.boxShadow } : {}),
       }}
     >
       {liquidGlassAvailable ? null : (
@@ -76,16 +81,17 @@ export function ChatGlassButton({
           style={{
             position: "absolute",
             inset: 0,
-            backgroundColor: fallbackBackground,
+            backgroundColor: web && !colorScheme ? chrome.backgroundColor : fallbackBackground,
             borderWidth: StyleSheet.hairlineWidth,
-            borderColor: edge,
+            borderColor: web ? (dark ? "rgba(255,255,255,0.18)" : chrome.borderColor) : edge,
+            borderTopColor: web ? (dark ? "rgba(255,255,255,0.32)" : "rgba(255,255,255,0.9)") : edge,
             borderRadius: height / 2,
             overflow: "hidden",
             opacity: hidden ? 0 : 1,
             ...FADE,
           }}
         >
-          <ChromeGlassSheen />
+          <ChromeGlassSheen highlightOpacity={web ? (dark ? 0.14 : 0.22) : undefined} />
         </Animated.View>
       )}
       <Pressable

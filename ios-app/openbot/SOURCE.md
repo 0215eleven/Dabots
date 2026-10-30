@@ -344,3 +344,15 @@ text row is rendered. A small dot inside the menu is green while connected and
 gray otherwise; its accessible value reports the connection state. The status
 comes from the live DS connection, with no new timer, network request or stored
 preference. Existing safe-area ownership and list behavior remain unchanged.
+
+
+## Web compact-control material
+
+The shared Back/home button web fallback uses the existing chrome-glass fill
+tokens instead of a flat control fill, with a brighter fine rim and stronger
+top light from ChromeGlassSheen. Light/dark and explicit surface overrides are
+retained. The sheen opacity is optional, preserving its previous defaults for
+other consumers. Native regular Liquid Glass and the opaque native reduced-
+transparency fallback keep their previous rendering. No new blur dependency or
+parallel button component was added. Visual evidence is a synthetic browser
+preview, including cropped Back and plus controls; it is not an iPhone capture.

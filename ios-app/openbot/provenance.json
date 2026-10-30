@@ -3413,8 +3413,8 @@
       "gitBlob": "b7a651354d0b1182430faa13e808770125ebdfae",
       "mode": "100644",
       "upstreamSha256": "5e84ca66486f26951ad7ca8a4b61cffa368a9a9d68685911579b13db564a70f9",
-      "importedSha256": "fdec34b190ce407ab07b58611ceb571f51b13512ded78f94d72b35a089d7760c",
-      "adaptation": "DS shared compact controls: native regular glass follows phone appearance, while the opaque accessibility/unsupported-platform fallback reuses the existing thin edge and ChromeGlassSheen. Native press/menu behavior and explicit surface color overrides are retained; upstream original preserved.; existing accessibility value text is forwarded explicitly to ARIA on web for the home connection indicator.",
+      "importedSha256": "68fe6cbc839b3e11d31e82cc59fdbbabf096374bbc24a882605c2f6ddc87bd9a",
+      "adaptation": "DS shared compact controls: native regular glass follows phone appearance, while the opaque accessibility/unsupported-platform fallback reuses the existing thin edge and ChromeGlassSheen. Native press/menu behavior and explicit surface color overrides are retained; upstream original preserved.; existing accessibility value text is forwarded explicitly to ARIA on web for the home connection indicator. Web fallback now uses the existing chrome fill tokens, a brighter rim and stronger top highlight so home actions match the shared Back button; native glass and opaque native accessibility fallback retain their appearance.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/chat/components/chat-glass-icon-button.tsx",
         "sha256": "5e84ca66486f26951ad7ca8a4b61cffa368a9a9d68685911579b13db564a70f9"
@@ -6941,8 +6941,12 @@
       "gitBlob": "651bce8030caedc638d3e9e01b66c8ecd9d503a3",
       "mode": "100644",
       "upstreamSha256": "ad59e7e95bb6ddf4d530027c3b13f988f20a43418f197fcfe7076b66bcb6ab7f",
-      "importedSha256": "ad59e7e95bb6ddf4d530027c3b13f988f20a43418f197fcfe7076b66bcb6ab7f",
-      "adaptation": null
+      "importedSha256": "c3358222900c6078f52a8be2aed200f3d287be6cbb41cec4cc71b0df63086276",
+      "adaptation": " Optional highlight opacity lets compact web controls strengthen their existing top light; default Android/native fallback appearance is unchanged. Original upstream file is retained.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/shared/components/chrome-glass-sheen.tsx",
+        "sha256": "ad59e7e95bb6ddf4d530027c3b13f988f20a43418f197fcfe7076b66bcb6ab7f"
+      }
     },
     {
       "source": "apps/mobile/src/shared/components/covering-menu-view.tsx",
