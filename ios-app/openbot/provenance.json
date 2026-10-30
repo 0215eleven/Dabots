@@ -2032,8 +2032,12 @@
       "gitBlob": "3856068959a50e1a2be188379f6fc0e221f68ce2",
       "mode": "100644",
       "upstreamSha256": "b781df1925cc364094392b579abba977a6c99576355dd1bd20344da5fdecde60",
-      "importedSha256": "b781df1925cc364094392b579abba977a6c99576355dd1bd20344da5fdecde60",
-      "adaptation": null
+      "importedSha256": "045bbbe6fe6813daae8cf66e7bb6bcdb9c361e70a9b706d63fcaf3f33cad0562",
+      "adaptation": "DS iOS long-press preview: explicit content/bubble geometry independent of pinned tile width, measurement keyed to content/width/font scale, and finite viewport-bounded height. Native Link.Preview and Link.Menu retained; exact upstream original preserved.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/components/agent-chat-preview.tsx",
+        "sha256": "b781df1925cc364094392b579abba977a6c99576355dd1bd20344da5fdecde60"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/components/agent-chat-settings.tsx",

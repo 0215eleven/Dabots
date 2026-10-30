@@ -262,3 +262,15 @@ The DS pairing screen removes its large decorative robot and excess centered
 spacing. Its return-to-computers action stays above the bounded scrolling form,
 disabled while pairing is pending. Keyboard insets and bottom/lateral safe-area
 padding are retained; pairing authorization and cancellation logic are unchanged.
+
+## iOS long-press preview sizing
+
+`agent-chat-preview.tsx` now sizes the real preview root and both visible/hidden
+message bubbles independently of the triggering pinned tile or list row. Expo58
+converts Link.Preview width/height into preferredContentSize and removes them from
+the native host style, so the content needs its own geometry before native layout.
+Measurements are scoped to text, width and font scale, the hidden measurer remounts
+when that scope changes, and invalid/excessive heights cannot create an unbounded
+preview. Existing native Link.Preview, Link.Menu and action callbacks are retained.
+The exact original is preserved and the adaptation hashes are updated. Hook/SDK
+boundary checks do not establish UIKit menu appearance; iPhone testing remains.
