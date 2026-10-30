@@ -19,11 +19,14 @@ function screen(hidden:boolean,insets:{top:number;bottom:number;left?:number;rig
 // Find rendered elements by type, so the checks follow the screen's behavior rather than its nesting.
 function find(node:any,match:(node:any)=>boolean):any{if(!node||typeof node!=='object')return undefined;if(Array.isArray(node)){for(const child of node){const hit=find(child,match);if(hit)return hit;}return undefined;}if(match(node))return node;const props=node.props??{};for(const key of Object.keys(props)){const hit=find(props[key],match);if(hit)return hit;}return undefined;}
 test('quiet canonical motion suppresses retained list transitions',()=>{const tree=screen(false);assert.equal(find(tree,n=>n.type==='FlatList').props.itemLayoutAnimation.motion,'always');});
-test('home replaces its title and status text with an accessible connection indicator on the menu',()=>{
+test('home keeps its top empty and floats the menu, with its connection indicator, at the bottom',()=>{
  for(const online of [true,false]){
-  const tree=screen(false,{top:0,bottom:0},online),header=find(tree,n=>n.type==='FlatList').props.ListHeaderComponent;
+  const tree=screen(false,{top:0,bottom:34},online),header=find(tree,n=>n.type==='FlatList').props.ListHeaderComponent;
   assert.equal(find(header,n=>n.props?.accessibilityRole==='header'),undefined);
-  const menu=find(header,n=>n.props?.label==='Settings');
+  assert.equal(find(header,n=>n.props?.label==='Settings'),undefined);
+  const bar=find(tree,n=>n.props?.pointerEvents==='box-none'&&n.props.style?.bottom!==undefined);
+  assert.equal(bar.props.style.bottom,38,'bottom actions sit just above the home indicator');
+  const menu=find(bar,n=>n.props?.label==='Settings');
   assert.equal(menu.type(menu.props).props.accessibilityValue.text,online?'Connected':'Disconnected');
   assert.ok(find(menu,n=>n.props?.pointerEvents==='none'&&n.props.style.width===7));
  }
@@ -34,10 +37,11 @@ test('home consumes each native safe-area inset once, including notches and land
  // has its own padding because its native Stack header is hidden; count both
  // boundary contributions, rather than checking a source string or CSS class.
  for (const fixture of [
-  {top:59,bottom:34,wantTop:65,wantBottom:58},
-  {top:20,bottom:0,wantTop:26,wantBottom:24},
-  {top:0,bottom:21,wantTop:6,wantBottom:45},
-  {top:0,bottom:21,left:59,right:59,wantTop:6,wantBottom:45},
+  // The bottom padding also leaves 60 points for the floating Settings and New actions.
+  {top:59,bottom:34,wantTop:65,wantBottom:118},
+  {top:20,bottom:0,wantTop:26,wantBottom:84},
+  {top:0,bottom:21,wantTop:6,wantBottom:105},
+  {top:0,bottom:21,left:59,right:59,wantTop:6,wantBottom:105},
  ]) {
   const {props}=find(screen(false,fixture),n=>n.type==='FlatList');
   const automatic=(props.contentInsetAdjustmentBehavior??'never')!=='never';

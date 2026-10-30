@@ -156,17 +156,8 @@ export function ConnectedScreen() {
     const hasPinned = pinnedAgents.length > 0 || pinnedGroups.length > 0;
     return <View className="flex-1 bg-background">
   <Stack.Screen options={{ headerShown: false }}/>
-  {/* This custom header already pads both safe-area edges; UIKit must not add them again. */}
-  <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
-   <View className="flex-row items-center gap-2" style={{ paddingHorizontal: ROW_LEFT, paddingTop: 6, paddingBottom: 2 }}>
-    <IconButton label={tr('Settings')} status={tr(online ? 'Connected' : 'Disconnected')} onPress={() => router.push('/settings')}>
-     <EllipsisIcon size={22} color={foreground} strokeWidth={2} accessible={false}/>
-     <View pointerEvents="none" accessible={false} style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 3.5, backgroundColor: online ? String(success) : String(muted) }}/>
-    </IconButton>
-    <View className="flex-1" />
-    {createActions.length > 1 ? <MenuView actions={createActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
-        : createActions.length === 1 ? <IconButton label={createActions[0].title} onPress={() => create(createActions[0].id ?? 'bot')}>{plus}</IconButton> : null}
-   </View>
+  {/* The list pads both safe-area edges itself; UIKit must not add them again. Settings and New float at the bottom corners. */}
+  <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24 + 60, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
    {view?.readOnly ? <View className="mx-4 mb-3 rounded-2xl bg-control px-4 py-3"><Typography.Paragraph className="text-text-secondary" style={{ fontSize: 13, lineHeight: 18 }}>{tr(view.readOnly)}</Typography.Paragraph></View> : null}
    {hasPinned ? <>
     <SectionLabel>{tr('Pinned chats')}</SectionLabel>
@@ -176,5 +167,14 @@ export function ConnectedScreen() {
   </>} ListFooterComponent={hiddenCount > 0 || showHidden ? <Pressable accessibilityRole="button" onPress={() => setShowHidden(!showHidden)} hitSlop={8} style={({ pressed }) => ({ alignSelf: 'center', marginTop: 18, paddingHorizontal: 14, paddingVertical: 8, opacity: pressed ? 0.6 : 1 })}>
     <Typography.Paragraph className="text-muted" style={{ fontSize: 13, lineHeight: 18 }}>{tr(showHidden ? 'Hide hidden chats' : 'Show hidden chats')}</Typography.Paragraph>
    </Pressable> : undefined} ListEmptyComponent={<View className="items-center px-8 pt-16"><Typography.Paragraph className="text-muted" align="center">{tr(view ? 'No chats to show.' : 'Reading this computer…')}</Typography.Paragraph></View>}/>
+  <View pointerEvents="box-none" className="absolute flex-row items-center gap-2" style={{ left: ROW_LEFT + insets.left, right: ROW_LEFT + insets.right, bottom: Math.max(insets.bottom, 12) + 4 }}>
+   <IconButton label={tr('Settings')} status={tr(online ? 'Connected' : 'Disconnected')} onPress={() => router.push('/settings')}>
+    <EllipsisIcon size={22} color={foreground} strokeWidth={2} accessible={false}/>
+    <View pointerEvents="none" accessible={false} style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 3.5, backgroundColor: online ? String(success) : String(muted) }}/>
+   </IconButton>
+   <View pointerEvents="none" className="flex-1" />
+   {createActions.length > 1 ? <MenuView actions={createActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
+       : createActions.length === 1 ? <IconButton label={createActions[0].title} onPress={() => create(createActions[0].id ?? 'bot')}>{plus}</IconButton> : null}
+  </View>
  </View>;
 }
