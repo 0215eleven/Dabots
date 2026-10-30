@@ -43,7 +43,8 @@
     "src/relay-endpoint.mjs",
     "src/relay-shared.mjs",
     "THIRD_PARTY_RELAY_NOTICES.txt",
-    "src/relay-settings.mjs"
+    "src/relay-settings.mjs",
+    "src/named-tunnel.mjs"
   ],
   "scripts": {
     "test": "node --test test/*.test.mjs",

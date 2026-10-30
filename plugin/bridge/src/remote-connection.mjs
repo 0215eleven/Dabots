@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { BridgeError } from './auth.js'
 
-const modes = new Set(['existing', 'fixed', 'quick'])
+const modes = new Set(['existing', 'fixed', 'quick', 'named'])
 const refuse = (code, message) => { throw new BridgeError(400, code, message) }
 const cleanupBlock = home => join(home, 'remote-cleanup-required.json')
 export async function assertRemoteCleanupSafe(home) {
@@ -21,34 +21,51 @@ export function validateRemoteUrl(value) {
   return parsed.origin
 }
 
-// This file contains owner-selected public routing metadata only, never Cloudflare credentials.
+const validRemoteToken = value => typeof value === 'string' && value.length >= 40 && value.length <= 4096 && !/\s/.test(value)
+
+// This file holds owner-selected public routing and the owner-entered
+// Cloudflare tunnel token. The token is never returned by the Bridge API.
 export async function createRemoteConnection({ home, config = {}, server, createTunnel = async options => {
   const { createQuickTunnel } = await import('./quick-tunnel.mjs')
   return createQuickTunnel(options)
+}, createNamed = async options => {
+  const { createNamedTunnel } = await import('./named-tunnel.mjs')
+  return createNamedTunnel(options)
 } }) {
   const path = join(home, 'remote-connection.json')
-  let settings = { version: 1, mode: config.remoteMode ?? 'existing', existingUrl: server.url ?? null, fixedUrl: null }
+  let settings = { version: 1, mode: config.remoteMode ?? 'existing', existingUrl: server.url ?? null, fixedUrl: null, namedUrl: null, namedToken: null }
   if (!modes.has(settings.mode)) refuse('INVALID_REMOTE_MODE', '请选择已有 HTTPS、固定域名或临时隧道。')
   if (settings.mode === 'fixed') settings.fixedUrl = settings.existingUrl
   try {
     const saved = JSON.parse(await readFile(path, 'utf8'))
     if (!saved || saved.version !== 1 || !modes.has(saved.mode)
-      || Object.keys(saved).some(key => !['version', 'mode', 'existingUrl', 'fixedUrl'].includes(key))) throw Error('Invalid saved settings')
-    for (const key of ['existingUrl', 'fixedUrl']) if (saved[key] !== null) validateRemoteUrl(saved[key])
-    settings = saved
+      || Object.keys(saved).some(key => !['version', 'mode', 'existingUrl', 'fixedUrl', 'namedUrl', 'namedToken'].includes(key))) throw Error('Invalid saved settings')
+    for (const key of ['existingUrl', 'fixedUrl', 'namedUrl']) if (saved[key] != null) validateRemoteUrl(saved[key])
+    if (saved.namedToken != null && !validRemoteToken(saved.namedToken)) throw Error('Invalid saved settings')
+    // Entries written before the supervised tunnel existed carry no named keys.
+    settings = { ...settings, ...saved }
   } catch (error) { if (error.code !== 'ENOENT') throw Error('Remote connection settings are invalid; review the dedicated Bridge configuration.') }
   const address = server.address
   const loopbackUrl = !config.certPath && !config.keyPath && ['127.0.0.1', '::1'].includes(address?.address)
     ? `http://${address.address === '::1' ? '[::1]' : address.address}:${address.port}` : null
   let disposed = false, mutation = false, generation = 0, revision = 0, tunnel, creating, disposal, acceptingTunnel = false
   let quick = { state: 'stopped', url: null, error: null }
-  const configuredUrl = () => settings.mode === 'fixed' ? settings.fixedUrl : settings.mode === 'existing' ? settings.existingUrl : null
+  let named = { state: 'stopped', url: null, error: null }
+  let namedTunnel, namedCreating
+  const configuredUrl = () => settings.mode === 'fixed' ? settings.fixedUrl
+    : settings.mode === 'existing' ? settings.existingUrl
+      : settings.mode === 'named' ? settings.namedUrl : null
   const setUrl = value => {
     if (server.url !== value) { server.setPublicUrl(value); revision++ }
   }
-  setUrl(settings.mode === 'quick' ? null : configuredUrl())
-  const snapshot = () => ({ mode: settings.mode, ...(settings.mode === 'quick' ? quick : { state: configuredUrl() ? 'configured' : 'unconfigured', error: null }),
-    url: server.url, configuredUrl: configuredUrl(), configuredUrls: { existing: settings.existingUrl, fixed: settings.fixedUrl }, loopbackUrl, quickAvailable: Boolean(loopbackUrl), revision })
+  setUrl(settings.mode === 'quick' || settings.mode === 'named' ? null : configuredUrl())
+  const ownState = () => settings.mode === 'quick' ? quick
+    : settings.mode === 'named' ? named
+      : { state: configuredUrl() ? 'configured' : 'unconfigured', error: null }
+  const snapshot = () => ({ mode: settings.mode, ...ownState(),
+    url: server.url, configuredUrl: configuredUrl(),
+    configuredUrls: { existing: settings.existingUrl, fixed: settings.fixedUrl, named: settings.namedUrl },
+    tokenSet: Boolean(settings.namedToken), loopbackUrl, quickAvailable: Boolean(loopbackUrl), revision })
   const assertLive = () => { if (disposed) refuse('REMOTE_CLOSED', '插件已停止，请重新打开管理页面。') }
   async function disposeTunnel(target) {
     let failed = false
@@ -63,29 +80,71 @@ export async function createRemoteConnection({ home, config = {}, server, create
     }
     quick = { state: 'stopped', url: null, error: null }
   }
+  async function stopNamed() {
+    setUrl(null)
+    const target = namedTunnel ?? await (namedCreating ?? Promise.resolve(null)).catch(() => null)
+    if (target) await target.stop()
+    namedTunnel = null; namedCreating = null
+    named = { state: 'stopped', url: null, error: null }
+  }
+  async function startNamed() {
+    if (mutation) refuse('REMOTE_BUSY', '连接设置正在更新，请稍后重试。')
+    if (!loopbackUrl) refuse('QUICK_LOOPBACK_REQUIRED', '插件托管的隧道只支持未配置直接 TLS 的 Bridge loopback 服务。')
+    if (!settings.namedUrl) refuse('REMOTE_URL_REQUIRED', '请先填写固定 HTTPS 地址。')
+    if (!settings.namedToken) refuse('REMOTE_TOKEN_REQUIRED', '请先填写 Cloudflare 隧道 Token。')
+    mutation = true
+    const issued = ++generation
+    try {
+      if (!namedTunnel) {
+        namedCreating = Promise.resolve(createNamed({ url: settings.namedUrl, token: settings.namedToken, onChange(value) {
+          if (disposed || settings.mode !== 'named') return
+          named = { state: value.state, url: value.url, error: value.error }
+          setUrl(value.state === 'running' ? settings.namedUrl : null)
+        } }))
+        const created = await namedCreating
+        if (disposed || issued !== generation) { await created.dispose().catch(() => {}); return snapshot() }
+        namedTunnel = created
+      }
+      if (issued !== generation) return snapshot()
+      await namedTunnel.start()
+      return snapshot()
+    } finally { mutation = false }
+  }
   async function stopTunnel() {
     acceptingTunnel = false
     generation++
     if (settings.mode === 'quick') { setUrl(null); quick = { state: tunnel ? 'stopping' : 'stopped', url: null, error: null } }
+    if (namedTunnel || namedCreating) await stopNamed()
     if (tunnel) {
       await tunnel.stop()
       quick = { ...tunnel.snapshot(), url: null }
       if (quick.state !== 'stopped') refuse('REMOTE_STOP_FAILED', '隧道进程尚未确认停止，请检查电脑后重试。')
     }
   }
+  // A supervised named tunnel belongs to the Bridge, so it comes back on every
+  // start instead of depending on a separately installed cloudflared service.
+  if (settings.mode === 'named' && loopbackUrl && settings.namedUrl && settings.namedToken) {
+    void startNamed().catch(() => {})
+  }
   return {
     snapshot,
     async configure(payload) {
       assertLive()
       if (mutation) refuse('REMOTE_BUSY', '连接设置正在更新，请稍后重试。')
-      if (!payload || !modes.has(payload.mode) || Object.keys(payload).some(key => !['mode', 'url'].includes(key))
+      if (!payload || !modes.has(payload.mode) || Object.keys(payload).some(key => !['mode', 'url', 'token'].includes(key))
         || (payload.mode === 'quick' && payload.url !== undefined)) refuse('INVALID_REMOTE_MODE', '请选择已有 HTTPS、固定域名或临时隧道。')
       const next = { ...settings, mode: payload.mode }
-      if (payload.mode === 'quick' && !loopbackUrl) refuse('QUICK_LOOPBACK_REQUIRED', '临时隧道只支持未配置直接 TLS 的 Bridge loopback 服务。')
-      if (payload.url !== undefined) next[payload.mode === 'fixed' ? 'fixedUrl' : 'existingUrl'] = validateRemoteUrl(payload.url)
-      if (payload.mode !== 'quick' && !next[payload.mode === 'fixed' ? 'fixedUrl' : 'existingUrl']) refuse('REMOTE_URL_REQUIRED', '请先填写已有的 HTTPS 地址。')
+      if ((payload.mode === 'quick' || payload.mode === 'named') && !loopbackUrl) refuse('QUICK_LOOPBACK_REQUIRED', '插件托管的隧道只支持未配置直接 TLS 的 Bridge loopback 服务。')
+      const urlKey = payload.mode === 'fixed' ? 'fixedUrl' : payload.mode === 'named' ? 'namedUrl' : 'existingUrl'
+      if (payload.url !== undefined) next[urlKey] = validateRemoteUrl(payload.url)
+      if (payload.mode !== 'quick' && !next[urlKey]) refuse('REMOTE_URL_REQUIRED', '请先填写已有的 HTTPS 地址。')
+      if (payload.token !== undefined) {
+        if (!validRemoteToken(payload.token)) refuse('INVALID_TUNNEL_TOKEN', 'Cloudflare 隧道 Token 格式不正确，请从 Cloudflare 后台整段复制。')
+        next.namedToken = payload.token
+      }
+      if (payload.mode === 'named' && !next.namedToken) refuse('REMOTE_TOKEN_REQUIRED', '请先填写 Cloudflare 隧道 Token。')
       // HTTP is only an existing explicit development fixture, never persisted by this UI.
-      for (const key of ['existingUrl', 'fixedUrl']) if (next[key] !== null) next[key] = validateRemoteUrl(next[key])
+      for (const key of ['existingUrl', 'fixedUrl', 'namedUrl']) if (next[key] != null) next[key] = validateRemoteUrl(next[key])
       mutation = true
       try {
         await stopTunnel()
@@ -95,15 +154,16 @@ export async function createRemoteConnection({ home, config = {}, server, create
         await rename(temporary, path)
         assertLive()
         settings = next
-        setUrl(settings.mode === 'quick' ? null : configuredUrl())
+        setUrl(settings.mode === 'quick' || settings.mode === 'named' ? null : configuredUrl())
         return snapshot()
       } finally { mutation = false }
     },
     async start(payload = {}) {
       assertLive()
-      if (settings.mode !== 'quick' || !loopbackUrl) refuse('QUICK_MODE_REQUIRED', '请先选择临时隧道模式。')
       if (payload.confirmed !== true || Object.keys(payload).some(key => key !== 'confirmed')) refuse('EXPOSURE_CONFIRMATION_REQUIRED', '启动前必须明确确认将 Bridge 暴露到公网。')
       if (mutation) refuse('REMOTE_BUSY', '连接设置正在更新，请稍后重试。')
+      if (settings.mode === 'named') return startNamed()
+      if (settings.mode !== 'quick' || !loopbackUrl) refuse('QUICK_MODE_REQUIRED', '请先选择临时隧道模式。')
       mutation = true
       const issued = ++generation
       acceptingTunnel = true
@@ -127,10 +187,12 @@ export async function createRemoteConnection({ home, config = {}, server, create
     dispose() {
       if (disposal) return disposal
       disposed = true; acceptingTunnel = false; generation++
-      if (settings.mode === 'quick') setUrl(null)
+      if (settings.mode === 'quick' || settings.mode === 'named') setUrl(null)
       disposal = (async () => {
         const target = tunnel ?? await creating
         if (target) await disposeTunnel(target)
+        const namedTarget = namedTunnel ?? await (namedCreating ?? Promise.resolve(null)).catch(() => null)
+        if (namedTarget) await namedTarget.dispose().catch(() => {})
       })()
       return disposal
     },

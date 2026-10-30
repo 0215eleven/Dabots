@@ -12,6 +12,7 @@ import {fileURLToPath} from 'node:url'
 import {parseArgs} from 'node:util'
 import {npmCommand} from './npm-command.mjs'
 import {composeClient,composeManifest,composePatch,engineContract,stageBridge,stageEngine} from './suite-lib.mjs'
+import {patchBloubBrand} from './patch-bloub-brand.mjs'
 import {bundleCompanion} from '../ui/build.mjs'
 
 export const SUITE_REVISION=3
@@ -47,7 +48,10 @@ try{
     companion:{version:JSON.parse(await readFile(new URL('plugin/ui/package.json',root),'utf8')).version}}
   const manifest=composeManifest({engine,bridge,version,suite})
   await writeFile(join(stage,'package.json'),JSON.stringify(manifest,null,2)+'\n')
-  await writeFile(join(stage,'client.js'),composeClient({engineClient:await readFile(join(engineDir,'client.js'),'utf8'),mobileBundle:await bundleCompanion({bundleKey:'ds-bot'})}))
+  // The owner's brand: OpenBot's Bloub replaces the engine's own character art.
+  // Applying it here keeps every build branded instead of a hand-patched artifact.
+  const engineClient=patchBloubBrand(await readFile(join(engineDir,'client.js'),'utf8'))
+  await writeFile(join(stage,'client.js'),composeClient({engineClient,mobileBundle:await bundleCompanion({bundleKey:'ds-bot'})}))
   await writeFile(join(stage,'cordis.patch.yml'),composePatch({enginePatch:await readFile(join(engineDir,'cordis.patch.yml'),'utf8'),bridgePatch:await readFile(join(bridgeDir,'cordis.patch.yml'),'utf8')}))
   await writeFile(join(stage,'README.md'),`# DeepSeek Bot Pro\n\nOne desktop DSH plugin: Bot team, Mobile Bridge and phone pairing settings.\nInstall this TGZ through the DSH plugin manager. Preserve the existing ds-bot\nidentity and Bridge row configuration.\n\nSee SUITE.md for exact component/source identities and PATCHED.md for engine\nmodifications. Installation and migration instructions for this commit:\nhttps://github.com/0215eleven/ds-bot-mobile/tree/${commit}/plugin\n\nOriginal LICENSE, NOTICE and bridge/THIRD_PARTY_RELAY_NOTICES.txt are retained.\n`)
   let engineNotice=''

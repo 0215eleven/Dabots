@@ -9,3 +9,4 @@
 .dsma-agent{display:flex;align-items:center;gap:2px}.dsma-page .dsma-agent button.dsma-text-button{min-height:28px;padding:2px 6px}
 .dsma-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}.dsma-mode{display:flex;gap:9px;align-items:flex-start;padding:12px;border:1px solid var(--dsma-line);border-radius:12px;cursor:pointer}.dsma-mode[data-selected=true]{border-color:var(--dsma-ink)}.dsma-mode input{flex:none;margin:3px 0 0;accent-color:var(--bt-accent,#4d6bfe)}.dsma-mode strong{display:block;font-size:13px}.dsma-mode small{display:block;color:var(--dsma-muted);font-size:12px}
 @media(max-width:540px){.dsma-modes{grid-template-columns:1fr}}
+.dsma-remote .dsma-ok{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:var(--dsma-surface);color:var(--bt-success,#067647);font-size:13px}

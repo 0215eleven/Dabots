@@ -15,3 +15,12 @@ The implementation uses public DSH Connection and Session APIs; DSH is unchanged
 This is production plugin source, separate from the pristine and patched
 public 0.1.7 fixtures used to test compatibility. The repository Git commit,
 engine digest and component versions are recorded in every composed TGZ.
+
+## Brand mark
+
+`client.js` replaces the engine's character art with OpenBot's Bloub robot
+(MIT `@norbert_bodziony/bloub` 0.4.1, static paths in `scripts/bloub-paths.json`):
+the brand chip, footer, launcher, welcome and About marks, every Bot avatar
+through `characterMarkup`, and one face per group row. `scripts/patch-bloub-brand.mjs`
+is idempotent and runs inside `scripts/pack-suite.mjs`, so a rebuilt package stays
+branded without a manual step.

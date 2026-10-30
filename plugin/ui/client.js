@@ -2153,6 +2153,8 @@ var messages = {
   INVALID_REMOTE_URL: "请输入完整 HTTPS 入口，不含账号、密码、路径、查询参数或片段。",
   REMOTE_URL_REQUIRED: "请填写已配置好的 HTTPS 入口地址。",
   INVALID_REMOTE_MODE: "请选择支持的远程连接方式。",
+  INVALID_TUNNEL_TOKEN: "Cloudflare 隧道 Token 格式不正确，请从后台整段复制。",
+  REMOTE_TOKEN_REQUIRED: "请先填写 Cloudflare 隧道 Token。",
   REMOTE_BUSY: "另一项连接操作正在进行，请刷新状态后重试。",
   REMOTE_CLOSED: "Bridge 已停止，请检查插件状态后重新打开本页。",
   REMOTE_CLEANUP_REQUIRED: "上次卸载后尚未确认旧 cloudflared 已退出。请先在电脑上确认其停止，再手动移除 Bridge 专用目录中的 remote-cleanup-required.json，然后重新启用 Bridge。",
@@ -2317,8 +2319,8 @@ function createDeviceController({ call, now = Date.now }) {
     },
     refresh,
     create: () => operation("pairing.create"),
-    configureRemote(mode, value) {
-      if (!["existing", "fixed", "quick"].includes(mode)) {
+    configureRemote(mode, value, token = "") {
+      if (!["existing", "fixed", "quick", "named"].includes(mode)) {
         emit({ error: "请选择支持的远程连接方式。" });
         return Promise.resolve();
       }
@@ -2329,7 +2331,7 @@ function createDeviceController({ call, now = Date.now }) {
         emit({ error: error.message });
         return Promise.resolve();
       }
-      return operation("remote.configure", { mode, ...url ? { url } : {} });
+      return operation("remote.configure", { mode, ...url ? { url } : {}, ...mode === "named" && token ? { token } : {} });
     },
     startRemote(confirmed) {
       if (confirmed !== true) {
@@ -2420,7 +2422,7 @@ function createDeviceController({ call, now = Date.now }) {
 }
 
 // src/style.css
-var style_default = '.dsma-page{--dsma-ink:var(--bt-ink,#171717);--dsma-muted:var(--bt-ink-2,#666);--dsma-line:var(--bt-line,#e8e8e8);--dsma-bg:var(--bt-main,#fff);--dsma-surface:var(--bt-bubble,#f2f2f2);width:100%;min-width:0;color:var(--dsma-ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}\n.dsma-page *{box-sizing:border-box}.dsma-page h3{font-size:14px;line-height:22px;margin:0;font-weight:600}.dsma-page p{margin:6px 0 0;color:var(--dsma-muted);font-size:13px}.dsma-state-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px}.dsma-state{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dsma-muted)}.dsma-state i{width:7px;height:7px;border-radius:50%;background:currentColor}.dsma-state[data-ready=true] i{background:var(--bt-green,#00865b)}\n.dsma-page button{min-height:36px;border:1px solid var(--dsma-line);border-radius:9px;padding:7px 12px;font:inherit;font-size:13px;color:var(--dsma-ink);background:var(--dsma-bg);cursor:pointer;touch-action:manipulation}.dsma-page button:hover{background:var(--dsma-surface)}.dsma-page button:disabled{opacity:.5;cursor:default}.dsma-page button.dsma-primary{background:var(--dsma-ink);color:var(--dsma-bg);border-color:transparent;font-weight:500}.dsma-page button.dsma-primary:hover{opacity:.85}.dsma-page button.dsma-text-button{border-color:transparent;color:var(--dsma-muted);background:transparent}.dsma-page button.dsma-icon-button{display:grid;place-items:center;min-width:32px;min-height:32px;padding:5px;border-color:transparent;background:transparent;color:var(--dsma-muted)}.dsma-page button.dsma-danger{color:var(--bt-danger,#b42318)}.dsma-page :focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}.dsma-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}\n.dsma-section-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.dsma-add{padding:0 0 22px}.dsma-section{border-top:1px solid var(--dsma-line);padding:18px 0 6px}.dsma-section>h3{display:flex;align-items:center;gap:7px;margin-bottom:6px}.dsma-count{color:var(--dsma-muted);font-size:12px;font-weight:400}.dsma-device{display:flex;align-items:center;gap:12px;padding:12px 0;min-width:0;flex-wrap:wrap}.dsma-device+.dsma-device{border-top:1px solid var(--dsma-line)}.dsma-device-icon{width:38px;height:42px;display:grid;place-items:center;flex:none;border-radius:10px;background:var(--dsma-surface);color:var(--dsma-muted)}.dsma-device-copy{flex:1;min-width:100px}.dsma-device-copy strong{display:block;font-size:14px;font-weight:550;overflow-wrap:anywhere}.dsma-device-copy small{display:block;font-size:12px;color:var(--dsma-muted);margin-top:3px}.dsma-confirm{flex-basis:100%;padding:10px 12px;background:var(--dsma-surface);border-radius:10px}.dsma-confirm p{margin:0 0 8px}.dsma-page .dsma-empty{margin:10px 0 12px}.dsma-notes{margin-top:12px;font-size:12px;color:var(--dsma-muted)}.dsma-page summary{cursor:pointer;min-height:32px;padding:6px 0}.dsma-notes p{font-size:12px;margin-top:3px}\n.dsma-pairing{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 0 0}.dsma-qr{width:204px;max-width:100%;height:auto;background:#fff;border-radius:8px}.dsma-pairing p{font-size:12px;margin:0}.dsma-pairing details{width:100%;color:var(--dsma-muted);font-size:12px}.dsma-page textarea{display:block;width:100%;min-height:100px;padding:10px;border:1px solid var(--dsma-line);border-radius:8px;background:var(--dsma-surface);color:var(--dsma-ink);font:12px/1.5 ui-monospace,monospace;resize:vertical;overflow-wrap:anywhere}.dsma-page .dsma-error{margin:0 0 14px;padding:10px 12px;border-radius:8px;background:var(--dsma-surface);color:var(--bt-danger,#b42318)}.dsma-setup{padding:4px 0 16px}.dsma-setup a{display:inline-block;margin-top:12px;color:inherit;text-underline-offset:3px}\n@media(max-width:540px){.dsma-page button{min-height:44px}.dsma-page button.dsma-icon-button{min-width:44px;min-height:44px}.dsma-section-head{align-items:flex-start;flex-wrap:wrap;gap:8px}.dsma-page textarea{font-size:16px}}\n.dsma-remote{padding:16px;margin:0 0 22px;border:1px solid var(--dsma-line);border-radius:12px;background:var(--dsma-bg)}.dsma-remote form{margin-top:14px}.dsma-remote h4{font-size:13px;margin:0 0 8px}.dsma-field{display:flex;flex-direction:column;gap:6px;margin:10px 0 12px;font-size:13px;font-weight:500}.dsma-field input,.dsma-field select{width:100%;min-width:0;min-height:40px;border:1px solid var(--dsma-line);border-radius:8px;padding:8px 10px;background:var(--dsma-bg);color:var(--dsma-ink);font:inherit}.dsma-remote form>.dsma-actions{margin-top:12px}.dsma-remote .dsma-address{overflow-wrap:anywhere}.dsma-remote code{font:12px/1.6 ui-monospace,SFMono-Regular,monospace;background:var(--dsma-surface);padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}.dsma-remote-guide,.dsma-quick{margin-top:16px;padding-top:14px;border-top:1px solid var(--dsma-line)}.dsma-remote ol{margin:8px 0;padding-left:20px;color:var(--dsma-muted);font-size:13px}.dsma-remote li+li{margin-top:7px}.dsma-links{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px}.dsma-links a{font-size:13px;color:var(--bt-accent,#3d5bd9);text-underline-offset:3px;overflow-wrap:anywhere}.dsma-consent{display:flex;align-items:flex-start;gap:9px;margin:14px 0 12px;font-size:13px}.dsma-consent input{flex:none;width:17px;height:17px;margin:3px 0 0;accent-color:var(--bt-accent,#4d6bfe)}.dsma-remote .dsma-small{font-size:12px;margin-top:12px}.dsma-stop{margin-top:14px}.dsma-remote .dsma-remote-warning{padding:10px 12px;border-radius:8px;background:var(--dsma-surface);margin-top:16px;font-size:12px}.dsma-remote .dsma-error{margin-top:10px}.dsma-remote-status{font-weight:500}\n@media(max-width:540px){.dsma-remote{padding:12px}.dsma-field input,.dsma-field select{min-height:44px;font-size:16px}.dsma-links{gap:12px}.dsma-links a{padding:4px 0}}\n.dsma-agent{display:flex;align-items:center;gap:2px}.dsma-page .dsma-agent button.dsma-text-button{min-height:28px;padding:2px 6px}\n.dsma-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}.dsma-mode{display:flex;gap:9px;align-items:flex-start;padding:12px;border:1px solid var(--dsma-line);border-radius:12px;cursor:pointer}.dsma-mode[data-selected=true]{border-color:var(--dsma-ink)}.dsma-mode input{flex:none;margin:3px 0 0;accent-color:var(--bt-accent,#4d6bfe)}.dsma-mode strong{display:block;font-size:13px}.dsma-mode small{display:block;color:var(--dsma-muted);font-size:12px}\n@media(max-width:540px){.dsma-modes{grid-template-columns:1fr}}\n';
+var style_default = '.dsma-page{--dsma-ink:var(--bt-ink,#171717);--dsma-muted:var(--bt-ink-2,#666);--dsma-line:var(--bt-line,#e8e8e8);--dsma-bg:var(--bt-main,#fff);--dsma-surface:var(--bt-bubble,#f2f2f2);width:100%;min-width:0;color:var(--dsma-ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}\r\n.dsma-page *{box-sizing:border-box}.dsma-page h3{font-size:14px;line-height:22px;margin:0;font-weight:600}.dsma-page p{margin:6px 0 0;color:var(--dsma-muted);font-size:13px}.dsma-state-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px}.dsma-state{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dsma-muted)}.dsma-state i{width:7px;height:7px;border-radius:50%;background:currentColor}.dsma-state[data-ready=true] i{background:var(--bt-green,#00865b)}\r\n.dsma-page button{min-height:36px;border:1px solid var(--dsma-line);border-radius:9px;padding:7px 12px;font:inherit;font-size:13px;color:var(--dsma-ink);background:var(--dsma-bg);cursor:pointer;touch-action:manipulation}.dsma-page button:hover{background:var(--dsma-surface)}.dsma-page button:disabled{opacity:.5;cursor:default}.dsma-page button.dsma-primary{background:var(--dsma-ink);color:var(--dsma-bg);border-color:transparent;font-weight:500}.dsma-page button.dsma-primary:hover{opacity:.85}.dsma-page button.dsma-text-button{border-color:transparent;color:var(--dsma-muted);background:transparent}.dsma-page button.dsma-icon-button{display:grid;place-items:center;min-width:32px;min-height:32px;padding:5px;border-color:transparent;background:transparent;color:var(--dsma-muted)}.dsma-page button.dsma-danger{color:var(--bt-danger,#b42318)}.dsma-page :focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}.dsma-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}\r\n.dsma-section-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.dsma-add{padding:0 0 22px}.dsma-section{border-top:1px solid var(--dsma-line);padding:18px 0 6px}.dsma-section>h3{display:flex;align-items:center;gap:7px;margin-bottom:6px}.dsma-count{color:var(--dsma-muted);font-size:12px;font-weight:400}.dsma-device{display:flex;align-items:center;gap:12px;padding:12px 0;min-width:0;flex-wrap:wrap}.dsma-device+.dsma-device{border-top:1px solid var(--dsma-line)}.dsma-device-icon{width:38px;height:42px;display:grid;place-items:center;flex:none;border-radius:10px;background:var(--dsma-surface);color:var(--dsma-muted)}.dsma-device-copy{flex:1;min-width:100px}.dsma-device-copy strong{display:block;font-size:14px;font-weight:550;overflow-wrap:anywhere}.dsma-device-copy small{display:block;font-size:12px;color:var(--dsma-muted);margin-top:3px}.dsma-confirm{flex-basis:100%;padding:10px 12px;background:var(--dsma-surface);border-radius:10px}.dsma-confirm p{margin:0 0 8px}.dsma-page .dsma-empty{margin:10px 0 12px}.dsma-notes{margin-top:12px;font-size:12px;color:var(--dsma-muted)}.dsma-page summary{cursor:pointer;min-height:32px;padding:6px 0}.dsma-notes p{font-size:12px;margin-top:3px}\r\n.dsma-pairing{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 0 0}.dsma-qr{width:204px;max-width:100%;height:auto;background:#fff;border-radius:8px}.dsma-pairing p{font-size:12px;margin:0}.dsma-pairing details{width:100%;color:var(--dsma-muted);font-size:12px}.dsma-page textarea{display:block;width:100%;min-height:100px;padding:10px;border:1px solid var(--dsma-line);border-radius:8px;background:var(--dsma-surface);color:var(--dsma-ink);font:12px/1.5 ui-monospace,monospace;resize:vertical;overflow-wrap:anywhere}.dsma-page .dsma-error{margin:0 0 14px;padding:10px 12px;border-radius:8px;background:var(--dsma-surface);color:var(--bt-danger,#b42318)}.dsma-setup{padding:4px 0 16px}.dsma-setup a{display:inline-block;margin-top:12px;color:inherit;text-underline-offset:3px}\r\n@media(max-width:540px){.dsma-page button{min-height:44px}.dsma-page button.dsma-icon-button{min-width:44px;min-height:44px}.dsma-section-head{align-items:flex-start;flex-wrap:wrap;gap:8px}.dsma-page textarea{font-size:16px}}\r\n.dsma-remote{padding:16px;margin:0 0 22px;border:1px solid var(--dsma-line);border-radius:12px;background:var(--dsma-bg)}.dsma-remote form{margin-top:14px}.dsma-remote h4{font-size:13px;margin:0 0 8px}.dsma-field{display:flex;flex-direction:column;gap:6px;margin:10px 0 12px;font-size:13px;font-weight:500}.dsma-field input,.dsma-field select{width:100%;min-width:0;min-height:40px;border:1px solid var(--dsma-line);border-radius:8px;padding:8px 10px;background:var(--dsma-bg);color:var(--dsma-ink);font:inherit}.dsma-remote form>.dsma-actions{margin-top:12px}.dsma-remote .dsma-address{overflow-wrap:anywhere}.dsma-remote code{font:12px/1.6 ui-monospace,SFMono-Regular,monospace;background:var(--dsma-surface);padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}.dsma-remote-guide,.dsma-quick{margin-top:16px;padding-top:14px;border-top:1px solid var(--dsma-line)}.dsma-remote ol{margin:8px 0;padding-left:20px;color:var(--dsma-muted);font-size:13px}.dsma-remote li+li{margin-top:7px}.dsma-links{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px}.dsma-links a{font-size:13px;color:var(--bt-accent,#3d5bd9);text-underline-offset:3px;overflow-wrap:anywhere}.dsma-consent{display:flex;align-items:flex-start;gap:9px;margin:14px 0 12px;font-size:13px}.dsma-consent input{flex:none;width:17px;height:17px;margin:3px 0 0;accent-color:var(--bt-accent,#4d6bfe)}.dsma-remote .dsma-small{font-size:12px;margin-top:12px}.dsma-stop{margin-top:14px}.dsma-remote .dsma-remote-warning{padding:10px 12px;border-radius:8px;background:var(--dsma-surface);margin-top:16px;font-size:12px}.dsma-remote .dsma-error{margin-top:10px}.dsma-remote-status{font-weight:500}\r\n@media(max-width:540px){.dsma-remote{padding:12px}.dsma-field input,.dsma-field select{min-height:44px;font-size:16px}.dsma-links{gap:12px}.dsma-links a{padding:4px 0}}\r\n.dsma-agent{display:flex;align-items:center;gap:2px}.dsma-page .dsma-agent button.dsma-text-button{min-height:28px;padding:2px 6px}\r\n.dsma-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}.dsma-mode{display:flex;gap:9px;align-items:flex-start;padding:12px;border:1px solid var(--dsma-line);border-radius:12px;cursor:pointer}.dsma-mode[data-selected=true]{border-color:var(--dsma-ink)}.dsma-mode input{flex:none;margin:3px 0 0;accent-color:var(--bt-accent,#4d6bfe)}.dsma-mode strong{display:block;font-size:13px}.dsma-mode small{display:block;color:var(--dsma-muted);font-size:12px}\r\n@media(max-width:540px){.dsma-modes{grid-template-columns:1fr}}\r\n.dsma-remote .dsma-ok{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:var(--dsma-surface);color:var(--bt-success,#067647);font-size:13px}\r\n';
 
 // src/mobile-access-registry.mjs
 var REGISTRY_KEY = /* @__PURE__ */ Symbol.for("ds-bot.mobile-access.v1");
@@ -2518,7 +2520,7 @@ var import_react = require("react");
 var import_react_dom = require("react-dom");
 
 // src/mobile-access.css
-var mobile_access_default = '.dsb-access-backdrop{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.3);backdrop-filter:blur(4px);color:var(--bt-ink,#171717);font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",sans-serif}\n.dsb-access-dialog{display:flex;flex-direction:column;box-sizing:border-box;width:500px;max-width:100%;max-height:calc(100dvh - 48px);overflow:hidden;padding:24px;border:1px solid var(--bt-line,rgba(20,20,20,.08));border-radius:24px;background:var(--bt-main,#fff);box-shadow:0 22px 80px rgba(0,0,0,.2)}\n.dsb-access-dialog *{box-sizing:border-box}.dsb-access-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.dsb-access-heading>div{display:flex;align-items:center;gap:10px}.dsb-access-heading h1{margin:0;font-size:21px;line-height:30px;font-weight:650;letter-spacing:-.4px}\n.dsb-access-close{display:grid;place-items:center;flex:none;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer}.dsb-access-close:hover{background:var(--bt-hover,#f0f0f0)}\n.dsb-access-description{flex:none;margin:8px 0 22px;color:var(--bt-ink-2,#666);font-size:14px;line-height:22px}.dsb-access-tabs{display:flex;flex:none;gap:4px;margin:0 0 20px;padding:4px;border-radius:14px;background:var(--bt-hover,#f1f1f1)}\n.dsb-access-tabs>button{flex:1;min-width:0;min-height:40px;padding:8px 14px;border:0;border-radius:11px;background:transparent;color:var(--bt-ink-2,#666);font:inherit;font-weight:550;cursor:pointer}.dsb-access-tabs>button[aria-selected=true]{background:var(--bt-main,#fff);color:var(--bt-ink,#171717);box-shadow:0 1px 4px rgba(0,0,0,.07)}\n.dsb-access-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;overflow-wrap:anywhere;scrollbar-width:thin;padding:0 2px 2px;outline-offset:-2px}.dsb-access-dialog :focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:2px}.dsb-access-body:focus-visible{outline-offset:-2px}\n@media(max-width:560px){.dsb-access-backdrop{padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom))}.dsb-access-dialog{width:100%;max-height:calc(100dvh - max(24px,env(safe-area-inset-top) + env(safe-area-inset-bottom)));padding:20px;border-radius:22px}.dsb-access-heading h1{font-size:20px}.dsb-access-description{font-size:13px;margin-bottom:18px}.dsb-access-tabs{margin-bottom:18px}}\n@media(prefers-reduced-motion:reduce){.dsb-access-dialog *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}\n';
+var mobile_access_default = '.dsb-access-backdrop{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.3);backdrop-filter:blur(4px);color:var(--bt-ink,#171717);font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",sans-serif}\r\n.dsb-access-dialog{display:flex;flex-direction:column;box-sizing:border-box;width:500px;max-width:100%;max-height:calc(100dvh - 48px);overflow:hidden;padding:24px;border:1px solid var(--bt-line,rgba(20,20,20,.08));border-radius:24px;background:var(--bt-main,#fff);box-shadow:0 22px 80px rgba(0,0,0,.2)}\r\n.dsb-access-dialog *{box-sizing:border-box}.dsb-access-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}.dsb-access-heading>div{display:flex;align-items:center;gap:10px}.dsb-access-heading h1{margin:0;font-size:21px;line-height:30px;font-weight:650;letter-spacing:-.4px}\r\n.dsb-access-close{display:grid;place-items:center;flex:none;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer}.dsb-access-close:hover{background:var(--bt-hover,#f0f0f0)}\r\n.dsb-access-description{flex:none;margin:8px 0 22px;color:var(--bt-ink-2,#666);font-size:14px;line-height:22px}.dsb-access-tabs{display:flex;flex:none;gap:4px;margin:0 0 20px;padding:4px;border-radius:14px;background:var(--bt-hover,#f1f1f1)}\r\n.dsb-access-tabs>button{flex:1;min-width:0;min-height:40px;padding:8px 14px;border:0;border-radius:11px;background:transparent;color:var(--bt-ink-2,#666);font:inherit;font-weight:550;cursor:pointer}.dsb-access-tabs>button[aria-selected=true]{background:var(--bt-main,#fff);color:var(--bt-ink,#171717);box-shadow:0 1px 4px rgba(0,0,0,.07)}\r\n.dsb-access-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;overflow-wrap:anywhere;scrollbar-width:thin;padding:0 2px 2px;outline-offset:-2px}.dsb-access-dialog :focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:2px}.dsb-access-body:focus-visible{outline-offset:-2px}\r\n@media(max-width:560px){.dsb-access-backdrop{padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom))}.dsb-access-dialog{width:100%;max-height:calc(100dvh - max(24px,env(safe-area-inset-top) + env(safe-area-inset-bottom)));padding:20px;border-radius:22px}.dsb-access-heading h1{font-size:20px}.dsb-access-description{font-size:13px;margin-bottom:18px}.dsb-access-tabs{margin-bottom:18px}}\r\n@media(prefers-reduced-motion:reduce){.dsb-access-dialog *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}\r\n';
 
 // src/mobile-access-shell.mjs
 function PhoneIcon() {
@@ -2679,13 +2681,13 @@ function MobileAccessHost({ access }) {
 
 // src/remote-panel.mjs
 var import_react2 = require("react");
-var labels = { existing: "已有 HTTPS 入口", fixed: "自有隧道和固定域名", quick: "临时 Cloudflare" };
+var labels = { existing: "已有 HTTPS 入口", fixed: "自有隧道和固定域名", quick: "临时 Cloudflare", named: "Cloudflare 隧道（填 Token，插件托管）" };
 var states = {
-  stopped: "临时连接已停止",
-  starting: "正在获取地址并连接隧道…",
+  stopped: "隧道已停止",
+  starting: "正在连接隧道…",
   running: "隧道已连接，尚未验证手机端可达",
   stopping: "正在停止，配对地址已停用…",
-  error: "临时连接发生错误",
+  error: "隧道发生错误",
   configured: "已保存 HTTPS 入口，尚未验证可达性",
   unconfigured: "尚未配置远程入口"
 };
@@ -2712,6 +2714,8 @@ function RemoteConnectionPanel({ state, controller }) {
   const [mode, setMode] = (0, import_react2.useState)(remote?.mode ?? "existing");
   const [url, setUrl] = (0, import_react2.useState)(savedUrl(remote, remote?.mode ?? "existing"));
   const [confirmed, setConfirmed] = (0, import_react2.useState)(false);
+  const [notice, setNotice] = (0, import_react2.useState)(null);
+  const [token, setToken] = (0, import_react2.useState)("");
   (0, import_react2.useEffect)(() => {
     setMode(remote?.mode ?? "existing");
     setUrl(savedUrl(remote, remote?.mode ?? "existing"));
@@ -2719,6 +2723,8 @@ function RemoteConnectionPanel({ state, controller }) {
   (0, import_react2.useEffect)(() => setConfirmed(false), [remote?.mode, remote?.state, remote?.revision]);
   if (!remote) return (0, import_react2.createElement)("div", { className: "dsma-remote dsma-notes" }, (0, import_react2.createElement)("h3", null, "远程连接"), (0, import_react2.createElement)("p", null, "正在使用 Bridge 原有连接配置。升级支持远程连接设置的 Bridge 后，可在此选择连接方式。"));
   const quickSaved = remote.mode === "quick";
+  const namedSaved = remote.mode === "named";
+  const managed = quickSaved || namedSaved;
   const stopping = state.operation === "remote.stop" || remote.state === "stopping";
   const active = ["starting", "running", "stopping"].includes(remote.state) || state.operation === "remote.start";
   const choose = (event) => {
@@ -2726,6 +2732,8 @@ function RemoteConnectionPanel({ state, controller }) {
     setMode(next);
     setUrl(savedUrl(remote, next));
     setConfirmed(false);
+    setNotice(null);
+    setToken("");
   };
   return (0, import_react2.createElement)(
     "section",
@@ -2736,15 +2744,44 @@ function RemoteConnectionPanel({ state, controller }) {
     remote.error ? (0, import_react2.createElement)("p", { className: "dsma-error", role: "alert" }, remoteErrorMessage(remote.error)) : null,
     (0, import_react2.createElement)(
       "form",
-      { "aria-label": "配置远程入口", onSubmit: (event) => {
+      { "aria-label": "配置远程入口", onSubmit: async (event) => {
         event.preventDefault();
         setConfirmed(false);
-        void controller.configureRemote(mode, url);
+        setNotice(null);
+        await controller.configureRemote(mode, url, mode === "named" ? token : "");
+        const current = controller.snapshot();
+        if (current.error) {
+          setNotice({ ok: false, text: current.error });
+          return;
+        }
+        if (mode === "named") {
+          setToken("");
+          setNotice({ ok: true, text: "已保存 Token，正在启动 Cloudflare 隧道…" });
+          await controller.startRemote(true);
+          const started = controller.snapshot();
+          if (started.error) {
+            setNotice({ ok: false, text: started.error });
+            return;
+          }
+          const up = started.status?.remote?.state === "running";
+          setNotice({ ok: up, text: up ? `隧道已连接：${url}。重新生成二维码后，手机端就会用这个地址。` : "Token 已保存，隧道仍在连接；请稍后刷新状态。" });
+          return;
+        }
+        const saved = current.status?.remote?.configuredUrl ?? url;
+        setNotice({ ok: true, text: `已保存并生效：${saved}。重新生成二维码后，手机端就会用这个地址。` });
       } },
       (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "连接方式"), (0, import_react2.createElement)("select", { "aria-label": "远程连接方式", value: mode, disabled: state.busy, onChange: choose }, ...Object.entries(labels).map(([value, label]) => (0, import_react2.createElement)("option", { value, key: value }, label)))),
-      mode !== "quick" ? (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "完整 HTTPS 地址"), (0, import_react2.createElement)("input", { "aria-label": "HTTPS 入口地址", type: "url", required: true, autoComplete: "off", spellCheck: false, placeholder: "https://phone.example.com", value: url, disabled: state.busy, onChange: (event) => setUrl(event.target.value), maxLength: 2048 })) : null,
-      mode === "quick" ? (0, import_react2.createElement)("p", null, "无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。") : (0, import_react2.createElement)("p", null, "保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。"),
-      (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", disabled: state.busy, className: "dsma-primary" }, mode === "quick" ? "保存连接方式" : "验证格式并保存入口"))
+      mode !== "quick" ? (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "完整 HTTPS 地址"), (0, import_react2.createElement)("input", { "aria-label": "HTTPS 入口地址", type: "url", required: true, autoComplete: "off", spellCheck: false, placeholder: "https://phone.example.com", value: url, disabled: state.busy, onChange: (event) => {
+        setUrl(event.target.value);
+        setNotice(null);
+      }, maxLength: 2048 })) : null,
+      mode === "named" ? (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "隧道 Token"), (0, import_react2.createElement)("input", { "aria-label": "Cloudflare 隧道 Token", type: "password", autoComplete: "new-password", spellCheck: false, placeholder: remote.tokenSet ? "已保存，留空则不修改" : "从 Cloudflare 后台复制整段隧道 Token", value: token, disabled: state.busy, onChange: (event) => {
+        setToken(event.target.value);
+        setNotice(null);
+      }, maxLength: 4096 })) : null,
+      mode === "quick" ? (0, import_react2.createElement)("p", null, "无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。") : mode === "named" ? (0, import_react2.createElement)("p", null, "由插件自己运行并守护 cloudflared：保存后立即启动，进程断开会自动重连；DSH 重启后 Bridge 会自己把隧道拉起，不需要另装 Windows 服务。") : (0, import_react2.createElement)("p", null, "保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。"),
+      (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", disabled: state.busy, className: "dsma-primary" }, state.busy ? "正在保存…" : mode === "named" ? "保存 Token 并启动隧道" : mode === "quick" ? "保存连接方式" : "验证格式并保存入口")),
+      notice ? (0, import_react2.createElement)("p", { className: notice.ok ? "dsma-ok" : "dsma-error", role: notice.ok ? "status" : "alert" }, notice.text) : null
     ),
     mode === "fixed" ? (0, import_react2.createElement)(
       "div",
@@ -2760,6 +2797,15 @@ function RemoteConnectionPanel({ state, controller }) {
         (0, import_react2.createElement)("li", null, "按官方步骤自行运行 connector，然后将对应 HTTPS 地址填入上方并保存。")
       ),
       (0, import_react2.createElement)("p", null, "插件不读取或保存 Cloudflare 主密码、API token、证书或隧道凭据。"),
+      (0, import_react2.createElement)("div", { className: "dsma-links" }, link("https://dash.cloudflare.com/", "打开 Cloudflare 后台"), link("https://developers.cloudflare.com/tunnel/get-started/", "查看隧道配置步骤"))
+    ) : null,
+    mode === "named" ? (0, import_react2.createElement)(
+      "div",
+      { className: "dsma-remote-guide" },
+      (0, import_react2.createElement)("h4", null, "插件托管的 Cloudflare 隧道"),
+      (0, import_react2.createElement)("p", null, "在 Cloudflare 后台 Networking → Tunnels 创建隧道，Public Hostname 指向 Bridge：", remote.loopbackUrl ? (0, import_react2.createElement)("code", null, remote.loopbackUrl) : "请先将 Bridge 配置为专用 HTTP loopback 监听。"),
+      (0, import_react2.createElement)("p", null, "然后把该隧道的 Token 和对应 HTTPS 地址填到上面。Token 只保存在本机 Bridge 目录，页面和手机都看不到。"),
+      (0, import_react2.createElement)("p", null, "如果已经用 cloudflared Windows 服务跑同一条隧道，请先停掉它，避免两条连接同时占用同一入口。"),
       (0, import_react2.createElement)("div", { className: "dsma-links" }, link("https://dash.cloudflare.com/", "打开 Cloudflare 后台"), link("https://developers.cloudflare.com/tunnel/get-started/", "查看隧道配置步骤"))
     ) : null,
     mode === "existing" ? (0, import_react2.createElement)("p", { className: "dsma-remote-guide" }, "兼容现有 HTTPS 反向代理或隧道。原 publicUrl 配置保留，切换回来可继续使用已保存的入口。") : null,
@@ -2782,10 +2828,10 @@ function RemoteConnectionPanel({ state, controller }) {
       (0, import_react2.createElement)("div", { className: "dsma-links" }, link("https://developers.cloudflare.com/tunnel/downloads/", "安装 cloudflared（官方指南）"), link("https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/", "查看临时隧道限制")),
       (0, import_react2.createElement)("p", { className: "dsma-small" }, "仅适合测试与开发，无在线保证；最多 200 个同时处理的请求，不支持 SSE。Bridge 使用 HTTP 与 WebSocket。此处连接状态不等于手机端到端验证。")
     ) : null,
-    quickSaved && (active || remote.state === "error") ? (0, import_react2.createElement)("div", { className: "dsma-actions dsma-stop" }, (0, import_react2.createElement)("button", { type: "button", className: "dsma-danger", disabled: stopping, onClick: () => {
+    managed && (active || remote.state === "error") ? (0, import_react2.createElement)("div", { className: "dsma-actions dsma-stop" }, (0, import_react2.createElement)("button", { type: "button", className: "dsma-danger", disabled: stopping, onClick: () => {
       setConfirmed(false);
       void controller.stopRemote();
-    } }, stopping ? "正在停止…" : "停止临时连接")) : null,
+    } }, stopping ? "正在停止…" : namedSaved ? "停止隧道" : "停止临时连接")) : null,
     (0, import_react2.createElement)("p", { className: "dsma-remote-warning" }, "地址变化后，旧二维码和待批准请求失效。请在手机“添加电脑／重新配对”中扫描当前二维码，再在电脑批准；不会把已有手机凭据自动发送到新地址。")
   );
 }

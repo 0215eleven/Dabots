@@ -67,12 +67,12 @@ export function createDeviceController({ call, now = Date.now }) {
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener) },
     refresh,
     create: () => operation('pairing.create'),
-    configureRemote(mode, value) {
-      if (!['existing', 'fixed', 'quick'].includes(mode)) { emit({ error: '请选择支持的远程连接方式。' }); return Promise.resolve() }
+    configureRemote(mode, value, token = '') {
+      if (!['existing', 'fixed', 'quick', 'named'].includes(mode)) { emit({ error: '请选择支持的远程连接方式。' }); return Promise.resolve() }
       let url
       try { if (mode !== 'quick') url = httpsOrigin(value) }
       catch (error) { emit({ error: error.message }); return Promise.resolve() }
-      return operation('remote.configure', { mode, ...(url ? { url } : {}) })
+      return operation('remote.configure', { mode, ...(url ? { url } : {}), ...(mode === 'named' && token ? { token } : {}) })
     },
     startRemote(confirmed) {
       if (confirmed !== true) { emit({ error: remoteErrorMessage('CONFIRMATION_REQUIRED') }); return Promise.resolve() }

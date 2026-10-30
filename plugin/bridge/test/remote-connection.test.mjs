@@ -82,7 +82,7 @@ test('legacy URL remains selected and quick mode requires explicit confirmed sta
   assert.equal(f.starts(), 1)
   await f.remote.configure({ mode: 'quick' })
   const saved = JSON.parse(await readFile(join(f.home, 'remote-connection.json'), 'utf8'))
-  assert.deepEqual(saved, { version: 1, mode: 'quick', existingUrl: 'https://legacy.example', fixedUrl: null })
+  assert.deepEqual(saved, { version: 1, mode: 'quick', existingUrl: 'https://legacy.example', fixedUrl: null, namedUrl: null, namedToken: null })
   const { createRemoteConnection } = await loadRemote()
   const reloaded = await createRemoteConnection({ home: f.home, config: { publicUrl: 'https://legacy.example' }, server: f.server, createTunnel: () => { throw Error('loading must not create a process manager') } })
   assert.equal(reloaded.snapshot().state, 'stopped')
