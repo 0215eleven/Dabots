@@ -27,6 +27,7 @@ import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
 import { ChatLinkPressable } from "@/features/agents/components/chat-link-pressable";
 import { ChatZoomSource } from "@/features/agents/components/chat-zoom-source";
 import { useWaitingChannel } from "@/features/channels/components/use-waiting-channel";
+import { ComputerTag } from "@/features/workspace/components/computer-tag";
 import { useAgentWaitReason } from "@/features/workspace/components/use-agent-activity";
 import { useAgentUnread } from "@/features/workspace/components/use-live-workspace";
 import { type MobileAgent, useMobileWorkspaceSelector } from "@/features/workspace/context/mobile-workspace-context";
@@ -197,9 +198,12 @@ export const AgentListRow = memo(function AgentListRow({ agent, leftInset = 20, 
                   </Typography.Paragraph>
                 )}
               </View>
-              <Typography.Paragraph className="text-text-secondary" numberOfLines={1} style={typeScale.preview}>
-                {previewLine || agent.title.trim()}
-              </Typography.Paragraph>
+              <View className="flex-row items-center gap-2">
+                <Typography.Paragraph className="text-text-secondary min-w-0 flex-1" numberOfLines={1} style={typeScale.preview}>
+                  {previewLine || agent.title.trim()}
+                </Typography.Paragraph>
+                <ComputerTag serverId={agent.serverId} />
+              </View>
             </View>
           </AgentRowTextReveal>
           {agentChatPreview.measurer}
