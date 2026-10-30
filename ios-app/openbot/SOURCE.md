@@ -251,8 +251,8 @@ the web document canvas and color scheme follow manual appearance overrides.
 Normal scroll bounce and native presentations remain enabled. Browser evidence
 does not establish native bounce, transition geometry or keyboard correctness.
 
-The latest requested home navigation uses the existing DS robot sprite to open
-settings at the left, and the existing Bot/group creation action at the right.
+The latest requested home navigation uses a three-line menu icon to open the
+computer information/settings at the left, and the Bot/group creation action at the right.
 Both are ordinary 44-point circles, retain accessible names and keyboard access,
 and keep the 431fcd8 manual top/bottom safe-area behavior. The list also consumes
 lateral safe-area insets once so these controls clear a landscape notch. No swipe-settings gesture or
@@ -274,3 +274,15 @@ when that scope changes, and invalid/excessive heights cannot create an unbounde
 preview. Existing native Link.Preview, Link.Menu and action callbacks are retained.
 The exact original is preserved and the adaptation hashes are updated. Hook/SDK
 boundary checks do not establish UIKit menu appearance; iPhone testing remains.
+
+## Shared compact glass controls
+
+The custom DS home actions reuse the same ChatGlassButton as chat navigation,
+at their existing 44-point size. The supported iOS surface uses regular native
+Liquid Glass, explicitly following the phone appearance or an existing caller's
+surface override. Its accessibility/unsupported-platform fallback stays opaque
+and adds the existing ChromeGlassSheen and a subtle separator edge. Native route
+chrome keeps its platform material. A native MenuView can own a button's action
+without an inert React press handler. No new provider, blur library or parallel
+button component was introduced. Browser captures show the fallback material;
+they are not native Liquid Glass captures.

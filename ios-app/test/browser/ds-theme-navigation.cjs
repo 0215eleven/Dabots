@@ -1,7 +1,6 @@
 // Real routes and public disposable DSH fixture; run through ds-isolated-host.cjs.
 const assert=require('node:assert/strict');
 const createChat=require('./create-chat.cjs');
-const sprite=require('../../src/components/pixelCharacters.json');
 module.exports=async function({page,h,bot,visible,back,check,until,capture}){
   const settings=()=>page.getByRole('button',{name:/^(Settings|设置)$/,exact:true});
   const appearance=()=>page.locator('select').filter({has:page.locator('option[value="dark"]')});
@@ -35,19 +34,19 @@ module.exports=async function({page,h,bot,visible,back,check,until,capture}){
     await page.mouse.wheel(0,-10000);await widthFits();
   }
   async function homeActions(){
-    const avatar=settings(),plus=page.getByRole('button',{name:/^(New chat|新对话)$/,exact:true});
-    const left=await avatar.boundingBox(),right=await plus.boundingBox();
+    const menu=settings(),plus=page.getByRole('button',{name:/^(New chat|新对话)$/,exact:true});
+    const left=await menu.boundingBox(),right=await plus.boundingBox();
     assert.ok(left&&right);assert.equal(left.width,44);assert.equal(left.height,44);assert.equal(left.x,16);
     assert.equal(right.width,44);assert.equal(right.height,44);assert.equal(right.x,330);assert.equal(left.y,right.y);
     assert.ok(left.y<100,'navigation stays at the top, with no floating bottom action');
-    assert.equal(await avatar.locator(`svg[viewBox="0 0 ${sprite.size} ${sprite.size}"]`).count(),1,'reuse the existing pixel robot sprite');
+    assert.equal(await menu.locator('svg[viewBox="0 0 24 24"]').count(),1,'home information/settings uses the navigation menu icon');
     assert.equal(await page.getByRole('heading',{name:'MyBot',exact:true}).filter({visible:true}).count(),1);
   }
   await settings().focus();await page.keyboard.press('Enter');await appearance().selectOption('dark');
   await visible('Computer appearance').waitFor();await expectCanvas('#000000','rgb(0, 0, 0)',true);
   console.log('DARK_CANVAS',JSON.stringify(await canvas()));
   await edges();await back();await homeActions();await edges();await homeActions();
-  check('manual dark on a light system reaches canvas and real navigator; ordinary avatar/plus positions and keyboard settings work');
+  check('manual dark on a light system reaches canvas and real navigator; ordinary menu/plus positions and keyboard settings work');
   await createChat(page,'Add Bot');await page.getByLabel('Bot name',{exact:true}).waitFor();
   await widthFits();await edges();await capture('form-dark');await back();await homeActions();
   await createChat(page,'New group');await page.getByLabel('Group name',{exact:true}).waitFor();await edges();await back();

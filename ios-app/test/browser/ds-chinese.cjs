@@ -6,8 +6,8 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
   const home = async () => {
     await until(async()=>assert.equal(await page.getByRole('heading', {name: 'MyBot', exact: true}).filter({visible:true}).count(), 1, 'one home heading'));
     const button = settings();
-    assert.equal(await button.locator('svg').count(), 1, 'settings action shows the existing robot avatar');
-    assert.equal((await button.innerText()).trim(), '', 'avatar button has an accessible name without a text action');
+    assert.equal(await button.locator('svg[viewBox="0 0 24 24"]').count(), 1, 'settings action uses the menu icon');
+    assert.equal((await button.innerText()).trim(), '', 'menu button has an accessible name without a text action');
     const box = await button.boundingBox();
     assert.ok(box.width >= 44 && box.height >= 44 && box.y >= 0 && box.x + box.width <= 390);
   };
@@ -22,7 +22,7 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
   await back(); await home(); await visible('已连接').waitFor();
   await page.getByRole('button', {name:'新对话',exact:true}).waitFor();
   await capture('01-conversation-list');
-  check('Chinese selection updates mounted home and accessible avatar settings button');
+  check('Chinese selection updates mounted home and accessible menu settings button');
   const state = await h.call('state'), bot = state.bots[0];
   await visible(bot.name).click();
   const input = page.getByLabel(`给 ${bot.name} 发消息`,{exact:true});
@@ -122,7 +122,7 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
   await page.evaluate(()=>{history.pushState(null,'','/connected');dispatchEvent(new PopStateEvent('popstate',{state:null}));});
   await page.waitForURL('**/connected');await home();
   await settings().click();await visible('Computer appearance').waitFor();await back();await page.waitForURL('**/connected');await home();
-  check('both home routes have one heading, a 44pt avatar button, and working settings/back navigation');
+  check('both home routes have one heading, a 44pt menu button, and working settings/back navigation');
 };
 
 // A focused regression for pending text. Hold one real POST, exercise the same

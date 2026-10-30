@@ -1,7 +1,10 @@
 import { type GlassColorScheme, GlassView } from "expo-glass-effect";
 import type { PropsWithChildren } from "react";
-import { type AccessibilityValue, Pressable, type ViewStyle } from "react-native";
+import { type AccessibilityValue, Platform, Pressable, StyleSheet, type ViewStyle } from "react-native";
 import Animated, { type CSSTransitionProperties, cubicBezier } from "react-native-reanimated";
+import { useThemeColor } from "heroui-native/hooks";
+import { useUniwind } from "uniwind";
+import { ChromeGlassSheen } from "@/shared/components/chrome-glass-sheen";
 
 const FADE: CSSTransitionProperties = {
   transitionProperty: "opacity",
@@ -24,11 +27,12 @@ interface ChatGlassButtonProps extends PropsWithChildren {
    */
   hidden?: boolean;
   liquidGlassAvailable: boolean;
-  onPress: () => void;
+  /** A native MenuView may own the action instead of a React press handler. */
+  onPress?: () => void;
   width?: number;
 }
 
-/** The floating control above the composer: a glass capsule with an icon, a label, or both. */
+/** Shared glass for compact navigation and floating chat actions, with an icon, label, or both. */
 export function ChatGlassButton({
   accessibilityLabel,
   accessibilityValue,
@@ -43,6 +47,8 @@ export function ChatGlassButton({
   onPress,
   width,
 }: ChatGlassButtonProps) {
+  const { theme } = useUniwind();
+  const edge = useThemeColor("separator");
   return (
     <GlassView
       glassEffectStyle={{
@@ -50,7 +56,7 @@ export function ChatGlassButton({
         animate: true,
         animationDuration: 0.2,
       }}
-      colorScheme={colorScheme}
+      {...(Platform.OS === "ios" ? { colorScheme: colorScheme ?? (theme === "dark" ? "dark" : "light") } : {})}
       isInteractive={liquidGlassAvailable && !disabled && !hidden}
       pointerEvents={hidden ? "none" : "auto"}
       style={{
@@ -71,10 +77,16 @@ export function ChatGlassButton({
             position: "absolute",
             inset: 0,
             backgroundColor: fallbackBackground,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: edge,
+            borderRadius: height / 2,
+            overflow: "hidden",
             opacity: hidden ? 0 : 1,
             ...FADE,
           }}
-        />
+        >
+          <ChromeGlassSheen />
+        </Animated.View>
       )}
       <Pressable
         accessibilityLabel={accessibilityLabel}
