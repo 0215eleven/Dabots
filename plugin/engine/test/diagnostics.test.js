@@ -101,6 +101,56 @@ test('reload re-cleans legacy diagnostic fields as well as message and stack', a
   await again.stop()
 })
 
+const complexPaths = [
+  ['at run (/mnt/synthetic-project/project (synthetic-private)/handler.js:12:4)', 'at run ([path]/handler.js:12:4)'],
+  [String.raw`at run (C:\\Synthetic Project\\project (synthetic-private)\\handler.js:12:4)`, 'at run ([path]/handler.js:12:4)'],
+  [String.raw`at run (\\synthetic-server\share (synthetic-private)\handler.js:12:4)`, 'at run ([path]/handler.js:12:4)'],
+  ['at run (file:///mnt/project(synthetic-private)/handler.js:12:4)', 'at run ([path]/handler.js:12:4)'],
+  [String.raw`at run (file:\/\/\/mnt\/project(synthetic-private)\/handler.js:12:4)`, 'at run ([path]/handler.js:12:4)'],
+  ['cannot open /mnt/synthetic-private project/config.json', 'cannot open [path]/config.json'],
+  [String.raw`{"path":"\/mnt\/synthetic-private\/handler.js"}`, '{"path":"[path]/handler.js"}'],
+  [String.raw`{"path":"\\/mnt\\/synthetic-private\\/handler.js"}`, '{"path":"[path]/handler.js"}'],
+  ['cannot open /mnt/synthetic-private/', 'cannot open [path]'],
+  [String.raw`cannot open Q:\synthetic-private` + '\\', 'cannot open [path]'],
+  ['cannot open file:///mnt/synthetic-private/', 'cannot open [path]'],
+  ['at open (/mnt/synthetic-private (directory)/)', 'at open ([path])'],
+];
+
+test('complete local path spans hide parenthesized, spaced, escaped and directory-only locations', () => {
+  for (const [input, expected] of complexPaths) {
+    const out = cleanText(input, { home: '/home/synthetic-owner' })
+    assert.equal(out, expected, input)
+    assert.equal(cleanText(out, { home: '/home/synthetic-owner' }), expected, 'cleaning is idempotent')
+  }
+  const urls = String.raw`https://example.invalid/api/v2 https:\/\/example.invalid\/api\/v2 src/module.js 源/模块.js node:internal/process/task_queues:105:5`
+  assert.equal(cleanText(urls, { home: '/home/synthetic-owner' }), urls)
+  assert.equal(cleanText('failed /mnt/synthetic-private project/config.json; https://example.invalid/api'), 'failed [path]/config.json; https://example.invalid/api')
+})
+
+test('complex path privacy survives persistence, logger, stderr, download and legacy reload', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'ds-bot-diag-'))
+  t.after(() => rmSync(home, { recursive: true, force: true, maxRetries: 5 }))
+  const stderr = [], warnings = []
+  t.mock.method(console, 'error', (...args) => stderr.push(args.join(' ')))
+  const rt = host(home)
+  rt.ctx.logger.warn = (...args) => warnings.push(args.join(' '))
+  for (const [input] of complexPaths) {
+    const error = new Error(input)
+    error.stack = `Error: ${input}\n    ${input.startsWith('at ') ? input : 'at run (/mnt/synthetic-private (workspace)/handler.js:12:4)'}`
+    rt.warn('ds-bot: %s', error)
+  }
+  await rt.stop()
+  const written = readFileSync(join(home, 'logs', 'diagnostics.jsonl'), 'utf8')
+  const again = host(home)
+  const report = await again.diagnostics.report()
+  const outputs = [written, stderr.join('\n'), warnings.join('\n'), report.markdown, JSON.stringify(report.entries), await again.diagnostics.logText()]
+  for (const out of outputs) {
+    assert.doesNotMatch(out, /synthetic-private|synthetic-project|Synthetic Project|synthetic-server/)
+    assert.match(out, /handler\.js:12:4/)
+  }
+  await again.stop()
+})
+
 // `stop()` runs the cleanups, as the plugin's stop does.
 function host(home, extra = {}) {
   const warnings = []

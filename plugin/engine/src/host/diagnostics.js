@@ -38,13 +38,30 @@ const CREDENTIALS = [
 
 // A checkout, dependency or another user's profile need not live under homedir().
 // Keep the leaf and line/column for useful frames, but never expose its folders.
-const pathLeaf = value => `[path]/${value.replace(/[\\/]+$/, '').split(/[\\/]+/).at(-1) ?? ''}`
+const pathLeaf = (value) => {
+  const closing = value.match(/[)\]}]+$/)?.[0] ?? ''
+  const path = closing ? value.slice(0, -closing.length) : value
+  const leaf = path.split(/[\\/]+/).at(-1) ?? ''
+  // A trailing separator identifies a directory. An extension or source coordinate
+  // identifies a useful file leaf; otherwise prefer hiding the ambiguous span.
+  const file = !/[\\/]$/.test(path) && /\.[^\s\\/]+$|:\d+(?::\d+)?$/.test(leaf)
+  return `${file ? `[path]/${leaf}` : '[path]'}${closing}`
+}
+const ABSOLUTE_PATH = String.raw`(?:[A-Za-z]:[\\/]|\\\\|\\+\/|\/)`
+const FILE_URL = String.raw`file:(?:\\*\/){2}`
+// Unquoted paths may contain spaces. A hard delimiter or a following HTTP URL
+// ends the span; consuming ambiguous prose is safer than leaking its folders.
+const PATH_SPAN = String.raw`[^\r\n"'<>;]*?(?=\s+https?:(?:\\*\/){2}|[\r\n"'<>;]|$)`
+const STACK_PATH = new RegExp(String.raw`(^|\(|\bat\s+)((?:${ABSOLUTE_PATH}|${FILE_URL}|~[\\/])[^\r\n]*:\d+(?::\d+)?)(?=\)?(?:\s|$))`, 'gmi')
+const FILE_PATH = new RegExp(String.raw`\b${FILE_URL}${PATH_SPAN}`, 'gi')
+const QUOTED_PATH = new RegExp(String.raw`(["'])(${ABSOLUTE_PATH}[^\r\n]*?)\1`, 'g')
+const BARE_PATH = new RegExp(String.raw`(^|[^\p{L}\p{N}_~.:/\\\]-]|:(?!(?:\\*\/){2}))(${ABSOLUTE_PATH}${PATH_SPAN})`, 'giu')
 const cleanPaths = value => value
-  .replace(/\bfile:\/\/[^\s"'<>)]*/gi, pathLeaf)
-  .replace(/(^|\(|\bat\s+)((?:[A-Za-z]:[\\/]|\\\\|\/)[^)\r\n]*:\d+(?::\d+)?)(?=\)?(?:\s|$))/gm, (_, prefix, path) => prefix + pathLeaf(path))
-  .replace(/(["'])((?:[A-Za-z]:[\\/]|\\\\|\/)[^\r\n]*?)\1/g, (_, mark, path) => mark + pathLeaf(path) + mark)
+  .replace(STACK_PATH, (_, prefix, path) => prefix + pathLeaf(path))
+  .replace(FILE_PATH, pathLeaf)
+  .replace(QUOTED_PATH, (_, mark, path) => mark + pathLeaf(path) + mark)
   // Exclude URL/relative-path prefixes, home '~' and our own '[path]' marker.
-  .replace(/(^|[^\p{L}\p{N}_~.:/\\\]-]|:(?!\/\/))((?:[A-Za-z]:[\\/]|\\\\|\/)[^\s"'<>),;]*)/gu, (_, prefix, path) => prefix + pathLeaf(path))
+  .replace(BARE_PATH, (_, prefix, path) => prefix + pathLeaf(path))
 
 export function cleanText(text, { redact = value => value, home = homedir() } = {}) {
   let out = redact(String(text ?? ''))
