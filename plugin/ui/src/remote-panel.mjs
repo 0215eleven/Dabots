@@ -25,6 +25,7 @@ export function RemoteConnectionPanel({ state, controller }) {
   const [mode, setMode] = useState(remote?.mode ?? 'existing')
   const [url, setUrl] = useState(savedUrl(remote, remote?.mode ?? 'existing'))
   const [confirmed, setConfirmed] = useState(false)
+  const [notice, setNotice] = useState(null)
   useEffect(() => {
     setMode(remote?.mode ?? 'existing')
     setUrl(savedUrl(remote, remote?.mode ?? 'existing'))
@@ -34,17 +35,25 @@ export function RemoteConnectionPanel({ state, controller }) {
   const quickSaved = remote.mode === 'quick'
   const stopping = state.operation === 'remote.stop' || remote.state === 'stopping'
   const active = ['starting', 'running', 'stopping'].includes(remote.state) || state.operation === 'remote.start'
-  const choose = event => { const next = event.target.value; setMode(next); setUrl(savedUrl(remote, next)); setConfirmed(false) }
+  const choose = event => { const next = event.target.value; setMode(next); setUrl(savedUrl(remote, next)); setConfirmed(false); setNotice(null) }
   return h('section', { className: 'dsma-remote', 'aria-label': '远程连接设置' },
     h('h3', null, '远程连接'),
     h('p', { className: 'dsma-remote-status', role: 'status', 'aria-live': 'polite' }, `${labels[remote.mode] ?? '远程连接'} · ${states[remote.state] ?? '请刷新状态'}`),
     remote.url ? h('p', { className: 'dsma-address' }, '当前配对地址：', h('code', null, remote.url)) : null,
     remote.error ? h('p', { className: 'dsma-error', role: 'alert' }, remoteErrorMessage(remote.error)) : null,
-    h('form', { 'aria-label': '配置远程入口', onSubmit: event => { event.preventDefault(); setConfirmed(false); void controller.configureRemote(mode, url) } },
+    h('form', { 'aria-label': '配置远程入口', onSubmit: async event => {
+      event.preventDefault(); setConfirmed(false); setNotice(null)
+      await controller.configureRemote(mode, url)
+      const current = controller.snapshot()
+      if (current.error) { setNotice({ ok: false, text: current.error }); return }
+      const saved = current.status?.remote?.configuredUrl ?? url
+      setNotice({ ok: true, text: `已保存并生效：${saved}。重新生成二维码后，手机端就会用这个地址。` })
+    } },
       h('label', { className: 'dsma-field' }, h('span', null, '连接方式'), h('select', { 'aria-label': '远程连接方式', value: mode, disabled: state.busy, onChange: choose }, ...Object.entries(labels).map(([value, label]) => h('option', { value, key: value }, label)))),
-      mode !== 'quick' ? h('label', { className: 'dsma-field' }, h('span', null, '完整 HTTPS 地址'), h('input', { 'aria-label': 'HTTPS 入口地址', type: 'url', required: true, autoComplete: 'off', spellCheck: false, placeholder: 'https://phone.example.com', value: url, disabled: state.busy, onChange: event => setUrl(event.target.value), maxLength: 2048 })) : null,
+      mode !== 'quick' ? h('label', { className: 'dsma-field' }, h('span', null, '完整 HTTPS 地址'), h('input', { 'aria-label': 'HTTPS 入口地址', type: 'url', required: true, autoComplete: 'off', spellCheck: false, placeholder: 'https://phone.example.com', value: url, disabled: state.busy, onChange: event => { setUrl(event.target.value); setNotice(null) }, maxLength: 2048 })) : null,
       mode === 'quick' ? h('p', null, '无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。') : h('p', null, '保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。'),
-      h('div', { className: 'dsma-actions' }, h('button', { type: 'submit', disabled: state.busy, className: 'dsma-primary' }, mode === 'quick' ? '保存连接方式' : '验证格式并保存入口'))),
+      h('div', { className: 'dsma-actions' }, h('button', { type: 'submit', disabled: state.busy, className: 'dsma-primary' }, state.busy ? '正在保存…' : mode === 'quick' ? '保存连接方式' : '验证格式并保存入口')),
+      notice ? h('p', { className: notice.ok ? 'dsma-ok' : 'dsma-error', role: notice.ok ? 'status' : 'alert' }, notice.text) : null),
     mode === 'fixed' ? h('div', { className: 'dsma-remote-guide' },
       h('h4', null, '配置自己的隧道和域名'),
       h('p', null, '固定域名请先给 Bridge 设置固定端口，避免重启后服务地址变化。'),
