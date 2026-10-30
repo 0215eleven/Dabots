@@ -3426,8 +3426,12 @@
       "gitBlob": "a0f70114e17c75859c0ad22b191b55c4e6d095ea",
       "mode": "100644",
       "upstreamSha256": "26ac9010740b5cc35bee66cc2e3e7e9d550e4fd89a79a89dd4df56169e64c721",
-      "importedSha256": "26ac9010740b5cc35bee66cc2e3e7e9d550e4fd89a79a89dd4df56169e64c721",
-      "adaptation": null
+      "importedSha256": "e74d17af44aa93b452d2a263d727a994f8ed3ff4d304d4045d0f1abf17ed487d",
+      "adaptation": "Chat identity capsule aligns to the right of the header; back remains on the left and info/menu actions and glass materials are unchanged. Original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/chat/components/chat-header.tsx",
+        "sha256": "26ac9010740b5cc35bee66cc2e3e7e9d550e4fd89a79a89dd4df56169e64c721"
+      }
     },
     {
       "source": "apps/mobile/src/features/chat/components/chat-image-gallery.tsx",

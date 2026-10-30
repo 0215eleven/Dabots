@@ -143,6 +143,56 @@ export function ChatHeader({
           <ArrowLeft color={iconColor} size={24} strokeWidth={2} />
         </ChatGlassIconButton>
 
+        <View className="flex-1" />
+
+        {trailing !== undefined ? (
+          trailing
+        ) : (
+          <View className="flex-row items-center gap-2">
+            {target.kind === "channel" && needsAction ? (
+              <ChatGlassIconButton
+                accessibilityLabel={t("mobile.chat.header.actionsNeeded")}
+                fallbackBackground={fallbackBackground}
+                liquidGlassAvailable={liquidGlassAvailable}
+                onPress={() => {
+                  void haptics.impact("soft");
+                  router.push({
+                    pathname: "/channel-actions/[channelId]",
+                    params: { channelId: target.id, serverId: target.serverId },
+                  });
+                }}
+              >
+                <TriangleAlert color={String(warning)} size={24} strokeWidth={2.5} />
+              </ChatGlassIconButton>
+            ) : null}
+            {/* Not in a BlurReveal: glass stops rendering under an ancestor with zero opacity, so the
+                button hides itself, and its glass turns off with the native animation. The agent's
+                browser on the host, live. The button shows when the agent has no tab yet too: the
+                browser screen opens a new one. A host that cannot stream a tab, or an app version
+                the account server has the browser off for, shows no button. */}
+            <ChatGlassIconButton
+              accessibilityLabel={t("mobile.browser.open")}
+              fallbackBackground={fallbackBackground}
+              hidden={!browserShown}
+              liquidGlassAvailable={liquidGlassAvailable}
+              onPress={() => {
+                if (!browserAgent) return;
+                void haptics.impact("soft");
+                router.push({
+                  pathname: "/browser/[agentId]",
+                  params: {
+                    agentId: browserAgent.agentId,
+                    serverId: target.serverId,
+                    ...(browserAgent.tabId ? { tabId: browserAgent.tabId } : {}),
+                    ...(browserAgent.agentIds.length > 1 ? { agentIds: browserAgent.agentIds.join(",") } : {}),
+                  },
+                });
+              }}
+            >
+              <Globe color={iconColor} size={24} strokeWidth={2} />
+            </ChatGlassIconButton>
+          </View>
+        )}
         <GlassView
           glassEffectStyle={liquidGlassAvailable ? "regular" : "none"}
           style={{
@@ -152,7 +202,7 @@ export function ChatHeader({
             borderCurve: "continuous",
             borderRadius: 24,
             flexDirection: "row",
-            // A kicker and a title need the width up to the trailing button.
+            // A kicker and a title use the remaining width beside the other controls.
             maxWidth: kicker ? undefined : 220,
             flexShrink: 1,
             overflow: "hidden",
@@ -211,56 +261,6 @@ export function ChatHeader({
             </Pressable>
           )}
         </GlassView>
-
-        <View className="flex-1" />
-        {trailing !== undefined ? (
-          trailing
-        ) : (
-          <View className="flex-row items-center gap-2">
-            {target.kind === "channel" && needsAction ? (
-              <ChatGlassIconButton
-                accessibilityLabel={t("mobile.chat.header.actionsNeeded")}
-                fallbackBackground={fallbackBackground}
-                liquidGlassAvailable={liquidGlassAvailable}
-                onPress={() => {
-                  void haptics.impact("soft");
-                  router.push({
-                    pathname: "/channel-actions/[channelId]",
-                    params: { channelId: target.id, serverId: target.serverId },
-                  });
-                }}
-              >
-                <TriangleAlert color={String(warning)} size={24} strokeWidth={2.5} />
-              </ChatGlassIconButton>
-            ) : null}
-            {/* Not in a BlurReveal: glass stops rendering under an ancestor with zero opacity, so the
-                button hides itself, and its glass turns off with the native animation. The agent's
-                browser on the host, live. The button shows when the agent has no tab yet too: the
-                browser screen opens a new one. A host that cannot stream a tab, or an app version
-                the account server has the browser off for, shows no button. */}
-            <ChatGlassIconButton
-              accessibilityLabel={t("mobile.browser.open")}
-              fallbackBackground={fallbackBackground}
-              hidden={!browserShown}
-              liquidGlassAvailable={liquidGlassAvailable}
-              onPress={() => {
-                if (!browserAgent) return;
-                void haptics.impact("soft");
-                router.push({
-                  pathname: "/browser/[agentId]",
-                  params: {
-                    agentId: browserAgent.agentId,
-                    serverId: target.serverId,
-                    ...(browserAgent.tabId ? { tabId: browserAgent.tabId } : {}),
-                    ...(browserAgent.agentIds.length > 1 ? { agentIds: browserAgent.agentIds.join(",") } : {}),
-                  },
-                });
-              }}
-            >
-              <Globe color={iconColor} size={24} strokeWidth={2} />
-            </ChatGlassIconButton>
-          </View>
-        )}
       </View>
       <SheetScrollEdgeEffect
         style={{ height: topInset + 82, left: 0, position: "absolute", right: 0, top: 0, zIndex: 10 }}

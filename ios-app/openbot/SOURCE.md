@@ -316,3 +316,10 @@ computer-name caption. It reuses SettingsContent for the grouped content and
 existing safe-area/scroll ownership, rather than leaving an empty title region.
 Native stack return gestures remain configured by the navigator; browser checks
 use history back. Native gesture behavior still requires an iPhone check.
+
+
+## Chat identity alignment
+
+The chat header places its flexible spacer before the identity capsule so the
+Bot/group icon and name sit on the right while Back stays on the left. Existing
+info/menu actions, truncation, optional trailing controls and glass are retained.
