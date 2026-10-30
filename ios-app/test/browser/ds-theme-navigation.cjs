@@ -5,7 +5,7 @@ module.exports=async function({page,h,bot,visible,back,check,until,capture}){
   const settings=()=>page.getByRole('button',{name:/^(Settings|设置)$/,exact:true});
   const appearance=()=>page.locator('select').filter({has:page.locator('option[value="dark"]')});
   async function canvas(){return page.evaluate(()=>{
-    const heading=[...document.querySelectorAll('[role="heading"]')].find(e=>e.textContent==='DeepSeek Bot Pro')??document.querySelector('select');
+    const heading=[...document.querySelectorAll('[aria-label="Settings"], [aria-label="设置"], select')].find(element=>element.getClientRects().length);
     const key=heading&&Object.keys(heading).find(k=>k.startsWith('__reactFiber$'));
     let fiber=key&&heading[key], themes=[];
     for(;fiber;fiber=fiber.return){
@@ -40,7 +40,7 @@ module.exports=async function({page,h,bot,visible,back,check,until,capture}){
     assert.equal(right.width,44);assert.equal(right.height,44);assert.equal(right.x,330);assert.equal(left.y,right.y);
     assert.ok(left.y<100,'navigation stays at the top, with no floating bottom action');
     assert.equal(await menu.locator('svg[viewBox="0 0 24 24"]').count(),1,'home information/settings uses the navigation menu icon');
-    assert.equal(await page.getByRole('heading',{name:'DeepSeek Bot Pro',exact:true}).filter({visible:true}).count(),1);
+    assert.equal(await page.getByRole('heading',{name:'DeepSeek Bot Pro',exact:true}).filter({visible:true}).count(),0);
   }
   await settings().focus();await page.keyboard.press('Enter');await appearance().selectOption('dark');
   await visible('Computer appearance').waitFor();await expectCanvas('#000000','rgb(0, 0, 0)',true);

@@ -222,8 +222,7 @@ The SDK58 native menu remains in use on iOS. Its web implementation leaves the
 trigger inert, so the root Metro config resolves only web menu imports to a DOM
 portal adapter, with actual actions, keyboard focus, Escape and outside dismissal.
 The compact home header keeps its36px icon visuals and native hitSlop; the browser
-uses44px non-overlapping click targets. The home title now follows the current
-computer nickname; installation, notifications and about keep DeepSeek Bot Pro.
+uses44px non-overlapping click targets. The home now omits its title and uses a connection dot on the menu; installation, notifications and about keep DeepSeek Bot Pro.
 
 The UI branch's latest-message previews now use the current DS core's guarded
 history API. The normal DS home never falls back to raw transcript caches or
@@ -236,7 +235,7 @@ reads. These are repairs to the imported UI pass, not additional remote services
 
 ## Homepage safe-area correction
 
-The custom MyBot home header and list already use the safe-area context for top
+The custom home header and list already use the safe-area context for top
 and bottom padding. Native automatic content-inset adjustment is disabled on this
 list so UIKit does not add a second safe-area gap above the title. Existing header,
 status, row styling and manual safe-area distances remain unchanged. The upstream
@@ -256,7 +255,7 @@ computer information/settings at the left, and the Bot/group creation action at 
 Both are ordinary 44-point circles, retain accessible names and keyboard access,
 and keep the 431fcd8 manual top/bottom safe-area behavior. The list also consumes
 lateral safe-area insets once so these controls clear a landscape notch. No swipe-settings gesture or
-floating creation action was added. The home title follows the current computer name.
+floating creation action was added. The home omits its title and exposes connection state on the menu.
 
 The DS pairing screen removes its large decorative robot and excess centered
 spacing. Its return-to-computers action stays above the bounded scrolling form,
@@ -291,8 +290,8 @@ they are not native Liquid Glass captures.
 ## Phone-local computer nicknames
 
 Each saved computer may have a local nickname, defaulting to its paired name.
-The normal DS home title, connection card and computer list share that display
-name; the home status line does not repeat it. Settings opens a native form sheet
+The connection card and computer list share that display name. The latest home
+layout intentionally omits the computer title and status text. Settings opens a native form sheet
 for renaming any saved computer or restoring its original name. Chinese and
 English labels use the existing DS locale bridge.
 
@@ -335,3 +334,13 @@ are retained after rejection. An unknown mutation outcome still blocks retries
 until desktop state is reviewed; no automatic mutation replay was added. Models
 and reasoning continue to come exclusively from DSH, and absence of a model is
 not invented as a prerequisite for creating a Bot.
+
+
+## Minimal home chrome
+
+The home header has only its existing glass actions: a three-dot settings menu
+on the left and creation on the right. No brand/computer title or connection
+text row is rendered. A small dot inside the menu is green while connected and
+gray otherwise; its accessible value reports the connection state. The status
+comes from the live DS connection, with no new timer, network request or stored
+preference. Existing safe-area ownership and list behavior remain unchanged.

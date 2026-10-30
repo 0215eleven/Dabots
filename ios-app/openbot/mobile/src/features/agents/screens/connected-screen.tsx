@@ -7,7 +7,7 @@ import { memo, useMemo, useState, useLayoutEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import PlusIcon from 'lucide-react-native/icons/plus';
 import { type MenuAction, MenuView } from '@/shared/components/menu-view';
-import MenuIcon from 'lucide-react-native/icons/menu';
+import EllipsisIcon from 'lucide-react-native/icons/ellipsis';
 import { ChatGlassButton } from '@/features/chat/components/chat-glass-icon-button';
 import { useLiquidGlass } from '@/shared/lib/use-liquid-glass';
 import { useThemeColor } from 'heroui-native/hooks';
@@ -114,17 +114,17 @@ function listItemKey(item: MobileSidebarItem) {
     return `${item.kind}:${item.id}`;
 }
 /** Original OpenBot list composition, bound to the selected DS computer. */
-// DS Bot Mobile layout: a compact brand bar with icon actions, a quiet connection line, an optional
+// DS Bot Mobile layout: compact icon actions with a connection dot, an optional
 // pinned section and a hairline-separated list. The list rows and motion stay OpenBot's.
 const ROW_LEFT = 16;
 const ROW_AVATAR = 48;
 function RowSeparator() {
     return <View className="bg-separator" style={{ height: StyleSheet.hairlineWidth, marginLeft: ROW_LEFT + ROW_AVATAR + 12, marginRight: 0 }}/>;
 }
-function IconButton({ label, onPress, children }: { label: string; onPress?: () => void; children: React.ReactNode }) {
+function IconButton({ label, status, onPress, children }: { label: string; status?: string; onPress?: () => void; children: React.ReactNode }) {
     const fallback = useThemeColor('default');
     const liquidGlass = useLiquidGlass();
-    return <ChatGlassButton accessibilityLabel={label} onPress={onPress} fallbackBackground={fallback} liquidGlassAvailable={liquidGlass} width={44} height={44}>{children}</ChatGlassButton>;
+    return <ChatGlassButton accessibilityLabel={label} accessibilityValue={status ? {text: status} : undefined} onPress={onPress} fallbackBackground={fallback} liquidGlassAvailable={liquidGlass} width={44} height={44}>{children}</ChatGlassButton>;
 }
 function SectionLabel({ children }: { children: string }) {
     return <Typography.Paragraph className="text-muted" style={{ fontSize: 13, lineHeight: 18, fontWeight: '600', paddingHorizontal: ROW_LEFT + 4, paddingTop: 8, paddingBottom: 2 }}>{children}</Typography.Paragraph>;
@@ -159,14 +159,13 @@ export function ConnectedScreen() {
   {/* This custom header already pads both safe-area edges; UIKit must not add them again. */}
   <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
    <View className="flex-row items-center gap-2" style={{ paddingHorizontal: ROW_LEFT, paddingTop: 6, paddingBottom: 2 }}>
-    <IconButton label={tr('Settings')} onPress={() => router.push('/settings')}><MenuIcon size={22} color={foreground} strokeWidth={2} accessible={false}/></IconButton>
-    <Typography.Heading accessibilityRole="header" numberOfLines={1} className="flex-1 font-bold" style={{ fontSize: 22, lineHeight: 28, letterSpacing: -0.3 }}>{activeServer.name}</Typography.Heading>
+    <IconButton label={tr('Settings')} status={tr(online ? 'Connected' : 'Disconnected')} onPress={() => router.push('/settings')}>
+     <EllipsisIcon size={22} color={foreground} strokeWidth={2} accessible={false}/>
+     <View pointerEvents="none" accessible={false} style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 3.5, backgroundColor: online ? String(success) : String(muted) }}/>
+    </IconButton>
+    <View className="flex-1" />
     {createActions.length > 1 ? <MenuView actions={createActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
         : createActions.length === 1 ? <IconButton label={createActions[0].title} onPress={() => create(createActions[0].id ?? 'bot')}>{plus}</IconButton> : null}
-   </View>
-   <View className="flex-row items-center gap-1.5" style={{ paddingHorizontal: ROW_LEFT + 4, paddingBottom: 10 }}>
-    <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: online ? String(success) : String(muted) }}/>
-    <Typography.Paragraph className="text-muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{tr(online ? 'Connected' : 'Offline · saved desktop state')}</Typography.Paragraph>
    </View>
    {view?.readOnly ? <View className="mx-4 mb-3 rounded-2xl bg-control px-4 py-3"><Typography.Paragraph className="text-text-secondary" style={{ fontSize: 13, lineHeight: 18 }}>{tr(view.readOnly)}</Typography.Paragraph></View> : null}
    {hasPinned ? <>

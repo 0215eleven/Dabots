@@ -792,5 +792,6 @@
   "Required. Up to 40 characters.": "必填，最多 40 个字符。",
   "Optional": "选填",
   "Could not create Bot": "创建机器人失败",
-  "The computer did not provide a failure reason. Check its connection and DSH configuration.": "电脑未返回具体失败原因，请检查连接和电脑端 DSH 配置。"
+  "The computer did not provide a failure reason. Check its connection and DSH configuration.": "电脑未返回具体失败原因，请检查连接和电脑端 DSH 配置。",
+  "Disconnected": "已断开"
 }

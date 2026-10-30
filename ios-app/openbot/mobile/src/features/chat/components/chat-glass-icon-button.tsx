@@ -91,6 +91,7 @@ export function ChatGlassButton({
       <Pressable
         accessibilityLabel={accessibilityLabel}
         accessibilityValue={accessibilityValue}
+        aria-valuetext={accessibilityValue?.text}
         accessibilityElementsHidden={hidden}
         importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
         accessibilityRole="button"
