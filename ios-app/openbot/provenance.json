@@ -2584,7 +2584,7 @@
       "gitBlob": "2d01145d6d1a652a8acf764a86a03b30f51d9700",
       "mode": "100644",
       "upstreamSha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a",
-      "importedSha256": "d41116c42c1911f5e6330dbcb725c5848f8adb654e4dfb1e61d42b89b0699394",
+      "importedSha256": "18a61ebd432c76d1b7dcc4e674cdce1a6ca3f1c1b832a594c39920a5377af3ee",
       "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: canonical quiet motion and hidden pinned Bot visibility. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge; plus DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/connected-screen.tsx",

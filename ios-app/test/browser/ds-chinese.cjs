@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 module.exports = async function chinese({page, h, other, host, pair, visible, back, capture, check, until}) {
   const gear = () => page.getByRole('button', {name: /^(Settings|设置)$/, exact: true});
   const home = async () => {
-    await until(async()=>assert.equal(await page.getByText('DeepSeek Bot Pro', {exact: true}).filter({visible:true}).count(), 1, 'one home brand heading'));
+    await until(async()=>assert.equal(await page.getByRole('heading', {name: 'MyBot', exact: true}).filter({visible:true}).count(), 1, 'one home heading'));
     const button = gear();
     assert.equal(await button.locator('svg').count(), 1, 'settings action is a gear icon');
     assert.equal((await button.innerText()).trim(), '', 'gear has an accessible name without a text action');
