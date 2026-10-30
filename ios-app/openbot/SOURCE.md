@@ -232,3 +232,12 @@ including offline, while preserving the saved roster and drafts. Results are
 scoped to the connection/core and grant, superseded reads are ignored, and empty
 results replace old summaries. Memoized group summaries publish after asynchronous
 reads. These are repairs to the imported UI pass, not additional remote services.
+
+
+## Homepage safe-area correction
+
+The custom MyBot home header and list already use the safe-area context for top
+and bottom padding. Native automatic content-inset adjustment is disabled on this
+list so UIKit does not add a second safe-area gap above the title. Existing header,
+status, row styling and manual safe-area distances remain unchanged. The upstream
+original is retained and the adapted file hash is refreshed in provenance.json.

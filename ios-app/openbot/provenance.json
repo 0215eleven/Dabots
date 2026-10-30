@@ -2586,8 +2586,8 @@
       "gitBlob": "2d01145d6d1a652a8acf764a86a03b30f51d9700",
       "mode": "100644",
       "upstreamSha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a",
-      "importedSha256": "ac2add968f6d03d7eab16e08160388bf2f416840e6ee65036764cb92264eaf1b",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: canonical quiet motion and hidden pinned Bot visibility. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge; plus DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.; browser hit targets enlarged to44px while preserving36px visuals and native hitSlop.",
+      "importedSha256": "dbaacf3587f312ebb8c5a410768e58a2b371ef59b79374a8e786e4b5bcd8cfc4",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: canonical quiet motion and hidden pinned Bot visibility. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge; plus DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.; browser hit targets enlarged to44px while preserving36px visuals and native hitSlop.; home list uses its existing manual safe-area padding without duplicate UIKit automatic content insets.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/connected-screen.tsx",
         "sha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a"
