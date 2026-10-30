@@ -19,6 +19,8 @@ const messages = {
   INVALID_REMOTE_URL: '请输入完整 HTTPS 入口，不含账号、密码、路径、查询参数或片段。',
   REMOTE_URL_REQUIRED: '请填写已配置好的 HTTPS 入口地址。',
   INVALID_REMOTE_MODE: '请选择支持的远程连接方式。',
+  INVALID_TUNNEL_TOKEN: 'Cloudflare 隧道 Token 格式不正确，请从后台整段复制。',
+  REMOTE_TOKEN_REQUIRED: '请先填写 Cloudflare 隧道 Token。',
   REMOTE_BUSY: '另一项连接操作正在进行，请刷新状态后重试。',
   REMOTE_CLOSED: 'Bridge 已停止，请检查插件状态后重新打开本页。',
   REMOTE_CLEANUP_REQUIRED: '上次卸载后尚未确认旧 cloudflared 已退出。请先在电脑上确认其停止，再手动移除 Bridge 专用目录中的 remote-cleanup-required.json，然后重新启用 Bridge。',

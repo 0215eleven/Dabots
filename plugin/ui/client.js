@@ -2153,6 +2153,8 @@ var messages = {
   INVALID_REMOTE_URL: "请输入完整 HTTPS 入口，不含账号、密码、路径、查询参数或片段。",
   REMOTE_URL_REQUIRED: "请填写已配置好的 HTTPS 入口地址。",
   INVALID_REMOTE_MODE: "请选择支持的远程连接方式。",
+  INVALID_TUNNEL_TOKEN: "Cloudflare 隧道 Token 格式不正确，请从后台整段复制。",
+  REMOTE_TOKEN_REQUIRED: "请先填写 Cloudflare 隧道 Token。",
   REMOTE_BUSY: "另一项连接操作正在进行，请刷新状态后重试。",
   REMOTE_CLOSED: "Bridge 已停止，请检查插件状态后重新打开本页。",
   REMOTE_CLEANUP_REQUIRED: "上次卸载后尚未确认旧 cloudflared 已退出。请先在电脑上确认其停止，再手动移除 Bridge 专用目录中的 remote-cleanup-required.json，然后重新启用 Bridge。",
@@ -2317,8 +2319,8 @@ function createDeviceController({ call, now = Date.now }) {
     },
     refresh,
     create: () => operation("pairing.create"),
-    configureRemote(mode, value) {
-      if (!["existing", "fixed", "quick"].includes(mode)) {
+    configureRemote(mode, value, token = "") {
+      if (!["existing", "fixed", "quick", "named"].includes(mode)) {
         emit({ error: "请选择支持的远程连接方式。" });
         return Promise.resolve();
       }
@@ -2329,7 +2331,7 @@ function createDeviceController({ call, now = Date.now }) {
         emit({ error: error.message });
         return Promise.resolve();
       }
-      return operation("remote.configure", { mode, ...url ? { url } : {} });
+      return operation("remote.configure", { mode, ...url ? { url } : {}, ...mode === "named" && token ? { token } : {} });
     },
     startRemote(confirmed) {
       if (confirmed !== true) {
@@ -2679,13 +2681,13 @@ function MobileAccessHost({ access }) {
 
 // src/remote-panel.mjs
 var import_react2 = require("react");
-var labels = { existing: "已有 HTTPS 入口", fixed: "自有隧道和固定域名", quick: "临时 Cloudflare" };
+var labels = { existing: "已有 HTTPS 入口", fixed: "自有隧道和固定域名", quick: "临时 Cloudflare", named: "Cloudflare 隧道（填 Token，插件托管）" };
 var states = {
-  stopped: "临时连接已停止",
-  starting: "正在获取地址并连接隧道…",
+  stopped: "隧道已停止",
+  starting: "正在连接隧道…",
   running: "隧道已连接，尚未验证手机端可达",
   stopping: "正在停止，配对地址已停用…",
-  error: "临时连接发生错误",
+  error: "隧道发生错误",
   configured: "已保存 HTTPS 入口，尚未验证可达性",
   unconfigured: "尚未配置远程入口"
 };
@@ -2713,6 +2715,7 @@ function RemoteConnectionPanel({ state, controller }) {
   const [url, setUrl] = (0, import_react2.useState)(savedUrl(remote, remote?.mode ?? "existing"));
   const [confirmed, setConfirmed] = (0, import_react2.useState)(false);
   const [notice, setNotice] = (0, import_react2.useState)(null);
+  const [token, setToken] = (0, import_react2.useState)("");
   (0, import_react2.useEffect)(() => {
     setMode(remote?.mode ?? "existing");
     setUrl(savedUrl(remote, remote?.mode ?? "existing"));
@@ -2720,6 +2723,8 @@ function RemoteConnectionPanel({ state, controller }) {
   (0, import_react2.useEffect)(() => setConfirmed(false), [remote?.mode, remote?.state, remote?.revision]);
   if (!remote) return (0, import_react2.createElement)("div", { className: "dsma-remote dsma-notes" }, (0, import_react2.createElement)("h3", null, "远程连接"), (0, import_react2.createElement)("p", null, "正在使用 Bridge 原有连接配置。升级支持远程连接设置的 Bridge 后，可在此选择连接方式。"));
   const quickSaved = remote.mode === "quick";
+  const namedSaved = remote.mode === "named";
+  const managed = quickSaved || namedSaved;
   const stopping = state.operation === "remote.stop" || remote.state === "stopping";
   const active = ["starting", "running", "stopping"].includes(remote.state) || state.operation === "remote.start";
   const choose = (event) => {
@@ -2728,6 +2733,7 @@ function RemoteConnectionPanel({ state, controller }) {
     setUrl(savedUrl(remote, next));
     setConfirmed(false);
     setNotice(null);
+    setToken("");
   };
   return (0, import_react2.createElement)(
     "section",
@@ -2742,10 +2748,23 @@ function RemoteConnectionPanel({ state, controller }) {
         event.preventDefault();
         setConfirmed(false);
         setNotice(null);
-        await controller.configureRemote(mode, url);
+        await controller.configureRemote(mode, url, mode === "named" ? token : "");
         const current = controller.snapshot();
         if (current.error) {
           setNotice({ ok: false, text: current.error });
+          return;
+        }
+        if (mode === "named") {
+          setToken("");
+          setNotice({ ok: true, text: "已保存 Token，正在启动 Cloudflare 隧道…" });
+          await controller.startRemote(true);
+          const started = controller.snapshot();
+          if (started.error) {
+            setNotice({ ok: false, text: started.error });
+            return;
+          }
+          const up = started.status?.remote?.state === "running";
+          setNotice({ ok: up, text: up ? `隧道已连接：${url}。重新生成二维码后，手机端就会用这个地址。` : "Token 已保存，隧道仍在连接；请稍后刷新状态。" });
           return;
         }
         const saved = current.status?.remote?.configuredUrl ?? url;
@@ -2756,8 +2775,12 @@ function RemoteConnectionPanel({ state, controller }) {
         setUrl(event.target.value);
         setNotice(null);
       }, maxLength: 2048 })) : null,
-      mode === "quick" ? (0, import_react2.createElement)("p", null, "无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。") : (0, import_react2.createElement)("p", null, "保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。"),
-      (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", disabled: state.busy, className: "dsma-primary" }, state.busy ? "正在保存…" : mode === "quick" ? "保存连接方式" : "验证格式并保存入口")),
+      mode === "named" ? (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "隧道 Token"), (0, import_react2.createElement)("input", { "aria-label": "Cloudflare 隧道 Token", type: "password", autoComplete: "new-password", spellCheck: false, placeholder: remote.tokenSet ? "已保存，留空则不修改" : "从 Cloudflare 后台复制整段隧道 Token", value: token, disabled: state.busy, onChange: (event) => {
+        setToken(event.target.value);
+        setNotice(null);
+      }, maxLength: 4096 })) : null,
+      mode === "quick" ? (0, import_react2.createElement)("p", null, "无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。") : mode === "named" ? (0, import_react2.createElement)("p", null, "由插件自己运行并守护 cloudflared：保存后立即启动，进程断开会自动重连；DSH 重启后 Bridge 会自己把隧道拉起，不需要另装 Windows 服务。") : (0, import_react2.createElement)("p", null, "保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。"),
+      (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", disabled: state.busy, className: "dsma-primary" }, state.busy ? "正在保存…" : mode === "named" ? "保存 Token 并启动隧道" : mode === "quick" ? "保存连接方式" : "验证格式并保存入口")),
       notice ? (0, import_react2.createElement)("p", { className: notice.ok ? "dsma-ok" : "dsma-error", role: notice.ok ? "status" : "alert" }, notice.text) : null
     ),
     mode === "fixed" ? (0, import_react2.createElement)(
@@ -2774,6 +2797,15 @@ function RemoteConnectionPanel({ state, controller }) {
         (0, import_react2.createElement)("li", null, "按官方步骤自行运行 connector，然后将对应 HTTPS 地址填入上方并保存。")
       ),
       (0, import_react2.createElement)("p", null, "插件不读取或保存 Cloudflare 主密码、API token、证书或隧道凭据。"),
+      (0, import_react2.createElement)("div", { className: "dsma-links" }, link("https://dash.cloudflare.com/", "打开 Cloudflare 后台"), link("https://developers.cloudflare.com/tunnel/get-started/", "查看隧道配置步骤"))
+    ) : null,
+    mode === "named" ? (0, import_react2.createElement)(
+      "div",
+      { className: "dsma-remote-guide" },
+      (0, import_react2.createElement)("h4", null, "插件托管的 Cloudflare 隧道"),
+      (0, import_react2.createElement)("p", null, "在 Cloudflare 后台 Networking → Tunnels 创建隧道，Public Hostname 指向 Bridge：", remote.loopbackUrl ? (0, import_react2.createElement)("code", null, remote.loopbackUrl) : "请先将 Bridge 配置为专用 HTTP loopback 监听。"),
+      (0, import_react2.createElement)("p", null, "然后把该隧道的 Token 和对应 HTTPS 地址填到上面。Token 只保存在本机 Bridge 目录，页面和手机都看不到。"),
+      (0, import_react2.createElement)("p", null, "如果已经用 cloudflared Windows 服务跑同一条隧道，请先停掉它，避免两条连接同时占用同一入口。"),
       (0, import_react2.createElement)("div", { className: "dsma-links" }, link("https://dash.cloudflare.com/", "打开 Cloudflare 后台"), link("https://developers.cloudflare.com/tunnel/get-started/", "查看隧道配置步骤"))
     ) : null,
     mode === "existing" ? (0, import_react2.createElement)("p", { className: "dsma-remote-guide" }, "兼容现有 HTTPS 反向代理或隧道。原 publicUrl 配置保留，切换回来可继续使用已保存的入口。") : null,
@@ -2796,10 +2828,10 @@ function RemoteConnectionPanel({ state, controller }) {
       (0, import_react2.createElement)("div", { className: "dsma-links" }, link("https://developers.cloudflare.com/tunnel/downloads/", "安装 cloudflared（官方指南）"), link("https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/", "查看临时隧道限制")),
       (0, import_react2.createElement)("p", { className: "dsma-small" }, "仅适合测试与开发，无在线保证；最多 200 个同时处理的请求，不支持 SSE。Bridge 使用 HTTP 与 WebSocket。此处连接状态不等于手机端到端验证。")
     ) : null,
-    quickSaved && (active || remote.state === "error") ? (0, import_react2.createElement)("div", { className: "dsma-actions dsma-stop" }, (0, import_react2.createElement)("button", { type: "button", className: "dsma-danger", disabled: stopping, onClick: () => {
+    managed && (active || remote.state === "error") ? (0, import_react2.createElement)("div", { className: "dsma-actions dsma-stop" }, (0, import_react2.createElement)("button", { type: "button", className: "dsma-danger", disabled: stopping, onClick: () => {
       setConfirmed(false);
       void controller.stopRemote();
-    } }, stopping ? "正在停止…" : "停止临时连接")) : null,
+    } }, stopping ? "正在停止…" : namedSaved ? "停止隧道" : "停止临时连接")) : null,
     (0, import_react2.createElement)("p", { className: "dsma-remote-warning" }, "地址变化后，旧二维码和待批准请求失效。请在手机“添加电脑／重新配对”中扫描当前二维码，再在电脑批准；不会把已有手机凭据自动发送到新地址。")
   );
 }
