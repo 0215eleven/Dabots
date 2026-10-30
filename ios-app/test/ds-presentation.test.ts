@@ -8,10 +8,10 @@ const react={createElement:(type:any,props:any,...children:any[])=>({type,props:
 function load(path:string,mocks:Record<string,any>){const code=transformSync(readFileSync(new URL(path,import.meta.url),'utf8'),{loader:'tsx',format:'cjs',jsx:'transform'}).code;const module={exports:{} as any};new Function('require','module','exports','React',code)((name:string)=>name==='react'?react:mocks[name]??new Proxy({}, {get:()=>noop}),module,module.exports,react);return module.exports;}
 function animation(){return {duration(){return this},reduceMotion(value:string){return {...this,motion:value}}};}
 const reanimated={__esModule:true,default:{FlatList:'FlatList',View:'AnimatedView'},Easing:{bezier:noop},FadeIn:animation(),LinearTransition:animation(),ReduceMotion:{System:'system',Always:'always'},useSharedValue:(value:any)=>({get:()=>value,set:(next:any)=>{value=next}})};
-function screen(hidden:boolean,insets={top:0,bottom:0}){const agents=[{id:'visible'},{id:'hidden'}];return load('../openbot/mobile/src/features/agents/screens/connected-screen.tsx',{
+function screen(hidden:boolean,insets:{top:number;bottom:number;left?:number;right?:number}={top:0,bottom:0}){const agents=[{id:'visible'},{id:'hidden'}];return load('../openbot/mobile/src/features/agents/screens/connected-screen.tsx',{
  '@ds/text':{useDsText:()=>({tr:(text:string)=>text,locale:'en'})},'heroui-native/hooks':{useThemeColor:(names:any)=>Array.isArray(names)?names.map(()=>'#141414'):'#141414'},'react':{...react,useState:()=>[hidden,noop]},'react-native':{View:'View',Pressable:'Pressable',StyleSheet:{hairlineWidth:0.5}},'react-native-reanimated':reanimated,'expo-router':{Stack:{Screen:'Screen'}},
  '@/features/workspace/context/mobile-workspace-context':{useMobileWorkspace:()=>({agents,activeAgents:agents.slice(0,1),activeServer:{id:'h',name:'host'},pinnedAgentIds:['hidden'],pinnedChannelIds:[],hiddenChannelIds:[]})},
- '@/features/channels/components/use-channels':{useChannels:()=>({channels:[]})},'react-native-safe-area-context':{useSafeAreaInsets:()=>insets},
+ '@/features/channels/components/use-channels':{useChannels:()=>({channels:[]})},'react-native-safe-area-context':{useSafeAreaInsets:()=>({left:0,right:0,...insets})},
  '@/shared/components/large-title':{useLargeTitleScroll:()=>({})},'@ds/provider':{useDs:()=>({view:{capabilities:{actions:[]}},online:true})},
  '@/features/agents/components/agent-list-reveal':{useAgentListReveal:()=>({})},'@/shared/lib/motion':{useReducedMotion:()=>true},
  }).ConnectedScreen();}
@@ -28,6 +28,7 @@ test('home consumes each native safe-area inset once, including notches and land
   {top:59,bottom:34,wantTop:65,wantBottom:58},
   {top:20,bottom:0,wantTop:26,wantBottom:24},
   {top:0,bottom:21,wantTop:6,wantBottom:45},
+  {top:0,bottom:21,left:59,right:59,wantTop:6,wantBottom:45},
  ]) {
   const {props}=find(screen(false,fixture),n=>n.type==='FlatList');
   const automatic=(props.contentInsetAdjustmentBehavior??'never')!=='never';
@@ -35,6 +36,8 @@ test('home consumes each native safe-area inset once, including notches and land
   const actualBottom=props.contentContainerStyle.paddingBottom+(automatic?fixture.bottom:0);
   assert.equal(actualTop,fixture.wantTop,'content must clear the status bar exactly once');
   assert.equal(actualBottom,fixture.wantBottom,'keep bottom safe-area clearance without doubling it');
+  assert.equal((props.contentContainerStyle.paddingLeft??0)+(automatic?(fixture.left??0):0),fixture.left??0,'left avatar and rows must clear a landscape notch once');
+  assert.equal((props.contentContainerStyle.paddingRight??0)+(automatic?(fixture.right??0):0),fixture.right??0,'creation action must clear the opposite safe-area edge once');
  }
 });
 test('DS provider projects canonical Bot colors into the active avatar graph',()=>{

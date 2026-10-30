@@ -241,3 +241,24 @@ and bottom padding. Native automatic content-inset adjustment is disabled on thi
 list so UIKit does not add a second safe-area gap above the title. Existing header,
 status, row styling and manual safe-area distances remain unchanged. The upstream
 original is retained and the adapted file hash is refreshed in provenance.json.
+
+## Theme boundary and navigation follow-up
+
+The resolved DS phone appearance now supplies the Expo Router navigation theme,
+including header/card backgrounds and foregrounds. The installed Expo SystemUI
+API also synchronizes the iOS window/root-controller background and web body;
+the web document canvas and color scheme follow manual appearance overrides.
+Normal scroll bounce and native presentations remain enabled. Browser evidence
+does not establish native bounce, transition geometry or keyboard correctness.
+
+The latest requested home navigation uses the existing DS robot sprite to open
+settings at the left, and the existing Bot/group creation action at the right.
+Both are ordinary 44-point circles, retain accessible names and keyboard access,
+and keep the 431fcd8 manual top/bottom safe-area behavior. The list also consumes
+lateral safe-area insets once so these controls clear a landscape notch. No swipe-settings gesture or
+floating creation action was added. Only the home title remains MyBot.
+
+The DS pairing screen removes its large decorative robot and excess centered
+spacing. Its return-to-computers action stays above the bounded scrolling form,
+disabled while pairing is pending. Keyboard insets and bottom/lateral safe-area
+padding are retained; pairing authorization and cancellation logic are unchanged.

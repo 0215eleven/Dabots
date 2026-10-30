@@ -4,10 +4,10 @@ import type { ChannelSummary } from '@openbot/contracts/ipc';
 import { router, Stack } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { memo, useMemo, useState, useLayoutEffect } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import PlusIcon from 'lucide-react-native/icons/plus';
 import { type MenuAction, MenuView } from '@/shared/components/menu-view';
-import SettingsIcon from 'lucide-react-native/icons/settings';
+import { BotAvatar, mainLook } from '../../../../../../src/components/BotAvatar';
 import { useThemeColor } from 'heroui-native/hooks';
 import Animated, { cancelAnimation, Easing, FadeIn, LinearTransition, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -120,10 +120,8 @@ function RowSeparator() {
     return <View className="bg-separator" style={{ height: StyleSheet.hairlineWidth, marginLeft: ROW_LEFT + ROW_AVATAR + 12, marginRight: 0 }}/>;
 }
 function IconButton({ label, onPress, children }: { label: string; onPress?: () => void; children: React.ReactNode }) {
-    // Web hitSlop does not enlarge the DOM target. Keep the 36px visual and layout,
-    // but give each browser action a real, non-overlapping 44px touch target.
-    const inset = Platform.OS === 'web' ? 4 : 0;
-    return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={Platform.OS === 'web' ? 0 : 6} className="items-center justify-center" style={({ pressed }) => ({ width: 36 + inset * 2, height: 36 + inset * 2, margin: -inset, opacity: pressed ? 0.6 : 1 })}><View className="items-center justify-center rounded-full bg-control" style={{ width: 36, height: 36 }}>{children}</View></Pressable>;
+    // Ordinary navigation-sized circles, with real 44-point targets on both platforms.
+    return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} className="items-center justify-center rounded-full bg-control" style={({ pressed }) => ({ width: 44, height: 44, opacity: pressed ? 0.6 : 1 })}>{children}</Pressable>;
 }
 function SectionLabel({ children }: { children: string }) {
     return <Typography.Paragraph className="text-muted" style={{ fontSize: 13, lineHeight: 18, fontWeight: '600', paddingHorizontal: ROW_LEFT + 4, paddingTop: 8, paddingBottom: 2 }}>{children}</Typography.Paragraph>;
@@ -156,12 +154,12 @@ export function ConnectedScreen() {
     return <View className="flex-1 bg-background">
   <Stack.Screen options={{ headerShown: false }}/>
   {/* This custom header already pads both safe-area edges; UIKit must not add them again. */}
-  <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24 }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
-   <View className="flex-row items-center gap-2" style={{ paddingLeft: ROW_LEFT + 4, paddingRight: ROW_LEFT, paddingTop: 6, paddingBottom: 2 }}>
+  <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
+   <View className="flex-row items-center gap-2" style={{ paddingHorizontal: ROW_LEFT, paddingTop: 6, paddingBottom: 2 }}>
+    <IconButton label={tr('Settings')} onPress={() => router.push('/settings')}><View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><BotAvatar bot={mainLook} size={28}/></View></IconButton>
     <Typography.Heading accessibilityRole="header" numberOfLines={1} className="flex-1 font-bold" style={{ fontSize: 22, lineHeight: 28, letterSpacing: -0.3 }}>MyBot</Typography.Heading>
     {createActions.length > 1 ? <MenuView actions={createActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
         : createActions.length === 1 ? <IconButton label={createActions[0].title} onPress={() => create(createActions[0].id ?? 'bot')}>{plus}</IconButton> : null}
-    <IconButton label={tr('Settings')} onPress={() => router.push('/settings')}><SettingsIcon size={19} color={foreground} strokeWidth={1.9}/></IconButton>
    </View>
    <View className="flex-row items-center gap-1.5" style={{ paddingHorizontal: ROW_LEFT + 4, paddingBottom: 10 }}>
     <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: online ? String(success) : String(muted) }}/>

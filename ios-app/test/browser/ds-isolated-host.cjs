@@ -63,6 +63,7 @@ async function until(run, timeout=10000){const start=Date.now();let last;while(D
  await page.addStyleTag({content:'#error-toast {pointer-events:none !important}'});await page.getByText('Connect your host',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>Boolean(globalThis.__DS_TEST_FIXTURE__)),false);
  stage='real UI pairing';await pair(h);await visible('Chief').waitFor();await visible('Candidate group').waitFor();check(stage);
  let state=await h.call('state'), bot=state.bots[0];
+ if(process.env.DS_TEST_SCENARIO==='theme-navigation'){await require('./ds-theme-navigation.cjs')({page,h,bot,visible,back,check,until,capture});assert.deepEqual(errors,[]);return;}
  if(process.env.DS_TEST_SCENARIO==='creation-menu'){
   const trigger=page.getByRole('button',{name:'New chat',exact:true});
   await trigger.focus();await trigger.press('Enter');

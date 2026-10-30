@@ -1,13 +1,15 @@
 import "../global.css";
 import "react-native-reanimated";
-import React from "react";
+import React, { useLayoutEffect, useMemo } from "react";
 import {useI18n} from "../src/i18n";
 import {DsProvider} from "../src/ds/provider";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 const queryClient = new QueryClient();
-import { LogBox, View } from "react-native";
+import { LogBox, Platform, View } from "react-native";
 import { designPreview } from "../src/preview/preview-session";
 import { Stack } from "expo-router";
+import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router/react-navigation";
+import * as SystemUI from "expo-system-ui";
 import { StatusBar } from "expo-status-bar";
 import { HeroUINativeProvider } from "heroui-native/provider";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -24,7 +26,23 @@ if (designPreview) LogBox.ignoreAllLogs(true);
 function Root() {
   const t = useTheme();
   const {tr} = useI18n();
+  const navigationTheme = useMemo(() => {
+    const base = t.dark ? DarkTheme : DefaultTheme;
+    return { ...base, colors: { ...base.colors, background: t.bg, card: t.bg, text: t.ink, primary: t.accent, border: t.line } };
+  }, [t.dark, t.bg, t.ink, t.accent, t.line]);
+  useLayoutEffect(() => {
+    // Screen content does not cover the window during native bounce/modal transitions.
+    // Expo updates both the iOS UIWindow and root controller (and the web body).
+    void SystemUI.setBackgroundColorAsync(t.bg).catch(() => {
+      if (__DEV__) console.warn("Could not update the system background.");
+    });
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      document.documentElement.style.backgroundColor = t.bg;
+      document.documentElement.style.colorScheme = t.dark ? "dark" : "light";
+    }
+  }, [t.bg, t.dark]);
   return (
+    <ThemeProvider value={navigationTheme}>
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <StatusBar style={t.dark ? "light" : "dark"} />
       <Stack screenOptions={{ contentStyle: { backgroundColor: t.bg } }}>
@@ -41,6 +59,7 @@ function Root() {
         <Stack.Screen name="classic" options={{ headerShown: false }} />
       </Stack>
     </View>
+    </ThemeProvider>
   );
 }
 
