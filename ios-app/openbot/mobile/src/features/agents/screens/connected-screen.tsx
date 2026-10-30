@@ -160,13 +160,13 @@ export function ConnectedScreen() {
   <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
    <View className="flex-row items-center gap-2" style={{ paddingHorizontal: ROW_LEFT, paddingTop: 6, paddingBottom: 2 }}>
     <IconButton label={tr('Settings')} onPress={() => router.push('/settings')}><MenuIcon size={22} color={foreground} strokeWidth={2} accessible={false}/></IconButton>
-    <Typography.Heading accessibilityRole="header" numberOfLines={1} className="flex-1 font-bold" style={{ fontSize: 22, lineHeight: 28, letterSpacing: -0.3 }}>MyBot</Typography.Heading>
+    <Typography.Heading accessibilityRole="header" numberOfLines={1} className="flex-1 font-bold" style={{ fontSize: 22, lineHeight: 28, letterSpacing: -0.3 }}>{activeServer.name}</Typography.Heading>
     {createActions.length > 1 ? <MenuView actions={createActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
         : createActions.length === 1 ? <IconButton label={createActions[0].title} onPress={() => create(createActions[0].id ?? 'bot')}>{plus}</IconButton> : null}
    </View>
    <View className="flex-row items-center gap-1.5" style={{ paddingHorizontal: ROW_LEFT + 4, paddingBottom: 10 }}>
     <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: online ? String(success) : String(muted) }}/>
-    <Typography.Paragraph className="text-muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{[activeServer.name, tr(online ? 'Connected' : 'Offline · saved desktop state')].filter(Boolean).join(' · ')}</Typography.Paragraph>
+    <Typography.Paragraph className="text-muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{tr(online ? 'Connected' : 'Offline · saved desktop state')}</Typography.Paragraph>
    </View>
    {view?.readOnly ? <View className="mx-4 mb-3 rounded-2xl bg-control px-4 py-3"><Typography.Paragraph className="text-text-secondary" style={{ fontSize: 13, lineHeight: 18 }}>{tr(view.readOnly)}</Typography.Paragraph></View> : null}
    {hasPinned ? <>

@@ -4,7 +4,7 @@ const createChat = require('./create-chat.cjs');
 module.exports = async function chinese({page, h, other, host, pair, visible, back, capture, check, until}) {
   const settings = () => page.getByRole('button', {name: /^(Settings|设置)$/, exact: true});
   const home = async () => {
-    await until(async()=>assert.equal(await page.getByRole('heading', {name: 'MyBot', exact: true}).filter({visible:true}).count(), 1, 'one home heading'));
+    await until(async()=>assert.equal(await page.getByRole('heading', {name: 'DeepSeek Bot Pro', exact: true}).filter({visible:true}).count(), 1, 'one home heading'));
     const button = settings();
     assert.equal(await button.locator('svg[viewBox="0 0 24 24"]').count(), 1, 'settings action uses the menu icon');
     assert.equal((await button.innerText()).trim(), '', 'menu button has an accessible name without a text action');

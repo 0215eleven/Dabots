@@ -222,8 +222,8 @@ The SDK58 native menu remains in use on iOS. Its web implementation leaves the
 trigger inert, so the root Metro config resolves only web menu imports to a DOM
 portal adapter, with actual actions, keyboard focus, Escape and outside dismissal.
 The compact home header keeps its36px icon visuals and native hitSlop; the browser
-uses44px non-overlapping click targets. Only the homepage brand reads MyBot;
-installation, settings, notifications and about keep DeepSeek Bot Pro.
+uses44px non-overlapping click targets. The home title now follows the current
+computer nickname; installation, notifications and about keep DeepSeek Bot Pro.
 
 The UI branch's latest-message previews now use the current DS core's guarded
 history API. The normal DS home never falls back to raw transcript caches or
@@ -256,7 +256,7 @@ computer information/settings at the left, and the Bot/group creation action at 
 Both are ordinary 44-point circles, retain accessible names and keyboard access,
 and keep the 431fcd8 manual top/bottom safe-area behavior. The list also consumes
 lateral safe-area insets once so these controls clear a landscape notch. No swipe-settings gesture or
-floating creation action was added. Only the home title remains MyBot.
+floating creation action was added. The home title follows the current computer name.
 
 The DS pairing screen removes its large decorative robot and excess centered
 spacing. Its return-to-computers action stays above the bounded scrolling form,
@@ -286,3 +286,24 @@ chrome keeps its platform material. A native MenuView can own a button's action
 without an inert React press handler. No new provider, blur library or parallel
 button component was introduced. Browser captures show the fallback material;
 they are not native Liquid Glass captures.
+
+
+## Phone-local computer nicknames
+
+Each saved computer may have a local nickname, defaulting to its paired name.
+The normal DS home title, connection card and computer list share that display
+name; the home status line does not repeat it. Settings opens a native form sheet
+for renaming any saved computer or restoring its original name. Chinese and
+English labels use the existing DS locale bridge.
+
+A separate names provider stores preferences in the app cache by serverId,
+outside transcript scopes. It never replaces the session Host, client or outbox,
+changes credentials/slots or writes desktop settings. Writes are serialized and
+read back before success is published; pending saves prevent dismissal and
+duplicate submission. Forgotten-computer cleanup is retried on the next load if
+storage failed, while its old nickname stays hidden for this app session.
+
+Validation covers two computers, offline rename/reconnect, reset, cancel, write
+failure and reload of local preferences in the actual browser app. These checks
+do not establish native sheet gestures, keyboard or device persistence. No IPA
+or native build was run for this change.

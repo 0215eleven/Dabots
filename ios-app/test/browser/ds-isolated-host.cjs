@@ -63,6 +63,7 @@ async function until(run, timeout=10000){const start=Date.now();let last;while(D
  await page.addStyleTag({content:'#error-toast {pointer-events:none !important}'});await page.getByText('Connect your host',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>Boolean(globalThis.__DS_TEST_FIXTURE__)),false);
  stage='real UI pairing';await pair(h);await visible('Chief').waitFor();await visible('Candidate group').waitFor();check(stage);
  let state=await h.call('state'), bot=state.bots[0];
+ if(process.env.DS_TEST_SCENARIO==='computer-names'){await require('./ds-computer-names.cjs')({page,h,host,pair,visible,back,check,until,capture});assert.deepEqual(errors,[]);return;}
  if(process.env.DS_TEST_SCENARIO==='theme-navigation'){await require('./ds-theme-navigation.cjs')({page,h,bot,visible,back,check,until,capture});assert.deepEqual(errors,[]);return;}
  if(process.env.DS_TEST_SCENARIO==='creation-menu'){
   const trigger=page.getByRole('button',{name:'New chat',exact:true});
@@ -72,7 +73,7 @@ async function until(run, timeout=10000){const start=Date.now();let last;while(D
   await until(async()=>assert.equal(await page.getByRole('menuitem',{name:'New group',exact:true}).evaluate(e=>e===document.activeElement),true));
   await page.keyboard.press('Escape');await page.getByRole('menu').waitFor({state:'hidden'});
   assert.equal(await trigger.evaluate(e=>e===document.activeElement),true);
-  await trigger.click();await page.getByRole('menu').waitFor();await page.getByRole('heading',{name:'MyBot',exact:true}).click();await page.getByRole('menu').waitFor({state:'hidden'});
+  await trigger.click();await page.getByRole('menu').waitFor();await page.getByRole('heading',{name:'DeepSeek Bot Pro',exact:true}).click();await page.getByRole('menu').waitFor({state:'hidden'});
   check('creation menu supports keyboard focus, arrow navigation, Escape and outside dismissal');
   await createChat(page,'Add Bot');await page.getByLabel('Bot name',{exact:true}).waitFor();check('real home creation menu opens Bot form');await back();
   await createChat(page,'New group');await page.getByLabel('Group name',{exact:true}).waitFor();check('real home creation menu opens group form');assert.deepEqual(errors,[]);return;

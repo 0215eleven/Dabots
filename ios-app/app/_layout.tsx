@@ -18,6 +18,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { MotionProvider } from "../src/components/Motion";
 import { LocaleBridge } from "../src/openbot/locale-bridge";
 import { SessionProvider } from "../src/session/SessionProvider";
+import { ComputerNamesProvider } from "../src/names/ComputerNamesProvider";
 import { useTheme } from "../src/theme";
 
 // Screenshots of the design preview should show the screens, not development warnings.
@@ -56,6 +57,7 @@ function Root() {
         <Stack.Screen name="channel-info/[channelId]" options={{title:tr("Group"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
         <Stack.Screen name="+not-found" options={{title:tr("Unavailable")}} />
         <Stack.Screen name="pairing" options={{ presentation: "modal", headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="computer-name" options={{ title: tr("Computer name"), presentation: "formSheet", sheetAllowedDetents: [0.85], sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: false }} />
         <Stack.Screen name="classic" options={{ headerShown: false }} />
       </Stack>
     </View>
@@ -71,7 +73,7 @@ export default function Layout() {
           <HeroUINativeProvider>
             <MotionProvider>
               <SessionProvider>
-                <QueryClientProvider client={queryClient}><DsProvider><LocaleBridge /><Root /></DsProvider></QueryClientProvider>
+                <ComputerNamesProvider><QueryClientProvider client={queryClient}><DsProvider><LocaleBridge /><Root /></DsProvider></QueryClientProvider></ComputerNamesProvider>
               </SessionProvider>
             </MotionProvider>
           </HeroUINativeProvider>

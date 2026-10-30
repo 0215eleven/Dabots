@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url), {transformSync}=require('esbuild');
 const noop=()=>{};
 const react={createElement:(type:any,props:any,...children:any[])=>({type,props:{...props,children}}),createContext:()=>({Provider:'Provider'}),useContext:()=>null,useMemo:(f:any)=>f(),useCallback:(f:any)=>f,useRef:(value:any)=>({current:value}),useState:(value:any)=>[typeof value==='function'?value():value,noop],useEffect:noop,useLayoutEffect:noop,memo:(f:any)=>f};
-function load(path:string,mocks:Record<string,any>){const code=transformSync(readFileSync(new URL(path,import.meta.url),'utf8'),{loader:'tsx',format:'cjs',jsx:'transform'}).code;const module={exports:{} as any};new Function('require','module','exports','React',code)((name:string)=>name==='react'?react:mocks[name]??new Proxy({}, {get:()=>noop}),module,module.exports,react);return module.exports;}
+function load(path:string,mocks:Record<string,any>){const code=transformSync(readFileSync(new URL(path,import.meta.url),'utf8'),{loader:'tsx',format:'cjs',jsx:'transform'}).code;const module={exports:{} as any};new Function('require','module','exports','React',code)((name:string)=>name==='react'?react:mocks[name]??(name==='../names/ComputerNamesProvider'?{useComputerNames:()=>({name:(host:any)=>host?.name??'DeepSeek Bot Pro',load:async()=>{},rename:async()=>{},error:''})}:new Proxy({}, {get:()=>noop})),module,module.exports,react);return module.exports;}
 function animation(){return {duration(){return this},reduceMotion(value:string){return {...this,motion:value}}};}
 const reanimated={__esModule:true,default:{FlatList:'FlatList',View:'AnimatedView'},Easing:{bezier:noop},FadeIn:animation(),LinearTransition:animation(),ReduceMotion:{System:'system',Always:'always'},useSharedValue:(value:any)=>({get:()=>value,set:(next:any)=>{value=next}})};
 function screen(hidden:boolean,insets:{top:number;bottom:number;left?:number;right?:number}={top:0,bottom:0}){const agents=[{id:'visible'},{id:'hidden'}];return load('../openbot/mobile/src/features/agents/screens/connected-screen.tsx',{
@@ -19,6 +19,10 @@ function screen(hidden:boolean,insets:{top:number;bottom:number;left?:number;rig
 // Find rendered elements by type, so the checks follow the screen's behavior rather than its nesting.
 function find(node:any,match:(node:any)=>boolean):any{if(!node||typeof node!=='object')return undefined;if(Array.isArray(node)){for(const child of node){const hit=find(child,match);if(hit)return hit;}return undefined;}if(match(node))return node;const props=node.props??{};for(const key of Object.keys(props)){const hit=find(props[key],match);if(hit)return hit;}return undefined;}
 test('quiet canonical motion suppresses retained list transitions',()=>{const tree=screen(false);assert.equal(find(tree,n=>n.type==='FlatList').props.itemLayoutAnimation.motion,'always');});
+test('home title follows the selected computer rather than a second fixed brand name',()=>{
+ const tree=screen(false);const header=find(tree,n=>n.type==='FlatList').props.ListHeaderComponent;
+ assert.deepEqual(find(header,n=>n.props?.accessibilityRole==='header').props.children,['host']);
+});
 test('show hidden includes a hidden pinned Bot in the actual pinned section',()=>{const original=react.useState;react.useState=()=>[true,noop];try{const tree=screen(true);const header=find(tree,n=>n.type==='FlatList').props.ListHeaderComponent;assert.deepEqual(find(header,n=>Array.isArray(n.props?.agents)).props.agents.map((a:any)=>a.id),['hidden']);}finally{react.useState=original}});
 test('home consumes each native safe-area inset once, including notches and landscape',()=>{
  // UIKit adds its safe-area inset when automatic adjustment is enabled. The home
