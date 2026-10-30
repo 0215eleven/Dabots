@@ -17,6 +17,7 @@ test('actual root follows phone appearance and DSH palette at the native window 
     'expo-router':{Stack:stack},
     'expo-router/react-navigation':{ThemeProvider:'ThemeProvider',DefaultTheme:base,DarkTheme:{...base,dark:true}},
     'expo-system-ui':{setBackgroundColorAsync:async(color:string)=>{backgrounds.push(color)}},
+    'uniwind':{useCSSVariable:()=>theme.dark?'#171717':'#f6f6f8'},
     '@tanstack/react-query':{QueryClient:class{}},
     '../src/theme':{useTheme:()=>theme},
     '../src/i18n':{useI18n:()=>({tr:(text:string)=>text})},
