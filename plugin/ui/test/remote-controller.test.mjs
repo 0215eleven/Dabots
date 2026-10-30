@@ -122,7 +122,7 @@ test('relay mode pairs only when the relay is ready and shows the relay identity
   controller.dispose()
 })
 
-test('saving the relay keeps the secret out of controller state and switches once', async () => {
+test('saving the relay keeps the optional secret out of controller state and switches once', async () => {
   const calls = []
   let current = status({ relay: { mode: 'direct', relay: null, secretSet: false, state: 'disabled', computerId: null, ready: false, revision: 0 } })
   const secret = 'x'.repeat(40)
@@ -133,10 +133,11 @@ test('saving the relay keeps the secret out of controller state and switches onc
     return method === 'status' ? current : {}
   } })
   await controller.refresh()
+  // An open relay needs no secret.
   await controller.useRelay('wss://relay.example', '')
-  assert.match(controller.snapshot().error, /注册密钥/)
+  assert.equal(controller.snapshot().error, '')
   await controller.useRelay('wss://relay.example/', secret)
-  assert.deepEqual(calls.filter(([method]) => method !== 'status'), [['relay.configure', { relay: 'wss://relay.example', secret }], ['relay.select', { mode: 'relay' }]])
+  assert.deepEqual(calls.filter(([method]) => method !== 'status'), [['relay.configure', { relay: 'wss://relay.example' }], ['relay.select', { mode: 'relay' }], ['relay.configure', { relay: 'wss://relay.example', secret }]])
   assert.equal(JSON.stringify(controller.snapshot()).includes(secret), false)
   await controller.useRelay('https://relay.example', secret)
   assert.match(controller.snapshot().error, /wss:\/\//)

@@ -8,6 +8,7 @@ import {isIP} from 'node:net';
 import {WebSocketServer,WebSocket} from 'ws';
 import {createAccountApi} from './accounts.mjs';
 const hash=x=>createHash('sha256').update(x).digest();
+const MAX_COMPUTERS=10000;
 const raw=(s,n)=>{if(typeof s!=='string'||!s||s.length>256)throw Error('invalid');const b=Buffer.from(s,'base64url');if(b.length!==n||b.toString('base64url')!==s)throw Error('invalid');return b;};
 // Strict literals only: no zone IDs, CIDRs, ports, lists or alternate IPv4 syntax.
 function canonicalIp(value){
@@ -17,11 +18,13 @@ function canonicalIp(value){
  if(/^::ffff:[0-9a-f]{1,4}:[0-9a-f]{1,4}$/.test(ip)){const parts=ip.slice(7).split(':').map(x=>parseInt(x,16));return [parts[0]>>>8,parts[0]&255,parts[1]>>>8,parts[1]&255].join('.');}
  return ip;
 }
-export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowedOrigins=[],trustProxy=false,trustedProxyIp,accounts=null}){
+export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowedOrigins=[],trustProxy=false,trustedProxyIp,accounts=null,openRegistration=false}){
  const configured=trustedProxyIp!==undefined,proxy=configured?canonicalIp(trustedProxyIp):null;
  if(configured&&!proxy)throw Error('trustedProxyIp must be one IP literal.');
  // With accounts, a computer may register with its owner's session instead of the shared secret.
- if(secret!==undefined||!accounts){if(typeof secret!=='string'||Buffer.byteLength(secret)<32)throw Error('A relay registration secret of at least 32 bytes is required.');}
+ // With open registration any computer may register: phones still end-to-end encrypt to the
+ // computer key from its QR code and each computer still approves each phone.
+ if(secret!==undefined||(!accounts&&!openRegistration)){if(typeof secret!=='string'||Buffer.byteLength(secret)<32)throw Error('A relay registration secret of at least 32 bytes is required.');}
  const expected=secret===undefined?null:hash(secret),publicUrl=new URL(origin);
  if(publicUrl.protocol!=='wss:'||publicUrl.username||publicUrl.password||publicUrl.search||publicUrl.hash||publicUrl.pathname!=='/')throw Error('A WSS relay origin is required.');
  const computers=new Map(),rates=new Map(),ips=new Map(),originSet=new Set(allowedOrigins),requests=new Map();
@@ -96,9 +99,9 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
       if(m.type!=='register'||m.nonce!==nonce)throw Error('invalid');
       // The shared secret, or (with accounts) the session of the account that owns this computer.
       const owner=typeof m.accountToken==='string'&&accounts?accounts.authenticate(m.accountToken):null;
-      if(!owner&&!(typeof m.secret==='string'&&expected&&timingSafeEqual(hash(m.secret),expected)))throw Error('invalid');
+      if(!owner&&!openRegistration&&!(typeof m.secret==='string'&&expected&&timingSafeEqual(hash(m.secret),expected)))throw Error('invalid');
       const ed=raw(m.edPublicKey,32);raw(m.computerKey,32);const id=hash(ed).subarray(0,16).toString('base64url');
-      if(id!==m.computerId||computers.has(id))throw Error('invalid');
+      if(id!==m.computerId||computers.has(id)||computers.size>=MAX_COMPUTERS)throw Error('invalid');
       const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),ed]),format:'der',type:'spki'});
       const signed=JSON.stringify(['ds-bot-computer-v2',origin,nonce,id,m.edPublicKey,m.computerKey]);
       if(!verify(null,Buffer.from(signed),key,raw(m.signature,64)))throw Error('invalid');

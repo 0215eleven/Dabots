@@ -39,7 +39,7 @@ export async function installArchive(modules,name,archive){
 }
 export const writeProfile=(env,{dependencies,bundles})=>writeFile(join(env.profile,'package.json'),JSON.stringify({name:'suite-isolated-profile',private:true,dependencies,dsh:{profile:{bundles:['@deepseek-ai/dsh-base','@deepseek-ai/dsh-web-app',...bundles]}}},null,2)+'\n')
 // The owner's existing Bridge override: by row ID only, in the profile patch layer.
-export const writeOwnerPatch=(env,bridgePort,name='Suite test')=>writeFile(join(env.profile,'cordis.patch.yml'),`- id: ds-bot-mobile-bridge\n  config:\n    enabled: true\n    home: ${JSON.stringify(env.bridgeHome)}\n    host: 127.0.0.1\n    port: ${bridgePort}\n    devAllowInsecure: true\n    name: ${name}\n`)
+export const writeOwnerPatch=(env,bridgePort,name='Suite test')=>writeFile(join(env.profile,'cordis.patch.yml'),`- id: ds-bot-mobile-bridge\n  config:\n    enabled: true\n    home: ${JSON.stringify(env.bridgeHome)}\n    host: 127.0.0.1\n    port: ${bridgePort}\n    devAllowInsecure: true\n    relay: ''\n    name: ${name}\n`)
 
 export async function launch(env,{bridgePort}){
   const children=[],shell=await fixtureEnvironment(env.home),webPort=await freePort(),mockPort=await freePort()

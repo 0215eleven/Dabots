@@ -178,13 +178,13 @@ curl -s -i -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Ve
 
 本分支 Relay `0.1.0-codex.4`、Bridge `0.0.9-codex.6` 固定 `ws@8.22.0`，覆盖上述分片耗尽与TypedArray关闭原因公告。不要用旧8.18.3归档替代本候选；生产部署仍须独立确认、校验归档与版本，保留资源限制及原站点回滚。升级通过本地测试不表示已部署或已完成真机验收。
 
-## 六、开启账号（Relay 0.2.0）
+## 六、扫码即用：开放登记（Relay 0.2.0）
 
-0.2.0 起中转服务可以记录"谁拥有哪些电脑"：电脑插件用账号登记，手机登录同一账号后能列出这些电脑。服务器只存账号、密码哈希（scrypt）、会话令牌哈希和电脑公钥，不存任何聊天内容；手机到电脑仍是端到端加密，手机第一次连电脑仍需电脑批准。原有的注册密钥方式继续可用。
+和公共中转服务一样，电脑不需要注册密钥就能登记：插件默认使用中转（插件配置 `relay`，默认 `wss://dsbot.ziyuegege.com`），装好插件直接出二维码，手机一扫即连，不需要端口、证书、隧道或账号。
 
-- 数据文件：`/var/lib/ds-bot-relay/accounts.json`（0600，systemd `StateDirectory` 创建，只有服务用户可写）。
-- 新账号：`RELAY_REGISTRATION=invite`（默认，管理员发邀请码）、`open` 或 `closed`。
-- 第一个账号（管理员）必须使用服务启动时写到 `/var/lib/ds-bot-relay/bootstrap-code` 的一次性代码，只有能登录服务器的人能读到；管理员建好后该文件自动删除。这样服务一上线，别人也无法抢先注册管理员。
+- 开启方式：服务环境变量 `RELAY_OPEN_REGISTRATION=1`（下面的脚本会写入）。原有注册密钥仍然有效，已配置密钥的电脑不受影响。
+- 安全边界不变：手机到电脑端到端加密，加密公钥来自二维码；手机第一次连电脑仍需电脑批准；中转看不到聊天内容。开放后只是任何电脑都能登记到这台中转（占用流量）。中转仍按 IP 限流，最多同时登记 10000 台电脑。
+- `RELAY_ORIGIN` 必须与插件里的中转地址完全一致（`wss://` + 域名）。
 
 ### 更新步骤（在有 SSH 密钥的电脑上，Windows PowerShell）
 
@@ -196,17 +196,30 @@ git pull origin main
 $key = "<SSH 私钥路径>"; $server = "root@<服务器 IP>"
 ssh -i $key $server "rm -rf /tmp/ds-bot-relay-update"
 scp -i $key -r plugin\tools\relay ${server}:/tmp/ds-bot-relay-update
-# 3. 运行更新脚本（-t：脚本会提示输入管理员用户名和密码）
+# 3. 运行更新脚本
 ssh -t -i $key $server "rm -rf /tmp/ds-bot-relay-update/node_modules /tmp/ds-bot-relay-update/test; bash /tmp/ds-bot-relay-update/deploy/update.sh"
 ```
 
-脚本 `deploy/update.sh` 会：检查 systemd 服务和 Node 版本 → 备份当前安装目录 → 安装新文件并 `npm ci` → 首次运行时写入 `/etc/systemd/system/ds-bot-relay.service.d/accounts.conf` 开启账号 → 重启并检查 `/healthz` 与 `/v1/account/info`，失败自动回滚 → 若还没有账号，提示创建管理员。脚本不打印密钥、密码或令牌。若中转跑在 Docker 里，脚本会停下并列出容器，不会擅自修改。
+脚本 `deploy/update.sh` 会：检查 systemd 服务和 Node 版本 → 备份当前安装目录 → 安装新文件并 `npm ci` → 首次运行时写入 `/etc/systemd/system/ds-bot-relay.service.d/open-registration.conf` 开启开放登记 → 重启并检查 `/healthz`，失败自动回滚。脚本不打印密钥。若中转跑在 Docker 里，脚本会停下并列出容器，不会擅自修改。
 
 ### 验证
 
 ```bash
-curl -s https://<中转域名>/v1/account/info   # {"registration":"invite","relay":"wss://..."}
+curl -s https://<中转域名>/healthz   # {"ok":true}
+journalctl -u ds-bot-relay -n 5 --no-pager   # 应包含 "with open registration"
 ```
+
+然后在电脑上更新插件，打开 DS Bot 设置 → 手机连接方式，默认即为“服务器中转”，状态显示“已连接中转服务，可以扫码”后用手机扫码并在电脑上批准。之前已保存过“自己直连”的电脑会保持原选择：选一次“服务器中转”，地址填 `wss://dsbot.ziyuegege.com`、密钥留空，保存即可。
+
+## 七、账号（可选，默认未开启）
+
+0.2.0 起中转服务可以记录"谁拥有哪些电脑"：电脑插件用账号登记，手机登录同一账号后能列出这些电脑。服务器只存账号、密码哈希（scrypt）、会话令牌哈希和电脑公钥，不存任何聊天内容；手机到电脑仍是端到端加密，手机第一次连电脑仍需电脑批准。原有的注册密钥方式继续可用。
+
+- 数据文件：`/var/lib/ds-bot-relay/accounts.json`（0600，systemd `StateDirectory` 创建，只有服务用户可写）。
+- 新账号：`RELAY_REGISTRATION=invite`（默认，管理员发邀请码）、`open` 或 `closed`。
+- 第一个账号（管理员）必须使用服务启动时写到 `/var/lib/ds-bot-relay/bootstrap-code` 的一次性代码，只有能登录服务器的人能读到；管理员建好后该文件自动删除。这样服务一上线，别人也无法抢先注册管理员。
+
+设置 `RELAY_DATA_FILE`（并用 systemd `StateDirectory` 给出可写目录）才会开启；上面的更新脚本不会开启账号。
 
 ### 账号接口（JSON，均为 `/v1/account/`）
 

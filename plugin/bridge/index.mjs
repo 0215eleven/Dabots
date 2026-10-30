@@ -24,7 +24,7 @@ export async function startBridge(ctx, config) {
     server = await createMobileServer({ home, config, adapter, managedRemote: true })
     const remote = await createRemoteConnection({ home, config, server })
     let relay
-    try { relay = await createRelaySettings({ home, server }) } catch (error) { await remote.dispose(); throw error }
+    try { relay = await createRelaySettings({ home, server, defaultRelay: config.relay || null }) } catch (error) { await remote.dispose(); throw error }
     let closing
     return { ...server, get url() { return server.url }, adapter,
       async operator(endpoint, payload = {}) {

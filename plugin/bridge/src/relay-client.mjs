@@ -3,7 +3,8 @@ import {WebSocket} from 'ws'
 import {acceptPhoneHandshake,createRpcPeer} from './relay-shared.mjs'
 export function createRelayConnector({relay,secret,identity,serverId,endpoint,Socket=WebSocket,onStatus=()=>{}}){
  const url=new URL(relay)
- if(url.protocol!=='wss:'||url.pathname!=='/'||url.username||url.password||url.search||url.hash||typeof secret!=='string'||Buffer.byteLength(secret)<32)throw Error('Invalid relay configuration')
+ // The secret is optional: a relay with open registration accepts any computer that signs its key.
+ if(url.protocol!=='wss:'||url.pathname!=='/'||url.username||url.password||url.search||url.hash||(secret!=null&&(typeof secret!=='string'||Buffer.byteLength(secret)<32)))throw Error('Invalid relay configuration')
  const edPublicKey=createPublicKey(identity.edPrivateKey).export({type:'spki',format:'der'}).subarray(-32).toString('base64url')
  const computerId=createHash('sha256').update(Buffer.from(edPublicKey,'base64url')).digest().subarray(0,16).toString('base64url')
  const computerKey=Buffer.from(identity.xPublicKey).toString('base64url')
@@ -32,7 +33,7 @@ export function createRelayConnector({relay,secret,identity,serverId,endpoint,So
      if(value.type==='challenge'&&state==='connecting'){
       if(typeof value.nonce!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(value.nonce))throw Error('Invalid challenge')
       const payload=JSON.stringify(['ds-bot-computer-v2',url.origin,value.nonce,computerId,edPublicKey,computerKey])
-      ws.send(JSON.stringify({type:'register',nonce:value.nonce,computerId,edPublicKey,computerKey,signature:sign(null,Buffer.from(payload),identity.edPrivateKey).toString('base64url'),secret}));return
+      ws.send(JSON.stringify({type:'register',nonce:value.nonce,computerId,edPublicKey,computerKey,signature:sign(null,Buffer.from(payload),identity.edPrivateKey).toString('base64url'),...(secret?{secret}:{})}));return
      }
      if(value.type==='registered'&&value.computerId===computerId&&state==='connecting'){clearTimeout(timeout);attempts=0;publish('ready');resolveReady();return}
      if(state!=='ready')throw Error('Relay not registered')

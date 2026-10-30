@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Updates an installed ds-bot-relay (systemd, see ../DEPLOYMENT.md) to this folder's version and
-# turns on accounts. Run as root on the relay server from the uploaded copy of plugin/tools/relay:
+# turns on open registration, so a computer needs no registration secret: install the plugin,
+# scan, done. Run as root on the relay server from the uploaded copy of plugin/tools/relay:
 #   sudo bash /tmp/ds-bot-relay-update/deploy/update.sh
 # It backs up the installed files first and restores them if the new version does not come up.
 # It never prints the registration secret, passwords or tokens.
@@ -8,8 +9,7 @@ set -euo pipefail
 
 SERVICE="${RELAY_SERVICE:-ds-bot-relay}"
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STATE=/var/lib/ds-bot-relay
-DROPIN="/etc/systemd/system/${SERVICE}.service.d/accounts.conf"
+DROPIN="/etc/systemd/system/${SERVICE}.service.d/open-registration.conf"
 
 say() { printf '\n== %s\n' "$*"; }
 die() { printf '\n!! %s\n' "$*" >&2; exit 1; }
@@ -61,15 +61,12 @@ chown -R root:root "$INSTALL"
 if [ -f "$DROPIN" ]; then
   say "Keeping the existing $DROPIN"
 else
-  say "Turning on accounts ($DROPIN)"
+  say "Turning on open registration ($DROPIN)"
   mkdir -p "$(dirname "$DROPIN")"
-  # StateDirectory gives the service user its own writable /var/lib/ds-bot-relay under ProtectSystem=strict.
+  # Computers register without the shared secret; the secret file, if any, keeps working too.
   cat > "$DROPIN" <<EOF
 [Service]
-StateDirectory=ds-bot-relay
-StateDirectoryMode=0700
-Environment=RELAY_DATA_FILE=$STATE/accounts.json
-Environment=RELAY_REGISTRATION=invite
+Environment=RELAY_OPEN_REGISTRATION=1
 EOF
   touch "$DROPIN.new"
 fi
@@ -79,34 +76,14 @@ systemctl daemon-reload
 systemctl restart "$SERVICE"
 ok=""
 for _ in $(seq 1 20); do
-  if curl -fsS "http://$HOST:$PORT/healthz" >/dev/null 2>&1 && curl -fsS "http://$HOST:$PORT/v1/account/info" >/dev/null 2>&1; then ok=1; break; fi
+  if curl -fsS "http://$HOST:$PORT/healthz" >/dev/null 2>&1 && systemctl is-active --quiet "$SERVICE"; then ok=1; break; fi
   sleep 1
 done
 [ -n "$ok" ] || restore
 rm -f "$DROPIN.new"
 echo "health: $(curl -fsS "http://$HOST:$PORT/healthz")"
-echo "accounts: $(curl -fsS "http://$HOST:$PORT/v1/account/info")"
-
-if [ -f "$STATE/bootstrap-code" ]; then
-  say "Create the admin account"
-  echo "No account exists yet. The first account becomes the admin; it uses the one-time code in $STATE/bootstrap-code."
-  read -r -p "Admin username (3-32 letters, digits, . _ -): " USERNAME
-  read -r -p "Email (optional, Enter to skip): " EMAIL
-  read -r -s -p "Password (at least 8 characters): " PASSWORD; echo
-  read -r -s -p "Password again: " AGAIN; echo
-  [ "$PASSWORD" = "$AGAIN" ] || die "The passwords differ. Run this script again to create the admin; the update itself is done."
-  BODY="$("$NODE" -e 'const [u,e,p,c]=process.argv.slice(1);process.stdout.write(JSON.stringify({username:u,...(e?{email:e}:{}),password:p,invite:c}))' \
-    "$USERNAME" "$EMAIL" "$PASSWORD" "$(cat "$STATE/bootstrap-code")")"
-  unset PASSWORD AGAIN
-  RESULT="$(curl -sS -H 'content-type: application/json' --data-binary @- "http://$HOST:$PORT/v1/account/register" <<<"$BODY")"
-  unset BODY
-  if printf '%s' "$RESULT" | grep -q '"admin":true'; then
-    echo "Admin account created: $USERNAME"
-  else
-    die "The admin was not created: $(printf '%s' "$RESULT" | "$NODE" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).code)}catch{console.log("unexpected answer")}})'). Run this script again to retry."
-  fi
-fi
+journalctl -u "$SERVICE" -n 3 --no-pager -o cat | grep -m1 'listening' || true
 
 say "Done"
 echo "Backup kept at $BACKUP (delete it once everything works)."
-echo "Check from anywhere: curl -s https://<relay domain>/v1/account/info"
+echo "Check from anywhere: curl -s https://<relay domain>/healthz"

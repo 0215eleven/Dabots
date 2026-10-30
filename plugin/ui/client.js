@@ -2343,18 +2343,14 @@ function createDeviceController({ call, now = Date.now }) {
       return operation("remote.start", { confirmed: true });
     },
     stopRemote: () => operation("remote.stop", {}, { interrupt: true }),
-    // The secret is passed straight through and never kept in controller state.
+    // The optional secret is passed straight through and never kept in controller state.
+    // Without one, a saved secret for the same address is kept; open relays need none.
     async useRelay(value, secret) {
       let relay;
       try {
         relay = relayOrigin(value);
       } catch (error) {
         emit({ error: error.message });
-        return;
-      }
-      const keep = !secret && state.status?.relay?.secretSet && state.status.relay.relay === relay;
-      if (!secret && !keep) {
-        emit({ error: remoteErrorMessage("RELAY_SECRET_REQUIRED") });
         return;
       }
       await operation("relay.configure", { relay, ...secret ? { secret } : {} });
@@ -2863,14 +2859,14 @@ function RelayPanel({ state, controller }) {
         void controller.useRelay(address.trim(), value);
       } },
       (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "中转服务地址"), (0, import_react2.createElement)("input", { "aria-label": "中转服务地址", type: "url", required: true, autoComplete: "off", spellCheck: false, placeholder: "wss://relay.example.com", value: address, disabled: state.busy, maxLength: 2048, onChange: (event) => setAddress(event.target.value) })),
-      (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "注册密钥"), (0, import_react2.createElement)("input", { "aria-label": "中转注册密钥", type: "password", autoComplete: "new-password", spellCheck: false, placeholder: keep ? "已保存，留空则不修改" : "与中转服务器上配置的密钥一致", value: secret, disabled: state.busy, maxLength: 512, onChange: (event) => setSecret(event.target.value) })),
-      (0, import_react2.createElement)("p", null, "密钥只保存在本机 Bridge 专用目录，页面和手机都看不到。"),
+      (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "注册密钥（可选）"), (0, import_react2.createElement)("input", { "aria-label": "中转注册密钥", type: "password", autoComplete: "new-password", spellCheck: false, placeholder: keep ? "已保存，留空则不修改" : "中转服务器要求时才填写", value: secret, disabled: state.busy, maxLength: 512, onChange: (event) => setSecret(event.target.value) })),
+      (0, import_react2.createElement)("p", null, "默认中转无需密钥。填写的密钥只保存在本机 Bridge 专用目录，页面和手机都看不到。"),
       (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", className: "dsma-primary", disabled: state.busy }, active ? "保存中转设置" : "保存并使用服务器中转"))
     ),
     (0, import_react2.createElement)(
       "div",
       { className: "dsma-remote-guide" },
-      (0, import_react2.createElement)("p", null, "电脑主动连到你自己的中转服务器，手机扫码后经它访问本机；不需要域名证书、端口映射或隧道。中转服务只转发加密数据，不保存账号或聊天内容。"),
+      (0, import_react2.createElement)("p", null, "电脑主动连到中转服务器，手机扫码后经它访问本机；不需要域名证书、端口映射或隧道。中转服务只转发加密数据，不保存聊天内容。"),
       (0, import_react2.createElement)("p", { className: "dsma-small" }, "手机与电脑之间的加密改编自 Happy（MIT）开源实现，未经独立安全审计，也不提供前向保密。不会连接 Happy 的公共服务。")
     ),
     (0, import_react2.createElement)("p", { className: "dsma-remote-warning" }, "切换连接方式后旧二维码失效；已配对的手机不会被撤销。")
@@ -2886,7 +2882,7 @@ function ConnectionModePanel({ state, controller }) {
   const choose = (mode) => {
     setChoice(mode);
     if (mode === "direct" && relay.mode === "relay") void controller.selectMode("direct");
-    if (mode === "relay" && relay.mode !== "relay" && relay.relay && relay.secretSet) void controller.selectMode("relay");
+    if (mode === "relay" && relay.mode !== "relay" && relay.relay) void controller.selectMode("relay");
   };
   const option = (mode, title, detail) => (0, import_react2.createElement)(
     "label",
@@ -2900,7 +2896,7 @@ function ConnectionModePanel({ state, controller }) {
     (0, import_react2.createElement)(
       "div",
       { className: "dsma-modes", role: "radiogroup", "aria-label": "手机连接方式" },
-      option("relay", "服务器中转", "自建服务器转发，扫码即用"),
+      option("relay", "服务器中转", "扫码即用，无需配置"),
       option("direct", "自己直连", "自己的 HTTPS 或 Cloudflare 隧道")
     ),
     choice === "relay" ? (0, import_react2.createElement)(RelayPanel, { state, controller }) : (0, import_react2.createElement)(RemoteConnectionPanel, { state, controller })

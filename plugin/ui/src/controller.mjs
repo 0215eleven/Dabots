@@ -79,12 +79,11 @@ export function createDeviceController({ call, now = Date.now }) {
       return operation('remote.start', { confirmed: true })
     },
     stopRemote: () => operation('remote.stop', {}, { interrupt: true }),
-    // The secret is passed straight through and never kept in controller state.
+    // The optional secret is passed straight through and never kept in controller state.
+    // Without one, a saved secret for the same address is kept; open relays need none.
     async useRelay(value, secret) {
       let relay
       try { relay = relayOrigin(value) } catch (error) { emit({ error: error.message }); return }
-      const keep = !secret && state.status?.relay?.secretSet && state.status.relay.relay === relay
-      if (!secret && !keep) { emit({ error: remoteErrorMessage('RELAY_SECRET_REQUIRED') }); return }
       await operation('relay.configure', { relay, ...(secret ? { secret } : {}) })
       if (state.error || state.status?.relay?.relay !== relay) return
       if (!relayMode(state.status)) await operation('relay.select', { mode: 'relay' })

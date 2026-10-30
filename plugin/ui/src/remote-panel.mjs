@@ -103,7 +103,7 @@ export function RemoteConnectionPanel({ state, controller }) {
 
 const relayStates = { disabled: '未启用', connecting: '正在连接中转服务…', ready: '已连接中转服务，可以扫码', offline: '中转服务暂时不可达，正在自动重连' }
 
-// The owner's own relay server. The registration secret is write-only here.
+// The relay server. The optional registration secret is write-only here.
 export function RelayPanel({ state, controller }) {
   const relay = state.status?.relay
   const [address, setAddress] = useState(relay?.relay ?? '')
@@ -117,11 +117,11 @@ export function RelayPanel({ state, controller }) {
     active && relay.computerId ? h('p', { className: 'dsma-address' }, '电脑标识：', h('code', null, relay.computerId.slice(0, 8))) : null,
     h('form', { 'aria-label': '配置中转服务', onSubmit: event => { event.preventDefault(); const value = secret; setSecret(''); void controller.useRelay(address.trim(), value) } },
       h('label', { className: 'dsma-field' }, h('span', null, '中转服务地址'), h('input', { 'aria-label': '中转服务地址', type: 'url', required: true, autoComplete: 'off', spellCheck: false, placeholder: 'wss://relay.example.com', value: address, disabled: state.busy, maxLength: 2048, onChange: event => setAddress(event.target.value) })),
-      h('label', { className: 'dsma-field' }, h('span', null, '注册密钥'), h('input', { 'aria-label': '中转注册密钥', type: 'password', autoComplete: 'new-password', spellCheck: false, placeholder: keep ? '已保存，留空则不修改' : '与中转服务器上配置的密钥一致', value: secret, disabled: state.busy, maxLength: 512, onChange: event => setSecret(event.target.value) })),
-      h('p', null, '密钥只保存在本机 Bridge 专用目录，页面和手机都看不到。'),
+      h('label', { className: 'dsma-field' }, h('span', null, '注册密钥（可选）'), h('input', { 'aria-label': '中转注册密钥', type: 'password', autoComplete: 'new-password', spellCheck: false, placeholder: keep ? '已保存，留空则不修改' : '中转服务器要求时才填写', value: secret, disabled: state.busy, maxLength: 512, onChange: event => setSecret(event.target.value) })),
+      h('p', null, '默认中转无需密钥。填写的密钥只保存在本机 Bridge 专用目录，页面和手机都看不到。'),
       h('div', { className: 'dsma-actions' }, h('button', { type: 'submit', className: 'dsma-primary', disabled: state.busy }, active ? '保存中转设置' : '保存并使用服务器中转'))),
     h('div', { className: 'dsma-remote-guide' },
-      h('p', null, '电脑主动连到你自己的中转服务器，手机扫码后经它访问本机；不需要域名证书、端口映射或隧道。中转服务只转发加密数据，不保存账号或聊天内容。'),
+      h('p', null, '电脑主动连到中转服务器，手机扫码后经它访问本机；不需要域名证书、端口映射或隧道。中转服务只转发加密数据，不保存聊天内容。'),
       h('p', { className: 'dsma-small' }, '手机与电脑之间的加密改编自 Happy（MIT）开源实现，未经独立安全审计，也不提供前向保密。不会连接 Happy 的公共服务。')),
     h('p', { className: 'dsma-remote-warning' }, '切换连接方式后旧二维码失效；已配对的手机不会被撤销。'))
 }
@@ -135,14 +135,14 @@ export function ConnectionModePanel({ state, controller }) {
     setChoice(mode)
     // Relay needs its address first; the panel below saves and switches in one step.
     if (mode === 'direct' && relay.mode === 'relay') void controller.selectMode('direct')
-    if (mode === 'relay' && relay.mode !== 'relay' && relay.relay && relay.secretSet) void controller.selectMode('relay')
+    if (mode === 'relay' && relay.mode !== 'relay' && relay.relay) void controller.selectMode('relay')
   }
   const option = (mode, title, detail) => h('label', { className: 'dsma-mode', 'data-selected': choice === mode },
     h('input', { type: 'radio', name: 'dsma-connection-mode', value: mode, checked: choice === mode, disabled: state.busy, onChange: () => choose(mode) }),
     h('span', null, h('strong', null, title), h('small', null, detail)))
   return h('div', null,
     h('div', { className: 'dsma-modes', role: 'radiogroup', 'aria-label': '手机连接方式' },
-      option('relay', '服务器中转', '自建服务器转发，扫码即用'),
+      option('relay', '服务器中转', '扫码即用，无需配置'),
       option('direct', '自己直连', '自己的 HTTPS 或 Cloudflare 隧道')),
     choice === 'relay' ? h(RelayPanel, { state, controller }) : h(RemoteConnectionPanel, { state, controller }))
 }

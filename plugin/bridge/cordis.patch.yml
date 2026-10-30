@@ -9,3 +9,4 @@
         port: 0
         allowedOrigins: []
         devAllowInsecure: false
+        relay: wss://dsbot.ziyuegege.com
