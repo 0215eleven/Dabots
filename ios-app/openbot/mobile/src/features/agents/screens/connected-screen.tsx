@@ -4,7 +4,7 @@ import type { ChannelSummary } from '@openbot/contracts/ipc';
 import { router, Stack } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { memo, useMemo, useState, useLayoutEffect } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import PlusIcon from 'lucide-react-native/icons/plus';
 import { type MenuAction, MenuView } from '@/shared/components/menu-view';
 import SettingsIcon from 'lucide-react-native/icons/settings';
@@ -120,7 +120,10 @@ function RowSeparator() {
     return <View className="bg-separator" style={{ height: StyleSheet.hairlineWidth, marginLeft: ROW_LEFT + ROW_AVATAR + 12, marginRight: 0 }}/>;
 }
 function IconButton({ label, onPress, children }: { label: string; onPress?: () => void; children: React.ReactNode }) {
-    return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6} className="items-center justify-center rounded-full bg-control" style={({ pressed }) => ({ width: 36, height: 36, opacity: pressed ? 0.6 : 1 })}>{children}</Pressable>;
+    // Web hitSlop does not enlarge the DOM target. Keep the 36px visual and layout,
+    // but give each browser action a real, non-overlapping 44px touch target.
+    const inset = Platform.OS === 'web' ? 4 : 0;
+    return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={Platform.OS === 'web' ? 0 : 6} className="items-center justify-center" style={({ pressed }) => ({ width: 36 + inset * 2, height: 36 + inset * 2, margin: -inset, opacity: pressed ? 0.6 : 1 })}><View className="items-center justify-center rounded-full bg-control" style={{ width: 36, height: 36 }}>{children}</View></Pressable>;
 }
 function SectionLabel({ children }: { children: string }) {
     return <Typography.Paragraph className="text-muted" style={{ fontSize: 13, lineHeight: 18, fontWeight: '600', paddingHorizontal: ROW_LEFT + 4, paddingTop: 8, paddingBottom: 2 }}>{children}</Typography.Paragraph>;

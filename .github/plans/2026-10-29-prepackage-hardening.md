@@ -55,10 +55,10 @@
 - [x] Self-review, commit and request one independent review of this maintenance range. Address evidenced Critical/Important findings in one bounded fix pass with affected verification; avoid restarting the earlier whole integration review. Two Important findings were fixed with RED→GREEN tests and a full green suite; no second independent review or new JS export for desktop-only fixes.
 - [ ] Package/audit from clean committed source, push the feature branch and verify remote SHA; update saved environment setup/ref only if needed. Report each of seven items as fixed/not-applicable/retained with evidence, source SHA, exact checks and genuine native gate.
 
-### User's pending UI integration
+### User's supplied UI integration
 
-- [ ] Obtain the branch/PR/commit for the user's separate UI optimization; acknowledgement alone is not a revision reference.
-- [ ] Inspect its actual base and active routes, integrate without reverting the DS model/Bridge/storage/permission boundaries, and resolve only evidenced conflicts.
+- [x] Obtain the actual remote UI revision: `e27fd2c` supplied, with layout `5a0b610` in its ancestry.
+- [x] Merge remote UI into the same branch (`d9d224c`), preserving both sides; reverse only the extra default MainBot rename (`8486eef`) so MyBot remains homepage-only. Repair the native-menu web fallback and actual web touch target. One scoped UI review found two Important preview-boundary/publication issues; RED→GREEN fixes retain the supplied UI and existing DS contract.
 - [ ] Run the affected integrated browser/type/build checks and record the final source/artifact revision. Native Xcode/IPA/device validation remains a separate authorized packaging phase; this pass does not trigger it.
 
-Maintenance evidence and exact retained/deferred boundaries are in `ios-app/docs/prepackage-review.md`. This record precedes the parent's publication of the documentation commit; the final remote verification is reported by the parent. UI files are untouched and the final packaging candidate is still pending the user's reference.
+Maintenance evidence and exact retained/deferred boundaries are in `ios-app/docs/prepackage-review.md`. This record precedes the parent's publication of the documentation commit; the final remote verification is reported by the parent. The UI reference is supplied and merged; the integrated final check/browser/export/push gates are being completed. Native packaging remains separate.

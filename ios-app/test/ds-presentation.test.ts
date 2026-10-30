@@ -108,3 +108,27 @@ test('hidden Bot native menu branches react to the locale using the existing Sho
  const walk=(node:any):any[]=>Array.isArray(node)?node.flatMap(walk):node&&typeof node==='object'?[node,...walk(node.props?.children)]:[];
  for(const selected of ['zh','en','zh']){locale=selected;const expected=selected==='zh'?'显示':'Show';const ios=module.exports.AgentContextMenuLink({agent,preview:null,children:null});assert.ok(walk(ios).some(node=>node.type==='MenuAction'&&node.props.children.includes(expected)));const android=module.exports.OpenAgentMenu({agent,size:{width:30,height:30},onClose:noop});assert.equal(android.props.actions.find((a:any)=>a.id==='hide').title,expected);assert.equal(agent.name,'User supplied name');}
 });
+
+test('resolved group transcript previews publish into the actual channel store without unrelated workspace changes',()=>{
+ const view:any={serverId:'h',bots:[{id:'b',sourceId:'b',serverId:'h',name:'Bot',conversationId:'cg'}],groups:[{id:'g',name:'Group',members:[],conversationId:'cg'}],conversations:[{id:'cg',source:{id:'raw',updatedAt:1000,preview:'old host summary'}}],capabilities:{actions:[],history:true},work:{}};
+ const core={read:()=>view},session={client:{},host:{serverId:'h'},workspace:{getSnapshot:()=>({}),team:{},conversations:[],online:true}};
+ const store=class{dispose(){} update(){}};let previews:any={},cursor=0;const slots:any[]=[];
+ const originalMemo=react.useMemo,originalLayout=react.useLayoutEffect;
+ const same=(a:any[],b:any[])=>!!a&&a.length===b.length&&a.every((v,i)=>Object.is(v,b[i]));
+ react.useMemo=(factory:any,deps:any[]=[])=>{const n=cursor++;if(!same(slots[n]?.deps,deps))slots[n]={deps,value:factory()};return slots[n].value;};
+ react.useLayoutEffect=((effect:any,deps:any[])=>{const n=cursor++;if(!same(slots[n]?.deps,deps)){slots[n]={deps};effect()}}) as any;
+ try{
+  const {MobileChannelStore}=load('../openbot/mobile/src/features/channels/model/channel-store.ts',{'@tanstack/react-query':require('@tanstack/react-query')});
+  const {DsProvider}=load('../src/ds/provider.tsx',{
+   '../session/SessionProvider':{useSession:()=>session},'./session-binding':{bindSessionCore:()=>core},'./management':{guardManagement:()=>({core})},'./screen-binding':{createScreenCommands:()=>({})},
+   '@/features/workspace/model/conversation-store':{MobileConversationStore:store},'@/features/workspace/model/live-workspace-store':{LiveWorkspaceStore:store},'@/features/channels/model/channel-store':{MobileChannelStore},
+   '../theme':{useTheme:()=>({}),useColorMode:()=>('light')},'../i18n':{useI18n:()=>({locale:'en'})},'../home/usePreviews':{usePreviews:()=>previews},'../logic/conversation-order':load('../src/logic/conversation-order.ts',{}),'./presentation':load('../src/ds/presentation.ts',{'../components/characterData.json':require('../src/components/characterData.json')}),
+  });
+  const render=()=>{cursor=0;return DsProvider({children:null}).props.children[0].props.value};
+  const channels=render().channelStore;assert.equal(channels.get('h').channels[0].lastMessage,null);
+  previews={raw:{text:'New group transcript',createdAt:2000}};render();
+  assert.equal(channels.get('h').channels[0].lastMessage?.text,'New group transcript');
+  view.capabilities.history=false;assert.equal(render().agents[0].preview,'');assert.equal(channels.get('h').channels[0].lastMessage,null);
+  previews={};render();assert.equal(channels.get('h').channels[0].lastMessage,null);
+ }finally{react.useMemo=originalMemo;react.useLayoutEffect=originalLayout}
+});

@@ -1,5 +1,6 @@
 // Exercises the normal app against the same disposable public DSH as the functional suite.
 const assert = require('node:assert/strict');
+const createChat = require('./create-chat.cjs');
 module.exports = async function chinese({page, h, other, host, pair, visible, back, capture, check, until}) {
   const gear = () => page.getByRole('button', {name: /^(Settings|设置)$/, exact: true});
   const home = async () => {
@@ -19,7 +20,7 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
   await visible('手机外观与偏好').waitFor();
   assert.equal(await language.inputValue(), 'zh');
   await back(); await home(); await visible('已连接').waitFor();
-  await page.getByRole('button', {name:'添加机器人',exact:true}).waitFor();
+  await page.getByRole('button', {name:'新对话',exact:true}).waitFor();
   await capture('01-conversation-list');
   check('Chinese selection updates mounted home and accessible single gear header');
   const state = await h.call('state'), bot = state.bots[0];
@@ -58,11 +59,11 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
   await page.getByRole('button',{name:'管理员',exact:true}).waitFor();
   await capture('04-group-edit');
   await back(); await back();
-  await page.getByRole('button',{name:'添加机器人',exact:true}).click();
+  await createChat(page,'添加机器人');
   await page.getByLabel('机器人名称',{exact:true}).waitFor();
   await visible('继承电脑设置').waitFor();
   await back();
-  await page.getByRole('button',{name:'新建群组',exact:true}).click();
+  await createChat(page,'新建群组');
   await page.getByLabel('群组名称',{exact:true}).waitFor(); await back();
   check('Chinese create Bot and create/edit group labels and real back navigation');
   await gear().click();
@@ -90,7 +91,7 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
     } else await route.continue();
   };
   await page.route('**/mobile/v1/actions',loseAction);
-  try{await page.getByRole('button',{name:'#228866',exact:true}).click();await visible('更改需要确认').waitFor();assert.equal(lostAction,true);}
+  try{await page.getByRole('radio',{name:'#228866',exact:true}).click();await visible('更改需要确认').waitFor();assert.equal(lostAction,true);}
   finally{await page.unroute('**/mobile/v1/actions',loseAction);}
   await visible('未收到回复，修改可能已在电脑上生效。请刷新并检查后再进行其他修改。').first().waitFor();
   await language.selectOption('en');await visible('Changes need review').waitFor();
@@ -104,17 +105,17 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
   assert.equal(await language.inputValue(),'host');
   await language.selectOption('zh');await visible('电脑外观').waitFor();
   if(!other){other=await host();await other.call('update-bot',{id:other.f.urls.botId,name:'Other Locale Bot'});await visible('配对电脑').click();await pair(other);await visible('Other Locale Bot').waitFor();await gear().click();}
-  else{await page.getByRole('button',{name:'选择',exact:true}).click();await visible('Connected').waitFor();await gear().click();}
+  else{await page.getByRole('button').filter({has:page.getByText(new URL(other.p.url).host,{exact:true})}).click();await visible('Connected').waitFor();await gear().click();}
   assert.equal(await language.inputValue(),'host','another computer keeps its own follow preference');
   await language.selectOption('en');
   await until(async()=>assert.equal(Object.values(await cache()).filter(p=>p.locale==='en').length,1));
-  await page.getByRole('button',{name:'Select',exact:true}).click();
+  await page.getByRole('button').filter({has:page.getByText(new URL(h.p.url).host,{exact:true})}).click();
   await visible('已连接').waitFor();await home();
   await gear().click();assert.equal(await language.inputValue(),'zh');
   const after=await cache();assert.equal(after[scope].locale,'zh');assert.ok(Object.values(after).some(p=>p.locale==='en'));
   await language.selectOption('en');await visible('Computer appearance').waitFor();
   await back();await visible('Connected').waitFor();await home();
-  await page.getByRole('button',{name:'Add Bot',exact:true}).waitFor();
+  await page.getByRole('button',{name:'New chat',exact:true}).waitFor();
   check('host/system fallback, per-host locale restoration and English round trip');
   // Browser history navigation exercises the second real home route without reloading
   // this development tab's intentionally memory-only pairing credentials.
@@ -173,7 +174,7 @@ module.exports.settings = async function settings({page,h,visible,back,capture,c
     }else await route.continue();
   };
   await page.route('**/mobile/v1/actions',lose);
-  try{await page.getByRole('button',{name:'#228866',exact:true}).click();await visible('更改需要确认').waitFor();assert.equal(lost,true);}
+  try{await page.getByRole('radio',{name:'#228866',exact:true}).click();await visible('更改需要确认').waitFor();assert.equal(lost,true);}
   finally{await page.unroute('**/mobile/v1/actions',lose);}
   const zhManagement='未收到回复，修改可能已在电脑上生效。请刷新并检查后再进行其他修改。';
   const enManagement='The reply was lost. The change may already exist on the computer. Refresh and check it before making another change.';

@@ -215,3 +215,20 @@ where available, and the reader's bubble takes the Bot's DS colour (the accent i
 when the canonical DS colour arrives after the first frame. The browser preview guards a missing
 reduce-transparency query and hides the textarea resize handle. Each changed upstream file keeps its
 original in `adaptations/original/`, recorded in `provenance.json`.
+
+## Integrated browser interaction fixes
+
+The SDK58 native menu remains in use on iOS. Its web implementation leaves the
+trigger inert, so the root Metro config resolves only web menu imports to a DOM
+portal adapter, with actual actions, keyboard focus, Escape and outside dismissal.
+The compact home header keeps its36px icon visuals and native hitSlop; the browser
+uses44px non-overlapping click targets. Only the homepage brand reads MyBot;
+installation, settings, notifications and about keep DeepSeek Bot Pro.
+
+The UI branch's latest-message previews now use the current DS core's guarded
+history API. The normal DS home never falls back to raw transcript caches or
+unverified source summaries; it hides summaries without a live history grant,
+including offline, while preserving the saved roster and drafts. Results are
+scoped to the connection/core and grant, superseded reads are ignored, and empty
+results replace old summaries. Memoized group summaries publish after asynchronous
+reads. These are repairs to the imported UI pass, not additional remote services.

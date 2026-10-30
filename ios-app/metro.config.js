@@ -13,6 +13,9 @@ const shims = new Map([
   ["@norbert_bodziony/bloub", path.resolve(__dirname, "node_modules/@norbert_bodziony/bloub/dist/package/server.js")],
 ]);
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform === 'web' && moduleName === '@/shared/components/menu-view') {
+    return { filePath: path.resolve(__dirname, 'src/ds/menu-view.web.tsx'), type: 'sourceFile' };
+  }
   const shim = shims.get(moduleName);
   if (shim) return { filePath: shim, type: "sourceFile" };
   return context.resolveRequest(context, moduleName, platform);
