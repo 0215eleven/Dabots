@@ -39,7 +39,7 @@ function NameForm({host}: {host:Host}) {
   return <SheetScrollView contentContainerClassName="gap-6 px-5 pt-5 pb-8" keyboardShouldPersistTaps="handled">
     {Platform.OS==='web'?<View className="flex-row items-center justify-between gap-3"><Button variant="ghost" isDisabled={pending} onPress={()=>router.back()}><Button.Label>{tr('Cancel')}</Button.Label></Button>{saveAction}</View>:<><Stack.Toolbar placement="left"><Stack.Toolbar.Button disabled={pending} accessibilityLabel={tr('Cancel')} onPress={()=>router.back()}>{tr('Cancel')}</Stack.Toolbar.Button></Stack.Toolbar>{saveAction}</>}
     <SheetFormField label={tr('Computer name')} hint={tr('Use up to 40 characters on one line.')} value={value} onChangeText={setValue} editable={ready&&!pending} maxLength={80} autoCapitalize="none" autoCorrect={false}/>
-    <Typography.Paragraph className="text-muted">{tr('Only on this phone. The home, connection card and computer list use this name.')}</Typography.Paragraph>
+    <Typography.Paragraph className="text-muted">{tr('Only on this phone. The connection card and computer list use this name.')}</Typography.Paragraph>
     {error?<Typography.Paragraph accessibilityRole="alert" className="text-danger-text">{tr(error)}</Typography.Paragraph>:null}
     {!ready&&error?<Button onPress={()=>setRetry(n=>n+1)}><Button.Label>{tr('Try again')}</Button.Label></Button>:null}
     <Button variant="secondary" isDisabled={!ready||pending} onPress={()=>void save(null)}><Button.Label>{tr('Use computer original name')}</Button.Label></Button>

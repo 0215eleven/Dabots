@@ -777,7 +777,6 @@
   "Save name": "保存名称",
   "Saving…": "保存中…",
   "Use computer original name": "恢复电脑原名",
-  "Only on this phone. The home, connection card and computer list use this name.": "仅在此手机上生效，首页、连接卡片和电脑列表会统一显示这个名称。",
   "Enter a computer name.": "请输入电脑名称。",
   "Use up to 40 characters on one line.": "请使用单行名称，最多 40 个字符。",
   "Could not read saved computer names. Try again.": "无法读取已保存的电脑昵称，请重试。",
@@ -793,5 +792,6 @@
   "Optional": "选填",
   "Could not create Bot": "创建机器人失败",
   "The computer did not provide a failure reason. Check its connection and DSH configuration.": "电脑未返回具体失败原因，请检查连接和电脑端 DSH 配置。",
-  "Disconnected": "已断开"
+  "Disconnected": "已断开",
+  "Only on this phone. The connection card and computer list use this name.": "仅保存在这部手机上，连接卡片和电脑列表会统一显示此昵称。"
 }
