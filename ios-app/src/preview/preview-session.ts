@@ -8,7 +8,7 @@ export const designPreview = __DEV__ && process.env.EXPO_PUBLIC_DS_BOT_DESIGN_PR
 
 const now = Date.now();
 const bots = [
-  { id: "preview-chief", name: "MyBot", role: "统筹全局", sessionId: "s-chief", pinned: true },
+  { id: "preview-chief", name: "Chief", role: "统筹全局", sessionId: "s-chief", pinned: true },
   { id: "preview-research", name: "研究助手", role: "整理资料与证据", sessionId: "s-research" },
   { id: "preview-design", name: "设计搭档", role: "配色与版式", sessionId: "s-design" },
   { id: "preview-writing", name: "写作伙伴", role: "润色文字", sessionId: "s-writing" },

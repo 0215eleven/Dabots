@@ -161,33 +161,33 @@ const expect = (condition, message) => (condition ? undefined : message)
 const saidText = (calls, pattern) => calls.some(call => (call.out ?? []).some(block => block.type === 'text' && pattern.test(block.text)))
 
 const send = (sessionId, text) => api('send', { sessionId, text })
-const chief = () => botNamed('MyBot')
+const chief = () => botNamed('Chief')
 
 let models = []
-await step('bootstrap: MyBot waits for a model', () => api('state'), (value, calls) => {
+await step('bootstrap: Chief waits for a model', () => api('state'), (value, calls) => {
   const current = state()
   const bots = Object.values(current.bots)
   models = value.models ?? []
-  return expect(bots.length === 1 && bots[0].name === 'MyBot' && current.mainBotIds[0] === bots[0].id, 'expected one Main Bot named MyBot')
-    ?? expect(bots[0].model === undefined && bots[0].kickoff !== undefined, 'MyBot should hold its greeting until a model is picked')
-    ?? expect(value.bots[0].waiting === true, 'the view should show MyBot as waiting')
-    ?? expect(calls.length === 0, `MyBot called the model ${calls.length} times before it had one`)
+  return expect(bots.length === 1 && bots[0].name === 'Chief' && current.mainBotIds[0] === bots[0].id, 'expected one Main Bot named Chief')
+    ?? expect(bots[0].model === undefined && bots[0].kickoff !== undefined, 'Chief should hold its greeting until a model is picked')
+    ?? expect(value.bots[0].waiting === true, 'the view should show Chief as waiting')
+    ?? expect(calls.length === 0, `Chief called the model ${calls.length} times before it had one`)
     ?? expect(models.length > 0, 'no models listed for the model card')
 })
 
-await step('user picks a model; MyBot greets and asks in its reply', () => api('update-bot', { id: chief().id, model: models.at(-1).ref }), (_value, calls) => {
+await step('user picks a model; Chief greets and asks in its reply', () => api('update-bot', { id: chief().id, model: models.at(-1).ref }), (_value, calls) => {
   const current = state()
-  return expect(chief().model === models.at(-1).ref, `MyBot runs on ${chief().model}`)
+  return expect(chief().model === models.at(-1).ref, `Chief runs on ${chief().model}`)
     ?? expect(chief().kickoff === undefined, 'the greeting is still held')
     ?? expect(!current.questions?.[chief().sessionId ?? chief().id], 'the greeting should not leave a question card')
-    ?? expect(saidText(calls, /先让团队帮你做哪块/), 'expected MyBot to ask in its reply')
+    ?? expect(saidText(calls, /先让团队帮你做哪块/), 'expected Chief to ask in its reply')
 })
 
-await step('MyBot creates Writer, who replies', () => send(chief().id, '创建一个叫Writer的bot'), () => {
+await step('Chief creates Writer, who replies', () => send(chief().id, '创建一个叫Writer的bot'), () => {
   const writer = botNamed('Writer')
   if (!writer) return 'no Writer'
   const kinds = state().exchanges.filter(entry => [entry.from, entry.to].includes(writer.id)).map(entry => entry.role)
-  return expect(writer.createdBy === chief().id, 'Writer should be created by MyBot')
+  return expect(writer.createdBy === chief().id, 'Writer should be created by Chief')
     ?? expect(kinds.includes('request') && kinds.includes('reply'), `expected a request and a reply, got ${kinds}`)
 })
 
@@ -238,7 +238,7 @@ await step('user creates Coder, who keeps the default model', () => api('create-
     ?? expect(!Object.values(state().bots).some(entry => 'lab' in entry), 'a Bot still has a lab')
 })
 
-await step('MyBot creates a group', () => send(chief().id, '建群 研发群: Writer, Coder'), () => {
+await step('Chief creates a group', () => send(chief().id, '建群 研发群: Writer, Coder'), () => {
   const room = roomNamed('研发群')
   if (!room) return 'no group 研发群'
   const names = room.members.map(id => state().bots[id]?.name).sort()
@@ -258,14 +258,14 @@ await step('admin calls everyone', () => send(roomNamed('研发群').id, '讨论
   return expect(answers.length >= 2, `expected at least two answers, got ${answers.length}`)
 })
 
-await step('MyBot posts to the group', () => send(chief().id, '群发 研发群: 今天下午开会'), () => {
+await step('Chief posts to the group', () => send(chief().id, '群发 研发群: 今天下午开会'), () => {
   const log = roomNamed('研发群').log ?? []
-  return expect(log.some(line => line.who === 'MyBot' && line.text.includes('今天下午开会')), 'post missing from the group log')
+  return expect(log.some(line => line.who === 'Chief' && line.text.includes('今天下午开会')), 'post missing from the group log')
 })
 
-await step('MyBot sets the group notice', () => send(chief().id, '改群 研发群 公告: 周五交付'), () => expect(roomNamed('研发群').notice === '周五交付', 'notice not set'))
+await step('Chief sets the group notice', () => send(chief().id, '改群 研发群 公告: 周五交付'), () => expect(roomNamed('研发群').notice === '周五交付', 'notice not set'))
 
-await step('MyBot reads the group', () => send(chief().id, '看群 研发群'), (_value, calls) => expect(saidText(calls, /^群里最近/), 'no read_group_chat answer'))
+await step('Chief reads the group', () => send(chief().id, '看群 研发群'), (_value, calls) => expect(saidText(calls, /^群里最近/), 'no read_group_chat answer'))
 
 // Group memory: what the group keeps stays in the group.
 const groupFact = '研发群的产物放在 out 目录'
@@ -332,10 +332,10 @@ for (const round of [1, 2, 3, 4]) {
   })
 }
 
-await step('exchange log between MyBot and Writer', () => api('exchange', { a: chief().id, b: botNamed('Writer').id }), entries => expect(entries.length >= 2, `got ${entries.length}`))
+await step('exchange log between Chief and Writer', () => api('exchange', { a: chief().id, b: botNamed('Writer').id }), entries => expect(entries.length >= 2, `got ${entries.length}`))
 
-// Writer hands MyBot's work on to Coder and waits, and the team view shows it; Coder's
-// result goes up to MyBot with Writer's answer.
+// Writer hands Chief's work on to Coder and waits, and the team view shows it; Coder's
+// result goes up to Chief with Writer's answer.
 await step('Writer waits for the work it handed on, then answers with it', async () => {
   await send(chief().id, '转告 Writer: 转告 Coder: 慢慢做 3')
   const writer = botNamed('Writer').id
@@ -345,8 +345,8 @@ await step('Writer waits for the work it handed on, then answers with it', async
   }
   return undefined
 }, (waiting, calls) => expect(waiting?.bots?.includes(botNamed('Coder').id) && waiting.for.includes(chief().id), `Writer did not show that it waits for Coder (${JSON.stringify(waiting)})`)
-  ?? expect(saidText(calls, /^Coder 交回了，我把结果交给 MyBot/), 'Writer did not go on when Coder answered')
-  ?? expect(state().exchanges.some(entry => entry.role === 'reply' && entry.from === botNamed('Writer').id && entry.text.includes('[Handed back to Writer for this work]')), 'MyBot did not get Coder\'s result with Writer\'s answer'))
+  ?? expect(saidText(calls, /^Coder 交回了，我把结果交给 Chief/), 'Writer did not go on when Coder answered')
+  ?? expect(state().exchanges.some(entry => entry.role === 'reply' && entry.from === botNamed('Writer').id && entry.text.includes('[Handed back to Writer for this work]')), 'Chief did not get Coder\'s result with Writer\'s answer'))
 
 await step('update Writer', () => api('update-bot', { id: botNamed('Writer').id, role: 'Copywriter', instructions: 'Write the copy.' }), () => {
   const writer = botNamed('Writer')
@@ -413,27 +413,27 @@ await api('capability-save', { name: skillName, kind: 'skill', description: skil
 await attach(chief(), echoName, true)
 await attach(chief(), skillName, true)
 
-await step('MyBot sees its attached MCP and skill', () => send(chief().id, '查能力 smoke'), (_value, calls) => {
-  const report = reportOf(calls, 'MyBot')
-  return expect(report?.endsWith(sees), `MyBot reported ${report}`)
+await step('Chief sees its attached MCP and skill', () => send(chief().id, '查能力 smoke'), (_value, calls) => {
+  const report = reportOf(calls, 'Chief')
+  return expect(report?.endsWith(sees), `Chief reported ${report}`)
 })
 
 const capabilityRoom = await api('create-room', { name: 'Capability smoke', members: [chief().id, botNamed('Coder').id], admin: chief().id })
-await step('MyBot first group turn sees its attached MCP and skill', () => send(capabilityRoom.id, '查能力 smoke'), (_value, calls) => {
-  const report = reportOf(calls, 'MyBot')
-  return expect(report?.endsWith(sees), `MyBot reported ${report} in the group`)
+await step('Chief first group turn sees its attached MCP and skill', () => send(capabilityRoom.id, '查能力 smoke'), (_value, calls) => {
+  const report = reportOf(calls, 'Chief')
+  return expect(report?.endsWith(sees), `Chief reported ${report} in the group`)
 })
 
-await step('Coder does not inherit MyBot capabilities', () => send(botNamed('Coder').id, '查能力 smoke'), (_value, calls) => {
+await step('Coder does not inherit Chief capabilities', () => send(botNamed('Coder').id, '查能力 smoke'), (_value, calls) => {
   const report = reportOf(calls, 'Coder')
   return expect(report?.endsWith(seesNothing), `Coder reported ${report}`)
 })
 
 await attach(chief(), echoName, false)
 await attach(chief(), skillName, false)
-await step('detached capabilities disappear from MyBot', () => send(chief().id, '查能力 smoke'), (_value, calls) => {
-  const report = reportOf(calls, 'MyBot')
-  return expect(report?.endsWith(seesNothing), `MyBot reported ${report}`)
+await step('detached capabilities disappear from Chief', () => send(chief().id, '查能力 smoke'), (_value, calls) => {
+  const report = reportOf(calls, 'Chief')
+  return expect(report?.endsWith(seesNothing), `Chief reported ${report}`)
 })
 
 if (outFile) writeFileSync(outFile, `${JSON.stringify(transcript, null, 2)}\n`)
