@@ -74,6 +74,16 @@ function buildBlock(paths) {
   ].join('\n')
 }
 
+function replaceFunctionBody(source, declaration, body) {
+  const start = source.indexOf(declaration)
+  if (start < 0) throw new Error(`${declaration} not found in this client.js`)
+  // The supported source-built and public 0.1.7 clients use readable esbuild
+  // output: nested blocks are indented, and the function closes at column zero.
+  const end = source.indexOf('\n}', start + declaration.length)
+  if (end < 0) throw new Error(`${declaration} has no closing brace in this client.js`)
+  return source.slice(0, start) + `${declaration}\n${body}\n}` + source.slice(end + 2)
+}
+
 export function patchBloubBrand(source) {
   const paths = JSON.parse(readFileSync(join(here, 'bloub-paths.json'), 'utf8'))
   let out = source
@@ -105,17 +115,19 @@ export function patchBloubBrand(source) {
   )
 
   // 5. Every Bot avatar: characterMarkup is the single door the mark system uses.
-  if (!out.includes('return bloubAvatarMarkup(shape, color);')) {
-    const anchor = 'function characterMarkup(shape, color) {'
-    if (!out.includes(anchor)) throw new Error('characterMarkup not found in this client.js')
-    out = out.replace(anchor, `${anchor}\n  return bloubAvatarMarkup(shape, color);`)
-  }
+  // Replace the whole body, including dead legacy tails from earlier patches.
+  out = replaceFunctionBody(out, 'function characterMarkup(shape, color) {',
+    '  return bloubAvatarMarkup(shape, color);')
 
   // 6. A group chat draws one face, not a cluster of overlapping avatars.
-  const roomAnchor = `function RoomAvatar({ room: room2, roster, size = 36 }) {\n  const members = room2.members.map((id) => roster.byId[id]).filter(Boolean);`
-  if (out.includes(roomAnchor) && !out.includes('// Bloub: one seat per group')) {
-    const single = `${roomAnchor}\n  // Bloub: one seat per group, so a list row shows one readable face.\n  if (members.length > 0) return (0, import_react2.createElement)(BotMark, { bot: members[0], size });\n  return (0, import_react2.createElement)(BotMark, { size });`
-    out = out.replace(roomAnchor, single)
+  const roomAnchor = 'function RoomAvatar({ room: room2, roster, size = 36 }) {'
+  if (out.includes(roomAnchor)) {
+    out = replaceFunctionBody(out, roomAnchor, [
+      '  const members = room2.members.map((id) => roster.byId[id]).filter(Boolean);',
+      '  // Bloub: one seat per group, so a list row shows one readable face.',
+      '  if (members.length > 0) return (0, import_react2.createElement)(BotMark, { bot: members[0], size });',
+      '  return (0, import_react2.createElement)(BotMark, { size });',
+    ].join('\n'))
   }
 
   return out

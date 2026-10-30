@@ -38,6 +38,8 @@
     "cordis.patch.yml",
     "README.md",
     "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_BLOUB_LICENSE.txt",
     "PATCHED.md"
   ],
   "scripts": {

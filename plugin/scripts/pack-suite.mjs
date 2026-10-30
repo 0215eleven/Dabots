@@ -51,6 +51,9 @@ try{
   // The owner's brand: OpenBot's Bloub replaces the engine's own character art.
   // Applying it here keeps every build branded instead of a hand-patched artifact.
   const engineClient=patchBloubBrand(await readFile(join(engineDir,'client.js'),'utf8'))
+  // The composer adds Bloub artwork even to compatibility engines. Its license
+  // must come from this repository, independent of the input engine's notices.
+  await cp(new URL('plugin/engine/THIRD_PARTY_BLOUB_LICENSE.txt',root),join(stage,'THIRD_PARTY_BLOUB_LICENSE.txt'))
   await writeFile(join(stage,'client.js'),composeClient({engineClient,mobileBundle:await bundleCompanion({bundleKey:'ds-bot'})}))
   await writeFile(join(stage,'cordis.patch.yml'),composePatch({enginePatch:await readFile(join(engineDir,'cordis.patch.yml'),'utf8'),bridgePatch:await readFile(join(bridgeDir,'cordis.patch.yml'),'utf8')}))
   await writeFile(join(stage,'README.md'),`# DeepSeek Bot Pro\n\nOne desktop DSH plugin: Bot team, Mobile Bridge and phone pairing settings.\nInstall this TGZ through the DSH plugin manager. Preserve the existing ds-bot\nidentity and Bridge row configuration.\n\nSee SUITE.md for exact component/source identities and PATCHED.md for engine\nmodifications. Installation and migration instructions for this commit:\nhttps://github.com/0215eleven/ds-bot-mobile/tree/${commit}/plugin\n\nOriginal LICENSE, NOTICE and bridge/THIRD_PARTY_RELAY_NOTICES.txt are retained.\n`)
@@ -65,12 +68,17 @@ NaCl envelope and secretbox code from slopus/happy at
 d6b85a0dda14c9582e1f083539fd11d99924022f, Copyright (c) 2026 Happy Coder
 Contributors; full notices are in bridge/THIRD_PARTY_RELAY_NOTICES.txt. It does
 not use Happy's accounts, database or public services.
+
+The Bloub artwork added to client.js is adapted from @norbert_bodziony/bloub 0.4.1
+(https://github.com/NorbertBodziony/bloub), MIT License,
+Copyright (c) 2026 Jérémy Perret. The complete, unmodified upstream license is
+in THIRD_PARTY_BLOUB_LICENSE.txt.
 `)
   await writeFile(join(stage,'SUITE.md'),`# DeepSeek Bot Pro single package\n\n${args.dev?'**Development build. It uses the isolated public 0.1.7 + repository patch engine and must not be installed in a real Harness.**\n\n':''}| Part | Version | Source |\n| --- | --- | --- |\n| Engine (rows \`bot\`, \`web-search-auto\`) | ${engine.version} | ${engineSource} (digest ${engineDigest}) |\n| Mobile Bridge (row \`ds-bot-mobile-bridge\`, \`ds-bot/bridge\`) | ${bridge.version} | 0215eleven/ds-bot-mobile ${commit}${dirty?' (uncommitted changes)':''} |\n| Pairing and connection settings (in client.js) | ${suite.companion.version} | same |\n\nThe engine files are unchanged except package.json, client.js (engine client plus\nthe settings UI), cordis.patch.yml (adds the Bridge row) and NOTICE.\nThe Bridge needs the engine's Bridge contract; DSH Agent from the phone: ${contract.agents?'available':'not offered by this engine'}.\n`)
   await mkdir(out,{recursive:true})
   const [packed]=JSON.parse(execFileSync(...npmCommand(['pack',stage,'--ignore-scripts','--json','--pack-destination',out]),{cwd:root,encoding:'utf8',windowsHide:true}))
   const paths=packed.files.map(f=>f.path)
-  for(const required of ['LICENSE','NOTICE','SUITE.md','client.js','cordis.patch.yml','bridge/index.mjs','bridge/src/relay-client.mjs','bridge/THIRD_PARTY_RELAY_NOTICES.txt','bridge/LICENSE'])if(!paths.includes(required))throw Error(`Archive is missing ${required}`)
+  for(const required of ['LICENSE','NOTICE','THIRD_PARTY_BLOUB_LICENSE.txt','SUITE.md','client.js','cordis.patch.yml','bridge/index.mjs','bridge/src/relay-client.mjs','bridge/THIRD_PARTY_RELAY_NOTICES.txt','bridge/LICENSE'])if(!paths.includes(required))throw Error(`Archive is missing ${required}`)
   const leaked=paths.filter(p=>/(^|\/)(\.env|\.npmrc|node_modules\/)|\.(log|pem|key|p12|sqlite)$|(^|\/)(pairings|devices|tokens|remote-connection|relay-identity)\.json$/i.test(p))
   if(leaked.length)throw Error(`Archive contains files that must not ship: ${leaked.join(', ')}`)
   if(!args.dev&&(git('status','--porcelain','--untracked-files=normal')||git('rev-parse','HEAD')!==commit))throw Error('Source changed while packaging')

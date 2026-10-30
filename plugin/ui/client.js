@@ -2154,6 +2154,8 @@ var messages = {
   REMOTE_URL_REQUIRED: "请填写已配置好的 HTTPS 入口地址。",
   INVALID_REMOTE_MODE: "请选择支持的远程连接方式。",
   INVALID_TUNNEL_TOKEN: "Cloudflare 隧道 Token 格式不正确，请从后台整段复制。",
+  TUNNEL_UNAUTHORIZED: "Cloudflare 拒绝了隧道认证。请在后台获取有效的隧道 Token，更新后保存并重新启动。",
+  TUNNEL_STOPPING: "隧道正在停止。请等待进程退出，稍后重试。",
   REMOTE_TOKEN_REQUIRED: "请先填写 Cloudflare 隧道 Token。",
   REMOTE_BUSY: "另一项连接操作正在进行，请刷新状态后重试。",
   REMOTE_CLOSED: "Bridge 已停止，请检查插件状态后重新打开本页。",
@@ -2779,6 +2781,7 @@ function RemoteConnectionPanel({ state, controller }) {
         setToken(event.target.value);
         setNotice(null);
       }, maxLength: 4096 })) : null,
+      mode === "named" ? (0, import_react2.createElement)("p", { className: "dsma-small" }, "Token 会以未加密的明文保存到本机 Bridge 目录的 remote-connection.json。POSIX 下使用 0600 权限；Windows 下请通过目录 ACL 限制其他用户访问。已保存的 Token 不会由 Bridge 接口返回。") : null,
       mode === "quick" ? (0, import_react2.createElement)("p", null, "无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。") : mode === "named" ? (0, import_react2.createElement)("p", null, "由插件自己运行并守护 cloudflared：保存后立即启动，进程断开会自动重连；DSH 重启后 Bridge 会自己把隧道拉起，不需要另装 Windows 服务。") : (0, import_react2.createElement)("p", null, "保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。"),
       (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", disabled: state.busy, className: "dsma-primary" }, state.busy ? "正在保存…" : mode === "named" ? "保存 Token 并启动隧道" : mode === "quick" ? "保存连接方式" : "验证格式并保存入口")),
       notice ? (0, import_react2.createElement)("p", { className: notice.ok ? "dsma-ok" : "dsma-error", role: notice.ok ? "status" : "alert" }, notice.text) : null
@@ -2804,7 +2807,7 @@ function RemoteConnectionPanel({ state, controller }) {
       { className: "dsma-remote-guide" },
       (0, import_react2.createElement)("h4", null, "插件托管的 Cloudflare 隧道"),
       (0, import_react2.createElement)("p", null, "在 Cloudflare 后台 Networking → Tunnels 创建隧道，Public Hostname 指向 Bridge：", remote.loopbackUrl ? (0, import_react2.createElement)("code", null, remote.loopbackUrl) : "请先将 Bridge 配置为专用 HTTP loopback 监听。"),
-      (0, import_react2.createElement)("p", null, "然后把该隧道的 Token 和对应 HTTPS 地址填到上面。Token 只保存在本机 Bridge 目录，页面和手机都看不到。"),
+      (0, import_react2.createElement)("p", null, "然后把该隧道的 Token 和对应 HTTPS 地址填到上面。"),
       (0, import_react2.createElement)("p", null, "如果已经用 cloudflared Windows 服务跑同一条隧道，请先停掉它，避免两条连接同时占用同一入口。"),
       (0, import_react2.createElement)("div", { className: "dsma-links" }, link("https://dash.cloudflare.com/", "打开 Cloudflare 后台"), link("https://developers.cloudflare.com/tunnel/get-started/", "查看隧道配置步骤"))
     ) : null,

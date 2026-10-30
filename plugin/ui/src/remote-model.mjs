@@ -20,6 +20,8 @@ const messages = {
   REMOTE_URL_REQUIRED: '请填写已配置好的 HTTPS 入口地址。',
   INVALID_REMOTE_MODE: '请选择支持的远程连接方式。',
   INVALID_TUNNEL_TOKEN: 'Cloudflare 隧道 Token 格式不正确，请从后台整段复制。',
+  TUNNEL_UNAUTHORIZED: 'Cloudflare 拒绝了隧道认证。请在后台获取有效的隧道 Token，更新后保存并重新启动。',
+  TUNNEL_STOPPING: '隧道正在停止。请等待进程退出，稍后重试。',
   REMOTE_TOKEN_REQUIRED: '请先填写 Cloudflare 隧道 Token。',
   REMOTE_BUSY: '另一项连接操作正在进行，请刷新状态后重试。',
   REMOTE_CLOSED: 'Bridge 已停止，请检查插件状态后重新打开本页。',

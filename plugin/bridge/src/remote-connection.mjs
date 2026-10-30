@@ -67,11 +67,13 @@ export async function createRemoteConnection({ home, config = {}, server, create
     configuredUrls: { existing: settings.existingUrl, fixed: settings.fixedUrl, named: settings.namedUrl },
     tokenSet: Boolean(settings.namedToken), loopbackUrl, quickAvailable: Boolean(loopbackUrl), revision })
   const assertLive = () => { if (disposed) refuse('REMOTE_CLOSED', '插件已停止，请重新打开管理页面。') }
-  async function disposeTunnel(target) {
+  async function disposeTunnel(target, kind = 'quick') {
     let failed = false
     try { await target.dispose(); failed = target.snapshot().state !== 'stopped' } catch { failed = true }
     if (failed) {
-      quick = { state: 'error', url: null, error: 'REMOTE_STOP_FAILED' }
+      const value = { state: 'error', url: null, error: 'REMOTE_STOP_FAILED' }
+      if (kind === 'named') named = value
+      else quick = value
       // Fail closed on a later reload: an unconfirmed child could otherwise
       // reach a new Bridge that reuses the same loopback port.
       try { await writeFile(cleanupBlock(home), JSON.stringify({ version: 1, reason: 'UNCONFIRMED_TUNNEL_STOP' }), { mode: 0o600 }) }
@@ -83,7 +85,10 @@ export async function createRemoteConnection({ home, config = {}, server, create
   async function stopNamed() {
     setUrl(null)
     const target = namedTunnel ?? await (namedCreating ?? Promise.resolve(null)).catch(() => null)
-    if (target) await target.stop()
+    if (target) {
+      await target.stop()
+      if (target.snapshot().state !== 'stopped') refuse('REMOTE_STOP_FAILED', '隧道进程尚未确认停止，请检查电脑后重试。')
+    }
     namedTunnel = null; namedCreating = null
     named = { state: 'stopped', url: null, error: null }
   }
@@ -192,7 +197,7 @@ export async function createRemoteConnection({ home, config = {}, server, create
         const target = tunnel ?? await creating
         if (target) await disposeTunnel(target)
         const namedTarget = namedTunnel ?? await (namedCreating ?? Promise.resolve(null)).catch(() => null)
-        if (namedTarget) await namedTarget.dispose().catch(() => {})
+        if (namedTarget) await disposeTunnel(namedTarget, 'named')
       })()
       return disposal
     },

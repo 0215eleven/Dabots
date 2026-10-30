@@ -1309,18 +1309,6 @@ var nextMarkSerial = () => markSerial += 1;
 var markupCache = /* @__PURE__ */ new Map();
 function characterMarkup(shape, color) {
   return bloubAvatarMarkup(shape, color);
-  const key = `${shape}|${color}`;
-  let markup = markupCache.get(key);
-  if (markup === void 0) {
-    const def = shapeOf(shape);
-    const eyes = `<g class="bt-gaze"><g class="bt-eyes" fill="#000">${def.eyes.map(eyeMarkup).join("")}${def.eyes.map(happyEyeMarkup).join("")}</g></g>`;
-    const stops = GRADIENTS[color];
-    const gradient = stops ? `<linearGradient id="${MASK_ID}g" gradientUnits="userSpaceOnUse" x1="18" y1="10" x2="78" y2="92">${stops.map(([offset, value]) => `<stop offset="${offset}" stop-color="${value}"/>`).join("")}</linearGradient>` : "";
-    const body = `<g mask="url(#${MASK_ID})">${bodyOf(def, stops ? `url(#${MASK_ID}g)` : inkFill(color))}</g>`;
-    markup = `<defs>${gradient}<mask id="${MASK_ID}" ${maskBox(def.size)}>${holes(def, eyes)}</mask></defs><g class="bt-b">${def.wrap ? `<g transform="${def.wrap}">${body}</g>` : body}</g>`;
-    markupCache.set(key, markup);
-  }
-  return markup;
 }
 var svgUrl = (inner, size) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}">${inner}</svg>`)}")`;
 var maskCache = /* @__PURE__ */ new Map();
@@ -3396,35 +3384,6 @@ function RoomAvatar({ room: room2, roster, size = 36 }) {
   // Bloub: one seat per group, so a list row shows one readable face.
   if (members.length > 0) return (0, import_react2.createElement)(BotMark, { bot: members[0], size });
   return (0, import_react2.createElement)(BotMark, { size });
-  const people = members.length === 1 ? [members[0], null] : members;
-  const seat = (bot, seatSize, key) => bot ? (0, import_react2.createElement)(BotMark, { key, bot, size: seatSize }) : (0, import_react2.createElement)("span", { key, className: "bt-cluster-you", style: { width: seatSize * 0.92, height: seatSize * 0.92, margin: seatSize * 0.04 } });
-  if (people.length === 0) return (0, import_react2.createElement)(BotMark, { size });
-  if (size <= 20 && people.length > 1) {
-    return (0, import_react2.createElement)(
-      "span",
-      { className: "bt-stack", style: { "--bt-stack-size": `${size}px` } },
-      people.slice(0, 3).map((bot, index) => seat(bot, size, bot?.id ?? `you-${index}`)),
-      people.length > 3 ? (0, import_react2.createElement)("span", { className: "bt-stack-more" }, `+${people.length - 3}`) : null
-    );
-  }
-  const seats = clusterSeats(Math.min(people.length, 4), size);
-  const overflow = people.length > 4 ? people.length - 3 : 0;
-  const gap = size / 14;
-  const rings = seats.map(([x, y, s]) => ({ cx: x + s / 2, cy: y + s / 2, r: s * 0.48 + gap }));
-  return (0, import_react2.createElement)(
-    "span",
-    { className: "bt-cluster", style: { width: size, height: size } },
-    seats.map(([x, y, s], index) => {
-      const holes2 = rings.slice(index + 1).filter((ring) => Math.hypot(ring.cx - x - s / 2, ring.cy - y - s / 2) < ring.r + s * 0.46).map((ring) => `radial-gradient(circle at ${ring.cx - x}px ${ring.cy - y}px,transparent ${ring.r}px,#000 ${ring.r + 0.5}px)`);
-      const style = { left: x, top: y, width: s, height: s };
-      if (holes2.length > 0) Object.assign(style, { WebkitMaskImage: holes2.join(","), maskImage: holes2.join(","), WebkitMaskComposite: "source-in", maskComposite: "intersect" });
-      if (overflow > 0 && index === 3) {
-        return (0, import_react2.createElement)("span", { key: "more", className: "bt-cluster-more", style: { ...style, width: s * 0.92, height: s * 0.92, margin: s * 0.04, fontSize: Math.max(8, Math.round(s * 0.36)) } }, `+${overflow}`);
-      }
-      const bot = people[index];
-      return (0, import_react2.createElement)("span", { key: bot?.id ?? "you", style }, seat(bot, s));
-    })
-  );
 }
 
 // src/client/dsh-primitives.js

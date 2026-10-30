@@ -74,7 +74,7 @@ export function composeManifest({engine,bridge,version,suite}){
     repository:{type:'git',url:'git+https://github.com/0215eleven/ds-bot-mobile.git',directory:'plugin'},
     bugs:{url:'https://github.com/0215eleven/ds-bot-mobile/issues'},
     exports:{...engine.exports,'./bridge':'./bridge/index.mjs'},
-    files:[...new Set([...(engine.files??[]),'bridge/','docs/','SUITE.md','NOTICE'])],
+    files:[...new Set([...(engine.files??[]),'bridge/','docs/','SUITE.md','NOTICE','THIRD_PARTY_BLOUB_LICENSE.txt'])],
     dependencies:merge('dependency',engine.dependencies,bridge.dependencies),
     peerDependencies:merge('peer dependency',engine.peerDependencies,bridge.peerDependencies),
     dsBotSuite:suite,

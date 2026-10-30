@@ -34,7 +34,7 @@ export function createNamedTunnel({ url, token, onChange = () => {}, spawnImpl =
   async function finish(run) {
     if (run.finished) return run.done
     run.finished = true
-    clearTimeout(run.timer)
+    clearTimeout(run.timer); clearTimeout(run.killTimer); clearTimeout(run.stopTimer)
     for (const [stream, listener] of run.readers) stream.off('data', listener)
     try { if (run.directory) await rm(run.directory, { recursive: true, force: true }) } catch { /* Cleanup stays bounded. */ }
     if (current === run) {
@@ -45,11 +45,11 @@ export function createNamedTunnel({ url, token, onChange = () => {}, spawnImpl =
     run.resolveDone(snapshot())
     return run.done
   }
-  // A supervised tunnel replaces the外部 cloudflared service, so an unexpected
+  // A supervised tunnel replaces an external cloudflared service, so an unexpected
   // exit is retried a bounded number of times before the panel reports an error.
   function queueRestart(cause) {
     if (disposed) return
-    if (cause === 'MISSING_CLOUDFLARED' || cause === 'INVALID_TUNNEL_TOKEN' || restarts >= maxRestarts) {
+    if (['MISSING_CLOUDFLARED', 'INVALID_TUNNEL_TOKEN', 'TUNNEL_UNAUTHORIZED'].includes(cause) || restarts >= maxRestarts) {
       emit('error', null, cause ?? 'TUNNEL_EXITED')
       return
     }
@@ -60,60 +60,98 @@ export function createNamedTunnel({ url, token, onChange = () => {}, spawnImpl =
       if (!disposed && !current) launch()
     }, restartDelayMs)
   }
+  function terminate(run) {
+    if (run.termination) return run.termination
+    run.terminating = true
+    clearTimeout(run.timer)
+    run.termination = (async () => {
+      await run.ready
+      if (run.finished) return run.done
+      if (!run.child) return finish(run)
+      const timedOut = new Promise(resolve => {
+        run.killTimer = setTimeout(() => {
+          if (run.finished) return
+          try { run.child.kill('SIGKILL') } catch { /* Wait for close or timeout. */ }
+          run.stopTimer = setTimeout(() => {
+            if (run.finished) return
+            // Keep ownership and files until close; never overlap a live child.
+            if (current === run) emit('error', null, 'TUNNEL_STOP_FAILED')
+            resolve(snapshot())
+          }, stopTimeoutMs)
+        }, stopTimeoutMs)
+      })
+      try { run.child.kill('SIGTERM') } catch { /* Escalation remains bounded. */ }
+      return Promise.race([run.done, timedOut])
+    })()
+    return run.termination
+  }
   function read(run, stream) {
     let pending = ''
     const listener = bytes => {
-      if (current !== run) return
+      if (current !== run || run.stopping || run.terminating || run.finished) return
       pending += bytes.toString('utf8')
       const lines = pending.split('\n')
       pending = lines.pop() ?? ''
       if (pending.length > MAX_LINE) pending = ''
       for (const text of lines) {
         if (/\bRegistered tunnel connection\b/.test(text)) {
-          run.connected = true
+          restarts = 0
           clearTimeout(run.timer)
           if (!run.stopping) emit('running', url)
         }
-        if (/\b(Bad response|Invalid tunnel secret|failed to run tunnel|failed to connect to the edge)\b/i.test(text)) run.cause = 'TUNNEL_UNAUTHORIZED'
+        // Only inspect the error/message, never caller-controlled request fields.
+        const detail = /\berror=(?:"([^"]*)"|(\S+))/.exec(text)
+        const message = detail ? detail[1] ?? detail[2]
+          : text.split(/\s+[\w.-]+=/, 1)[0].replace(/^(?:\S+\s+)?(?:ERR|WRN|INF)\s+/, '')
+        if (/^(Unauthorized|Invalid tunnel secret|Invalid tunnel token|Provided Tunnel token is not valid)\b/i.test(message)) {
+          run.cause = 'TUNNEL_UNAUTHORIZED'
+          emit('error', null, run.cause)
+          void terminate(run)
+          break
+        }
       }
     }
     stream.on('data', listener)
     run.readers.push([stream, listener])
   }
   function launch() {
-    const run = { child: null, directory: null, stopping: false, finished: false, cause: null, connected: false, readers: [] }
+    const run = { child: null, directory: null, stopping: false, finished: false, cause: null, readers: [] }
     run.done = new Promise(resolve => { run.resolveDone = resolve })
     current = run
-    emit('starting')
     run.ready = Promise.resolve().then(async () => {
       try {
         run.directory = await mkdtemp(join(tmpdir(), 'ds-mobile-named-'))
         if (run.stopping || disposed) { await finish(run); return }
-        run.child = spawnImpl('cloudflared', ['tunnel', '--no-autoupdate', '--loglevel', 'info', 'run', '--token', token], {
-          shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], cwd: run.directory, env: isolatedEnvironment(env, run.directory),
+        run.child = spawnImpl('cloudflared', ['tunnel', '--no-autoupdate', '--loglevel', 'info', 'run'], {
+          shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], cwd: run.directory,
+          env: { ...isolatedEnvironment(env, run.directory), TUNNEL_TOKEN: token },
         })
         run.child.once('close', () => { void finish(run) })
         run.child.on('error', error => {
           if (run.finished || current !== run) return
           run.cause = error.code === 'ENOENT' ? 'MISSING_CLOUDFLARED' : 'TUNNEL_PROCESS_ERROR'
-          void finish(run)
+          if (error.code === 'ENOENT') void finish(run)
+          else void terminate(run)
         })
         read(run, run.child.stdout)
         read(run, run.child.stderr)
         run.timer = setTimeout(() => {
           if (run.finished || run.stopping || current !== run) return
           run.cause = 'TUNNEL_START_TIMEOUT'
-          void finish(run)
+          emit('error', null, run.cause)
+          void terminate(run)
         }, startupTimeoutMs)
       } catch (error) {
         run.cause = error.code === 'ENOENT' ? 'MISSING_CLOUDFLARED' : 'TUNNEL_START_FAILED'
         await finish(run)
       }
     })
+    emit('starting')
     return run
   }
   async function start() {
     if (disposed) throw failure('TUNNEL_DISPOSED')
+    if (current?.stopping || current?.terminating) throw failure('TUNNEL_STOPPING')
     if (current) return snapshot()
     clearTimeout(restartTimer); restartTimer = null; restarts = 0
     const run = launch()
@@ -128,20 +166,7 @@ export function createNamedTunnel({ url, token, onChange = () => {}, spawnImpl =
     run.stopping = true
     clearTimeout(run.timer)
     emit('stopping')
-    await run.ready
-    if (run.child && !run.finished) {
-      try { run.child.kill('SIGTERM') } catch { /* Escalation remains bounded. */ }
-      const graceful = await Promise.race([run.done.then(() => true), new Promise(resolve => setTimeout(() => resolve(false), stopTimeoutMs))])
-      if (!graceful) {
-        try { run.child.kill('SIGKILL') } catch { /* Waits for close below. */ }
-        const forced = await Promise.race([run.done.then(() => true), new Promise(resolve => setTimeout(() => resolve(false), stopTimeoutMs))])
-        if (!forced) { emit('error', null, 'TUNNEL_STOP_FAILED'); return snapshot() }
-      }
-    }
-    await run.done
-    if (current === run) current = null
-    emit('stopped')
-    return snapshot()
+    return terminate(run)
   }
   return {
     snapshot, start, stop,

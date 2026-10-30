@@ -85,6 +85,25 @@ test('mode selection restores its saved URL and fixed-mode saving reports succes
   assert.ok(ui.text(ui.render()).includes('http://127.0.0.1:8123'))
 })
 
+for (const [error, guidance] of [
+  ['TUNNEL_UNAUTHORIZED', ['Cloudflare', '拒绝', '更新', 'Token']],
+  ['TUNNEL_STOPPING', ['停止', '稍后', '重试']],
+]) {
+  test(`named tunnel ${error} renders recovery guidance without starting a connection`, () => {
+    const ui = harness({ ...quick, mode: 'named', state: 'error', error,
+      configuredUrl: 'https://phone.example.com', tokenSet: true,
+      diagnostic: 'private cloudflared diagnostic' })
+    const tree = ui.render()
+    const alerts = ui.nodes(tree, node => node.props.role === 'alert')
+    assert.equal(alerts.length, 1)
+    const message = ui.text(alerts[0])
+    for (const detail of guidance) assert.ok(message.includes(detail), `${error} must explain ${detail}`)
+    assert.equal(message.includes(error), false)
+    assert.equal(ui.text(tree).includes('private cloudflared diagnostic'), false)
+    assert.deepEqual(ui.calls, [])
+  })
+}
+
 test('switching mode or refreshing the current remote state clears exposure confirmation', () => {
   const ui = harness(quick)
   ui.render()

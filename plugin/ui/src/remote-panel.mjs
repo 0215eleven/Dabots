@@ -65,6 +65,7 @@ export function RemoteConnectionPanel({ state, controller }) {
       h('label', { className: 'dsma-field' }, h('span', null, '连接方式'), h('select', { 'aria-label': '远程连接方式', value: mode, disabled: state.busy, onChange: choose }, ...Object.entries(labels).map(([value, label]) => h('option', { value, key: value }, label)))),
       mode !== 'quick' ? h('label', { className: 'dsma-field' }, h('span', null, '完整 HTTPS 地址'), h('input', { 'aria-label': 'HTTPS 入口地址', type: 'url', required: true, autoComplete: 'off', spellCheck: false, placeholder: 'https://phone.example.com', value: url, disabled: state.busy, onChange: event => { setUrl(event.target.value); setNotice(null) }, maxLength: 2048 })) : null,
       mode === 'named' ? h('label', { className: 'dsma-field' }, h('span', null, '隧道 Token'), h('input', { 'aria-label': 'Cloudflare 隧道 Token', type: 'password', autoComplete: 'new-password', spellCheck: false, placeholder: remote.tokenSet ? '已保存，留空则不修改' : '从 Cloudflare 后台复制整段隧道 Token', value: token, disabled: state.busy, onChange: event => { setToken(event.target.value); setNotice(null) }, maxLength: 4096 })) : null,
+      mode === 'named' ? h('p', { className: 'dsma-small' }, 'Token 会以未加密的明文保存到本机 Bridge 目录的 remote-connection.json。POSIX 下使用 0600 权限；Windows 下请通过目录 ACL 限制其他用户访问。已保存的 Token 不会由 Bridge 接口返回。') : null,
       mode === 'quick' ? h('p', null, '无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。')
         : mode === 'named' ? h('p', null, '由插件自己运行并守护 cloudflared：保存后立即启动，进程断开会自动重连；DSH 重启后 Bridge 会自己把隧道拉起，不需要另装 Windows 服务。')
           : h('p', null, '保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。'),
@@ -83,7 +84,7 @@ export function RemoteConnectionPanel({ state, controller }) {
     mode === 'named' ? h('div', { className: 'dsma-remote-guide' },
       h('h4', null, '插件托管的 Cloudflare 隧道'),
       h('p', null, '在 Cloudflare 后台 Networking → Tunnels 创建隧道，Public Hostname 指向 Bridge：', remote.loopbackUrl ? h('code', null, remote.loopbackUrl) : '请先将 Bridge 配置为专用 HTTP loopback 监听。'),
-      h('p', null, '然后把该隧道的 Token 和对应 HTTPS 地址填到上面。Token 只保存在本机 Bridge 目录，页面和手机都看不到。'),
+      h('p', null, '然后把该隧道的 Token 和对应 HTTPS 地址填到上面。'),
       h('p', null, '如果已经用 cloudflared Windows 服务跑同一条隧道，请先停掉它，避免两条连接同时占用同一入口。'),
       h('div', { className: 'dsma-links' }, link('https://dash.cloudflare.com/', '打开 Cloudflare 后台'), link('https://developers.cloudflare.com/tunnel/get-started/', '查看隧道配置步骤'))) : null,
     mode === 'existing' ? h('p', { className: 'dsma-remote-guide' }, '兼容现有 HTTPS 反向代理或隧道。原 publicUrl 配置保留，切换回来可继续使用已保存的入口。') : null,
