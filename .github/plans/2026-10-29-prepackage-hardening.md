@@ -50,7 +50,15 @@
 
 ### Task 3: Combined verification, independent review and delivery
 
-- [ ] Run clean official-source `npm run setup`, `npm run test:prepare`, explicit typecheck and complete `npm run check`, recording actual per-component counts and explaining engine-only842 versus aggregate1392. Run related production integration/TGZ/migration/packed checks for engine/packaging changes.
+- [x] Run clean official-source `npm run setup`, `npm run test:prepare`, explicit typecheck and complete `npm run check`, recording actual per-component counts and explaining engine-only842 versus aggregate1392. Run related production integration/TGZ/migration/packed checks for engine/packaging changes. Final fixed source: 1406 Node +2 Windows skips +11 Python; production integration21, TGZ boot5/migration6, production pack and audit3842/0 pass. Unchanged Bridge/UI packed component evidence retains its prior source point.
 - [x] Run preview-disabled isolated public-host baseline/final-all and Chinese browser regressions, preserving Bridge/outbox/owner/locale assertions; then one final iOS JS export and isolated prebuild/autolinking inspection on stable source. Expected: functional assertions and configuration checks pass; Xcode/IPA/device remain UNRUN. These are the non-UI maintenance results; repeat affected integration after the user's UI reference arrives.
-- [ ] Self-review, commit and request one independent review of this maintenance range. Address evidenced Critical/Important findings in one bounded fix pass with affected verification; avoid restarting the earlier whole integration review.
+- [x] Self-review, commit and request one independent review of this maintenance range. Address evidenced Critical/Important findings in one bounded fix pass with affected verification; avoid restarting the earlier whole integration review. Two Important findings were fixed with RED→GREEN tests and a full green suite; no second independent review or new JS export for desktop-only fixes.
 - [ ] Package/audit from clean committed source, push the feature branch and verify remote SHA; update saved environment setup/ref only if needed. Report each of seven items as fixed/not-applicable/retained with evidence, source SHA, exact checks and genuine native gate.
+
+### User's pending UI integration
+
+- [ ] Obtain the branch/PR/commit for the user's separate UI optimization; acknowledgement alone is not a revision reference.
+- [ ] Inspect its actual base and active routes, integrate without reverting the DS model/Bridge/storage/permission boundaries, and resolve only evidenced conflicts.
+- [ ] Run the affected integrated browser/type/build checks and record the final source/artifact revision. Native Xcode/IPA/device validation remains a separate authorized packaging phase; this pass does not trigger it.
+
+Maintenance evidence and exact retained/deferred boundaries are in `ios-app/docs/prepackage-review.md`. This record precedes the parent's publication of the documentation commit; the final remote verification is reported by the parent. UI files are untouched and the final packaging candidate is still pending the user's reference.
