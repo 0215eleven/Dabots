@@ -2,6 +2,7 @@ import {useDsText} from '@ds/text';
 import {useDs} from '@ds/provider';
 import type { ChannelSummary } from "@openbot/contracts/ipc";
 import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
+import { ComputerTag } from "@/features/workspace/components/computer-tag";
 import * as Clipboard from "expo-clipboard";
 import * as Crypto from "expo-crypto";
 import { Link, router } from "expo-router";
@@ -344,9 +345,12 @@ export const ChannelListRow = memo(function ChannelListRow({
                   {formatUpdatedAt(channel.lastMessage?.at ?? channel.createdAt, format)}
                 </Typography.Paragraph>
               </View>
-              <Typography.Paragraph className="text-text-secondary" numberOfLines={1} style={typeScale.preview}>
-                {channel.lastMessage ? previewLine : title || previewLine}
-              </Typography.Paragraph>
+              <View className="flex-row items-center gap-2">
+                <Typography.Paragraph className="text-text-secondary min-w-0 flex-1" numberOfLines={1} style={typeScale.preview}>
+                  {channel.lastMessage ? previewLine : title || previewLine}
+                </Typography.Paragraph>
+                <ComputerTag serverId={serverId} />
+              </View>
             </View>
           </View>
         )
