@@ -18,7 +18,7 @@ import {setLocalePreference} from "../i18n";
 import {useTheme} from "../theme";
 import type {Bot,Room} from "../types";
 const bots:Bot[]=[
- {id:"preview-chief",name:"Chief",color:"deepseek",avatar:{shape:"whale"}},
+ {id:"preview-chief",name:"MyBot",color:"deepseek",avatar:{shape:"whale"}},
  {id:"preview-research",name:"研究助手",color:"gray",avatar:{shape:"square"}},
  {id:"preview-design",name:"设计搭档",color:"yellow",avatar:{shape:"star"}},
  {id:"preview-writing",name:"写作伙伴",color:"green",avatar:{shape:"circle"}},

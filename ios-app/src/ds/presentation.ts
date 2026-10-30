@@ -23,3 +23,13 @@ export function botAvatarColor(bot: {color?: string | null; avatar?: {color?: st
   }
   return null;
 }
+
+// A Bot without a DS color still gets one of DS's own vivid inks, chosen by its stable ID, so the list
+// never falls back to the muted colors of the generated avatar palette.
+const FALLBACK_INKS = ['deepseek', 'violet', 'sky', 'tangerine', 'green', 'magenta', 'yellow', 'cyan', 'blue', 'rose'] as const;
+export function fallbackAvatarColor(id: string, dark = false): string {
+  let hash = 0;
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  const ink = (data.inks as Record<string, string[]>)[FALLBACK_INKS[hash % FALLBACK_INKS.length]];
+  return ink[dark ? 1 : 0];
+}

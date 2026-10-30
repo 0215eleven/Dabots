@@ -112,7 +112,9 @@ export const BloubAvatarPreview = memo(function BloubAvatarPreview(
   const size = props.size ?? 54;
   const avatar = (
     <AgentPhoto {...props} size={size}>
-      <AnimatedAvatarPreview {...props} color={color} />
+      {/* Keyed by color: a canonical DS color that arrives after the first frame mounts a fresh drawing, where
+          animated SVG props are applied only at mount (React Native Web). */}
+      <AnimatedAvatarPreview key={color ?? 'seed'} {...props} color={color} />
     </AgentPhoto>
   );
   if (!props.rings) return avatar;
@@ -138,10 +140,12 @@ const AnimatedAvatarPreview = memo(function AnimatedAvatarPreview({
   const appearanceStyle = useAnimatedStyle(() => ({ opacity: appearance.get().opacity }));
   const frame = useBloubActivityFrame(seed, mood, animateIdle && !disconnected);
   const color = explicitColor ?? getBloubAvatarColor(seed, hue);
-  const bodyColor = useDerivedValue(() =>
-    saturateColor(animatedColor ? animatedColor.get() : color, appearance.get().saturation),
+  // Explicit dependencies: the canonical DS color can arrive after the first render.
+  const bodyColor = useDerivedValue(
+    () => saturateColor(animatedColor ? animatedColor.get() : color, appearance.get().saturation),
+    [color, animatedColor],
   );
-  const dotColor = useDerivedValue(() => saturateColor(color, appearance.get().saturation));
+  const dotColor = useDerivedValue(() => saturateColor(color, appearance.get().saturation), [color]);
 
   // The opacity stays on the native view: react-native-svg on Android crashes with
   // "Underflow in restore" when a filtered <G> has an opacity other than 1.

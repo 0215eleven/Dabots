@@ -3,7 +3,7 @@
 // webview and time it, check what it reads, and ask the mock model "看网页结构" so the
 // chat shows what read_browser returned. Writes screenshots and each read (JSON and the
 // tool text) to <out-dir>.
-//   node read-check.mjs <dsh-repo> <out-dir> [cdp-port=9422] [pages-port=8833] [bot=Chief] [--offline]
+//   node read-check.mjs <dsh-repo> <out-dir> [cdp-port=9422] [pages-port=8833] [bot=MyBot] [--offline]
 // Size the window first with window-size.mjs. Set SHOT_DISPLAY (the Xvfb display) and
 // XAUTHORITY to grab the screen: a CDP screenshot draws webview guests at a wrong offset.
 import { execFileSync } from 'node:child_process'
@@ -17,7 +17,7 @@ import { READ_PAGE_SCRIPT } from '../../src/client/read-page.js'
 const { pageText } = await import('../../src/host/browser.js')
 
 const offline = process.argv.includes('--offline')
-const [repo, outDir, port = '9422', pagesPort = '8833', botName = 'Chief'] = process.argv.slice(2).filter(arg => arg !== '--offline')
+const [repo, outDir, port = '9422', pagesPort = '8833', botName = 'MyBot'] = process.argv.slice(2).filter(arg => arg !== '--offline')
 if (!repo || !outDir) {
   console.error('usage: node read-check.mjs <dsh-repo> <out-dir> [cdp-port] [pages-port] [bot] [--offline]')
   process.exit(2)
@@ -107,7 +107,7 @@ check(text.includes('# Reader sample') && text.includes('## Lists'), 'headings k
 check(text.includes('- Fruit\n  3. Apple\n  4. Pear'), 'nested lists keep their order and indent')
 check(text.includes('| Mon | Coder | Fix bug 7[#2] |') && text.includes('| Everyone |  | Retro |'), 'the table keeps its rows; row and column spans degrade')
 check(text.includes('```js\nfunction greet(name) {\n  return `hi ${name}`\n}\n```'), 'the code block keeps its lines and language')
-check(text.includes('### Bot: Chief') && text.includes('Leads the team.') && text.includes('Fallback text') && text.includes('Message[#'), 'the web component is read through its shadow root and slots')
+check(text.includes('### Bot: MyBot') && text.includes('Leads the team.') && text.includes('Fallback text') && text.includes('Message[#'), 'the web component is read through its shadow root and slots')
 check(text.includes('[iframe: Same-origin frame') && text.includes('Level one text with a frame link[#') && text.includes('[iframe: Nested frame') && text.includes('Level two text.'), 'same-origin frames are read, two levels deep')
 check(text.includes(`[iframe (cross-origin, not readable): http://localhost:${pagesPort}/other.html]`) && !text.includes('CROSS-ORIGIN-TEXT'), 'the cross-origin frame is named, not read')
 check(!/HIDDEN-/.test(text) && text.includes('but this child shows') && text.includes('More details'), 'hidden content stays out; a visible child of a hidden parent shows')

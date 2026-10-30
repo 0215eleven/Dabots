@@ -161,5 +161,6 @@
   "Next turn": "下一轮",
   "Local message delivery": "本地消息投递",
   "The computer did not return a supported queue.": "电脑未返回受支持的队列。",
-  "The conversation session changed. Refresh its queue.": "对话会话已更改，请刷新队列。"
+  "The conversation session changed. Refresh its queue.": "对话会话已更改，请刷新队列。",
+  "Pinned chats": "置顶"
 }

@@ -9,15 +9,17 @@ function load(path:string,mocks:Record<string,any>){const code=transformSync(rea
 function animation(){return {duration(){return this},reduceMotion(value:string){return {...this,motion:value}}};}
 const reanimated={__esModule:true,default:{FlatList:'FlatList',View:'AnimatedView'},Easing:{bezier:noop},FadeIn:animation(),LinearTransition:animation(),ReduceMotion:{System:'system',Always:'always'},useSharedValue:(value:any)=>({get:()=>value,set:(next:any)=>{value=next}})};
 function screen(hidden:boolean){const agents=[{id:'visible'},{id:'hidden'}];return load('../openbot/mobile/src/features/agents/screens/connected-screen.tsx',{
- '@ds/text':{useDsText:()=>({tr:(text:string)=>text,locale:'en'})},'heroui-native/hooks':{useThemeColor:()=>('#141414')},'react':{...react,useState:()=>[hidden,noop]},'react-native':{View:'View'},'react-native-reanimated':reanimated,'expo-router':{Stack:{Screen:'Screen'}},
+ '@ds/text':{useDsText:()=>({tr:(text:string)=>text,locale:'en'})},'heroui-native/hooks':{useThemeColor:(names:any)=>Array.isArray(names)?names.map(()=>'#141414'):'#141414'},'react':{...react,useState:()=>[hidden,noop]},'react-native':{View:'View',Pressable:'Pressable',StyleSheet:{hairlineWidth:0.5}},'react-native-reanimated':reanimated,'expo-router':{Stack:{Screen:'Screen'}},
  '@/features/workspace/context/mobile-workspace-context':{useMobileWorkspace:()=>({agents,activeAgents:agents.slice(0,1),activeServer:{id:'h',name:'host'},pinnedAgentIds:['hidden'],pinnedChannelIds:[],hiddenChannelIds:[]})},
  '@/features/channels/components/use-channels':{useChannels:()=>({channels:[]})},'react-native-safe-area-context':{useSafeAreaInsets:()=>({bottom:0})},
  '@/shared/components/large-title':{useLargeTitleScroll:()=>({})},'@ds/provider':{useDs:()=>({view:{capabilities:{actions:[]}},online:true})},
  '@/features/agents/components/agent-list-reveal':{useAgentListReveal:()=>({})},'@/shared/lib/motion':{useReducedMotion:()=>true},
  }).ConnectedScreen();}
 // Render the actual imported screen with deterministic hooks, not a copied selector.
-test('quiet canonical motion suppresses retained list transitions',()=>{const tree=screen(false);assert.equal(tree.props.children[1].props.itemLayoutAnimation.motion,'always');});
-test('show hidden includes a hidden pinned Bot in the actual pinned section',()=>{const original=react.useState;react.useState=()=>[true,noop];try{const tree=screen(true);const header=tree.props.children[1].props.ListHeaderComponent;assert.deepEqual(header.props.children.at(-1).props.agents.map((a:any)=>a.id),['hidden']);}finally{react.useState=original}});
+// Find rendered elements by type, so the checks follow the screen's behavior rather than its nesting.
+function find(node:any,match:(node:any)=>boolean):any{if(!node||typeof node!=='object')return undefined;if(Array.isArray(node)){for(const child of node){const hit=find(child,match);if(hit)return hit;}return undefined;}if(match(node))return node;const props=node.props??{};for(const key of Object.keys(props)){const hit=find(props[key],match);if(hit)return hit;}return undefined;}
+test('quiet canonical motion suppresses retained list transitions',()=>{const tree=screen(false);assert.equal(find(tree,n=>n.type==='FlatList').props.itemLayoutAnimation.motion,'always');});
+test('show hidden includes a hidden pinned Bot in the actual pinned section',()=>{const original=react.useState;react.useState=()=>[true,noop];try{const tree=screen(true);const header=find(tree,n=>n.type==='FlatList').props.ListHeaderComponent;assert.deepEqual(find(header,n=>Array.isArray(n.props?.agents)).props.agents.map((a:any)=>a.id),['hidden']);}finally{react.useState=original}});
 test('DS provider projects canonical Bot colors into the active avatar graph',()=>{
  const view={serverId:'h',bots:[{id:'b',sourceId:'b',serverId:'h',name:'red',color:'#ff0000'},{id:'c',sourceId:'c',serverId:'h',name:'blue',avatar:{color:'#0000ff'}}],groups:[],conversations:[],capabilities:{actions:[]},work:{}};
  const core={read:()=>view},session={client:{},host:{serverId:'h'},workspace:{getSnapshot:()=>({}),team:{},conversations:[],online:true}};

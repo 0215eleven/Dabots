@@ -125,7 +125,7 @@ export const AgentListRow = memo(function AgentListRow({ agent, leftInset = 20, 
       serverId={agent.serverId}
       hue={agent.avatarHue}
       seed={agent.avatarSeed}
-      size={54}
+      size={48}
       animateIdle={false}
       rings
     />
@@ -133,7 +133,7 @@ export const AgentListRow = memo(function AgentListRow({ agent, leftInset = 20, 
   const waitBadge = waitReason ? <AgentWaitBadge reason={waitReason} /> : null;
   const avatar = (
     <ChatZoomSource>
-      <AgentPinAvatar agentId={agent.id} location="row" size={54}>
+      <AgentPinAvatar agentId={agent.id} location="row" size={48}>
         {bloub}
         {waitBadge}
       </AgentPinAvatar>
@@ -166,10 +166,13 @@ export const AgentListRow = memo(function AgentListRow({ agent, leftInset = 20, 
     >
       {({ pressed }) => (
         <View
-          className="min-h-20 w-full flex-row items-center gap-3 py-1"
+          className="w-full flex-row items-center gap-3"
+          // DS Bot Mobile: two-line rows (name + time, then the latest message) at 72 pt.
           style={{
             backgroundColor: background,
             opacity: pressed ? 0.58 : 1,
+            minHeight: 72,
+            paddingVertical: 10,
             paddingLeft: leftInset,
             paddingRight: rightInset,
           }}
@@ -189,18 +192,13 @@ export const AgentListRow = memo(function AgentListRow({ agent, leftInset = 20, 
                 {waitReason ? (
                   <AgentWaitChip reason={waitReason} />
                 ) : (
-                  <Typography.Paragraph className="text-muted" style={typeScale.caption}>
+                  <Typography.Paragraph className="text-muted" style={typeScale.small}>
                     {agent.updatedLabel}
                   </Typography.Paragraph>
                 )}
               </View>
-              {agent.title.trim() ? (
-                <Typography.Paragraph className="text-muted" numberOfLines={1} style={typeScale.caption}>
-                  {agent.title.trim()}
-                </Typography.Paragraph>
-              ) : null}
               <Typography.Paragraph className="text-text-secondary" numberOfLines={1} style={typeScale.preview}>
-                {previewLine}
+                {previewLine || agent.title.trim()}
               </Typography.Paragraph>
             </View>
           </AgentRowTextReveal>

@@ -60,7 +60,7 @@ export function createRuntime(ctx, config = {}) {
     home,
     statePath: join(home, 'state.json'),
     defaults: {
-      mainName: config.mainName ?? 'Chief',
+      mainName: config.mainName ?? 'MyBot',
       mainRole: config.mainRole ?? 'Chief of Staff',
     },
   }
