@@ -1,5 +1,6 @@
 import { botAvatarHue, botAvatarColor, fallbackAvatarColor } from './presentation';
 import { usePreviews } from '../home/usePreviews';
+import { useComputerNames } from '../names/ComputerNamesProvider';
 import { conversationTimestamp } from '../logic/conversation-order';
 import { formatUpdatedAt } from '@/shared/lib/format-updated-at';
 import React, { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -38,6 +39,7 @@ export function DsProvider({ children }: {
     children: React.ReactNode;
 }) {
     const session = useSession();
+    const names = useComputerNames();
     const t = useTheme(), mode = useColorMode(), { locale, tr } = useI18n();
     const latest = useRef(session);
     latest.current = session;
@@ -77,7 +79,7 @@ export function DsProvider({ children }: {
         stores.channelStore.applyDsSnapshot(view.serverId, channels, view.capabilities.actions.includes('create-room'));
         stores.liveState.update('activityByServer', () => ({ [view.serverId]: Object.fromEntries(Object.entries(view.work).filter(([, w]) => w.phase !== 'idle').map(([id, w]) => [id, { agentId: id, turnId: null, phase: w.phase === 'idle' ? 'working' : w.phase, detail: w.detail }])) }));
     }, [stores, session.workspace.team, session.workspace.conversations, session.workspace.online, channels]);
-    const host: MobileServer = { id: serverId ?? 'unavailable', name: session.host?.name ?? 'DeepSeek Bot Pro', logoKey: null, kind: 'local', state: session.workspace.online ? 'online' : 'offline', initialConnectionPending: session.loading,
+    const host: MobileServer = { id: serverId ?? 'unavailable', name: names.name(session.host), logoKey: null, kind: 'local', state: session.workspace.online ? 'online' : 'offline', initialConnectionPending: session.loading,
         // Until the first answer (or failure) arrives the computer is connecting quietly, not offline, so avatars and
         // bubbles do not open grey and fade in.
         resuming: !session.workspace.online && !session.workspace.error, connectionMessage: session.error || null, address: null, accent: '', publicKey: '', membershipId: '', role: 'member' };

@@ -222,8 +222,7 @@ The SDK58 native menu remains in use on iOS. Its web implementation leaves the
 trigger inert, so the root Metro config resolves only web menu imports to a DOM
 portal adapter, with actual actions, keyboard focus, Escape and outside dismissal.
 The compact home header keeps its36px icon visuals and native hitSlop; the browser
-uses44px non-overlapping click targets. Only the homepage brand reads MyBot;
-installation, settings, notifications and about keep DeepSeek Bot Pro.
+uses44px non-overlapping click targets. The home now omits its title and uses a connection dot on the menu; installation, notifications and about keep DeepSeek Bot Pro.
 
 The UI branch's latest-message previews now use the current DS core's guarded
 history API. The normal DS home never falls back to raw transcript caches or
@@ -232,3 +231,139 @@ including offline, while preserving the saved roster and drafts. Results are
 scoped to the connection/core and grant, superseded reads are ignored, and empty
 results replace old summaries. Memoized group summaries publish after asynchronous
 reads. These are repairs to the imported UI pass, not additional remote services.
+
+
+## Homepage safe-area correction
+
+The custom home header and list already use the safe-area context for top
+and bottom padding. Native automatic content-inset adjustment is disabled on this
+list so UIKit does not add a second safe-area gap above the title. Existing header,
+status, row styling and manual safe-area distances remain unchanged. The upstream
+original is retained and the adapted file hash is refreshed in provenance.json.
+
+## Theme boundary and navigation follow-up
+
+The resolved DS phone appearance now supplies the Expo Router navigation theme,
+including header/card backgrounds and foregrounds. The installed Expo SystemUI
+API also synchronizes the iOS window/root-controller background and web body;
+the web document canvas and color scheme follow manual appearance overrides.
+Normal scroll bounce and native presentations remain enabled. Browser evidence
+does not establish native bounce, transition geometry or keyboard correctness.
+
+The latest requested home navigation uses a three-line menu icon to open the
+computer information/settings at the left, and the Bot/group creation action at the right.
+Both are ordinary 44-point circles, retain accessible names and keyboard access,
+and keep the 431fcd8 manual top/bottom safe-area behavior. The list also consumes
+lateral safe-area insets once so these controls clear a landscape notch. No swipe-settings gesture or
+floating creation action was added. The home omits its title and exposes connection state on the menu.
+
+The DS pairing screen removes its large decorative robot and excess centered
+spacing. Its return-to-computers action stays above the bounded scrolling form,
+disabled while pairing is pending. Keyboard insets and bottom/lateral safe-area
+padding are retained; pairing authorization and cancellation logic are unchanged.
+
+## iOS long-press preview sizing
+
+`agent-chat-preview.tsx` now sizes the real preview root and both visible/hidden
+message bubbles independently of the triggering pinned tile or list row. Expo58
+converts Link.Preview width/height into preferredContentSize and removes them from
+the native host style, so the content needs its own geometry before native layout.
+Measurements are scoped to text, width and font scale, the hidden measurer remounts
+when that scope changes, and invalid/excessive heights cannot create an unbounded
+preview. Existing native Link.Preview, Link.Menu and action callbacks are retained.
+The exact original is preserved and the adaptation hashes are updated. Hook/SDK
+boundary checks do not establish UIKit menu appearance; iPhone testing remains.
+
+## Shared compact glass controls
+
+The custom DS home actions reuse the same ChatGlassButton as chat navigation,
+at their existing 44-point size. The supported iOS surface uses regular native
+Liquid Glass, explicitly following the phone appearance or an existing caller's
+surface override. Its accessibility/unsupported-platform fallback stays opaque
+and adds the existing ChromeGlassSheen and a subtle separator edge. Native route
+chrome keeps its platform material. A native MenuView can own a button's action
+without an inert React press handler. No new provider, blur library or parallel
+button component was introduced. Browser captures show the fallback material;
+they are not native Liquid Glass captures.
+
+
+## Phone-local computer nicknames
+
+Each saved computer may have a local nickname, defaulting to its paired name.
+The connection card and computer list share that display name. The latest home
+layout intentionally omits the computer title and status text. Settings opens a native form sheet
+for renaming any saved computer or restoring its original name. Chinese and
+English labels use the existing DS locale bridge.
+
+A separate names provider stores preferences in the app cache by serverId,
+outside transcript scopes. It never replaces the session Host, client or outbox,
+changes credentials/slots or writes desktop settings. Writes are serialized and
+read back before success is published; pending saves prevent dismissal and
+duplicate submission. Forgotten-computer cleanup is retried on the next load if
+storage failed, while its old nickname stays hidden for this app session.
+
+Validation covers two computers, offline rename/reconnect, reset, cancel, write
+failure and reload of local preferences in the actual browser app. These checks
+do not establish native sheet gestures, keyboard or device persistence. No IPA
+or native build was run for this change.
+
+
+## Compact settings entry
+
+The DS settings route hides its native header and removes the large title and
+computer-name caption. It reuses SettingsContent for the grouped content and
+existing safe-area/scroll ownership, rather than leaving an empty title region.
+Native stack return gestures remain configured by the navigator; browser checks
+use history back. Native gesture behavior still requires an iPhone check.
+
+
+## Chat identity alignment
+
+The chat header places its flexible spacer before the identity capsule so the
+Bot/group icon and name sit on the right while Back stays on the left. Existing
+info/menu actions, truncation, optional trailing controls and glass are retained.
+
+
+## Bot creation feedback
+
+Creation failures now invoke the native Alert and retain inline feedback beside
+the submission action instead of below the long form. Name requirements, known
+invalid/reserved names, duplicates, offline status and unavailable management
+permissions explain disabled creation; optional fields remain optional. Inputs
+are retained after rejection. An unknown mutation outcome still blocks retries
+until desktop state is reviewed; no automatic mutation replay was added. Models
+and reasoning continue to come exclusively from DSH, and absence of a model is
+not invented as a prerequisite for creating a Bot.
+
+
+## Minimal home chrome
+
+The home header has only its existing glass actions: a three-dot settings menu
+on the left and creation on the right. No brand/computer title or connection
+text row is rendered. A small dot inside the menu is green while connected and
+gray otherwise; its accessible value reports the connection state. The status
+comes from the live DS connection, with no new timer, network request or stored
+preference. Existing safe-area ownership and list behavior remain unchanged.
+
+
+## Web compact-control material
+
+The shared Back/home button web fallback uses the existing chrome-glass fill
+tokens instead of a flat control fill, with a brighter fine rim and stronger
+top light from ChromeGlassSheen. Light/dark and explicit surface overrides are
+retained. The sheen opacity is optional, preserving its previous defaults for
+other consumers. Native regular Liquid Glass and the opaque native reduced-
+transparency fallback keep their previous rendering. No new blur dependency or
+parallel button component was added. Visual evidence is a synthetic browser
+preview, including cropped Back and plus controls; it is not an iPhone capture.
+
+
+## Settings sheet presentation
+
+Settings uses the existing native formSheet presentation with a stable 0.85
+detent, a visible grabber and gestures enabled. The OS owns bottom-up entry and
+downward dismissal; overflowing content scrolls inside the fixed sheet. Its
+container uses the same sheet background token as SettingsContent. The title
+and navigation header remain hidden. No custom pan handler or second inset
+layer was added. Browser checks validate route configuration and content, not
+iOS sheet gesture/animation behavior; those require a device build.

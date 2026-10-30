@@ -2,16 +2,16 @@
 const assert = require('node:assert/strict');
 const createChat = require('./create-chat.cjs');
 module.exports = async function chinese({page, h, other, host, pair, visible, back, capture, check, until}) {
-  const gear = () => page.getByRole('button', {name: /^(Settings|设置)$/, exact: true});
+  const settings = () => page.getByRole('button', {name: /^(Settings|设置)$/, exact: true});
   const home = async () => {
-    await until(async()=>assert.equal(await page.getByRole('heading', {name: 'MyBot', exact: true}).filter({visible:true}).count(), 1, 'one home heading'));
-    const button = gear();
-    assert.equal(await button.locator('svg').count(), 1, 'settings action is a gear icon');
-    assert.equal((await button.innerText()).trim(), '', 'gear has an accessible name without a text action');
+    await settings().waitFor();assert.equal(await page.getByRole('heading', {name: 'DeepSeek Bot Pro', exact: true}).filter({visible:true}).count(), 0, 'no visible home title');
+    const button = settings();
+    assert.equal(await button.locator('svg[viewBox="0 0 24 24"]').count(), 1, 'settings action uses the menu icon');
+    assert.equal((await button.innerText()).trim(), '', 'menu button has an accessible name without a text action');
     const box = await button.boundingBox();
     assert.ok(box.width >= 44 && box.height >= 44 && box.y >= 0 && box.x + box.width <= 390);
   };
-  await gear().click();
+  await settings().click();
   const language = page.locator('select').filter({has:page.locator('option[value="zh"]')});
   assert.equal(await language.locator('option[value="en"]').innerText(), 'English');
   assert.equal(await language.locator('option[value="zh"]').innerText(), '简体中文');
@@ -22,7 +22,7 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
   await back(); await home(); await visible('已连接').waitFor();
   await page.getByRole('button', {name:'新对话',exact:true}).waitFor();
   await capture('01-conversation-list');
-  check('Chinese selection updates mounted home and accessible single gear header');
+  check('Chinese selection updates mounted home and accessible menu settings button');
   const state = await h.call('state'), bot = state.bots[0];
   await visible(bot.name).click();
   const input = page.getByLabel(`给 ${bot.name} 发消息`,{exact:true});
@@ -66,7 +66,7 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
   await createChat(page,'新建群组');
   await page.getByLabel('群组名称',{exact:true}).waitFor(); await back();
   check('Chinese create Bot and create/edit group labels and real back navigation');
-  await gear().click();
+  await settings().click();
   await capture('05-settings');
   await language.scrollIntoViewIfNeeded();
   await capture('06-settings-preferences');
@@ -104,14 +104,14 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
   await language.selectOption('host');await visible('Computer appearance').waitFor();
   assert.equal(await language.inputValue(),'host');
   await language.selectOption('zh');await visible('电脑外观').waitFor();
-  if(!other){other=await host();await other.call('update-bot',{id:other.f.urls.botId,name:'Other Locale Bot'});await visible('配对电脑').click();await pair(other);await visible('Other Locale Bot').waitFor();await gear().click();}
-  else{await page.getByRole('button').filter({has:page.getByText(new URL(other.p.url).host,{exact:true})}).click();await visible('Connected').waitFor();await gear().click();}
+  if(!other){other=await host();await other.call('update-bot',{id:other.f.urls.botId,name:'Other Locale Bot'});await visible('配对电脑').click();await pair(other);await visible('Other Locale Bot').waitFor();await settings().click();}
+  else{await page.getByRole('button').filter({has:page.getByText(new URL(other.p.url).host,{exact:true})}).click();await visible('Connected').waitFor();await settings().click();}
   assert.equal(await language.inputValue(),'host','another computer keeps its own follow preference');
   await language.selectOption('en');
   await until(async()=>assert.equal(Object.values(await cache()).filter(p=>p.locale==='en').length,1));
   await page.getByRole('button').filter({has:page.getByText(new URL(h.p.url).host,{exact:true})}).click();
   await visible('已连接').waitFor();await home();
-  await gear().click();assert.equal(await language.inputValue(),'zh');
+  await settings().click();assert.equal(await language.inputValue(),'zh');
   const after=await cache();assert.equal(after[scope].locale,'zh');assert.ok(Object.values(after).some(p=>p.locale==='en'));
   await language.selectOption('en');await visible('Computer appearance').waitFor();
   await back();await visible('Connected').waitFor();await home();
@@ -121,8 +121,8 @@ module.exports = async function chinese({page, h, other, host, pair, visible, ba
   // this development tab's intentionally memory-only pairing credentials.
   await page.evaluate(()=>{history.pushState(null,'','/connected');dispatchEvent(new PopStateEvent('popstate',{state:null}));});
   await page.waitForURL('**/connected');await home();
-  await gear().click();await visible('Computer appearance').waitFor();await back();await page.waitForURL('**/connected');await home();
-  check('both home routes have one heading, a 44pt gear, and working settings/back navigation');
+  await settings().click();await visible('Computer appearance').waitFor();await back();await page.waitForURL('**/connected');await home();
+  check('both home routes have no title, a 44pt menu button, and working settings/back navigation');
 };
 
 // A focused regression for pending text. Hold one real POST, exercise the same
@@ -191,7 +191,7 @@ module.exports.settings = async function settings({page,h,visible,back,capture,c
   assert.equal((await h.call('state')).prefs.accent,'#228866');
   check('current locale failure and successful retry keep mounted localized management feedback');
   await visible('读取电脑当前状态').click();await visible('我已检查当前状态').click();
-  await page.getByRole('heading',{name:'设置',exact:true}).filter({visible:true}).last().scrollIntoViewIfNeeded();
+  await visible('连接方式').scrollIntoViewIfNeeded();
   await capture('05-settings');
   await language.scrollIntoViewIfNeeded();assert.equal(await language.inputValue(),'zh');await capture('06-settings-preferences');
   await back();const state=await h.call('state'),bot=state.bots[0];await visible(bot.name).click();

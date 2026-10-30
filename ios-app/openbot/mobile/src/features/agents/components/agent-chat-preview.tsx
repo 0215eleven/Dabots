@@ -24,13 +24,13 @@ function previewText(preview: string): string {
   return `${(lastSpace > 0 ? text.slice(0, lastSpace) : text).replace(/[\s.,;:!?—–-]+$/, "")}…`;
 }
 
-function PreviewBubble({ text, onHeight }: { text: string; onHeight?: (height: number) => void }) {
+function PreviewBubble({ text, width, onHeight }: { text: string; width: number; onHeight?: (height: number) => void }) {
   const agents = useMobileWorkspaceSelector((workspace) => workspace.agents);
   const foreground = useThemeColor("foreground");
   return (
     <View
-      className="max-w-full self-start rounded-[30px] bg-control/60 px-4 py-3"
-      style={{ borderCurve: "circular" }}
+      className="self-start rounded-[30px] bg-control/60 px-4 py-3"
+      style={{ borderCurve: "circular", width }}
       onLayout={onHeight ? (event) => onHeight(event.nativeEvent.layout.height) : undefined}
     >
       <ChatMarkdown agents={agents} body={text} color={foreground} selectable={false} animationEnabled={false} />
@@ -50,20 +50,27 @@ function PreviewBubble({ text, onHeight }: { text: string; onHeight?: (height: n
  * that opens the chat does not also parse the latest message.
  */
 export function useAgentChatPreview(agent: MobileAgent) {
-  const { width: screenWidth, fontScale } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
   const [measuring, setMeasuring] = useState(false);
-  const [bubbleHeight, setBubbleHeight] = useState<number | null>(null);
+  const [measurement, setMeasurement] = useState<{ text: string; width: number; fontScale: number; height: number } | null>(null);
   const width = screenWidth - 2 * SIDE_INSET;
   const bubbleWidth = width - 2 * SIDE_INSET;
   const text = previewText(agent.preview);
+  const bubbleHeight = measurement?.text === text && measurement.width === bubbleWidth && measurement.fontScale === fontScale
+    ? measurement.height : null;
 
   const fallbackLines = Math.ceil((text.length * FALLBACK_CHARACTER_WIDTH * fontScale) / (bubbleWidth - 32));
   const estimatedBubbleHeight = bubbleHeight ?? 24 + Math.max(1, fallbackLines) * FALLBACK_LINE_HEIGHT * fontScale;
-  const height = HEADER_HEIGHT + 1 + (text ? estimatedBubbleHeight + 2 * BUBBLE_MARGIN : 0);
+  const height = Math.min(
+    Math.max(HEADER_HEIGHT + 1, screenHeight - 2 * SIDE_INSET),
+    HEADER_HEIGHT + 1 + (text ? estimatedBubbleHeight + 2 * BUBBLE_MARGIN : 0),
+  );
 
   const preview = isIOS ? (
     <Link.Preview style={{ width, height }}>
-      <View className="flex-1 bg-background">
+      {/* Expo forwards the outer dimensions as UIKit preferences, not Yoga sizes.
+          Size the actual content too, independently of the pinned tile/row. */}
+      <View className="overflow-hidden bg-background" style={{ width, height }}>
         <View className="flex-row items-center gap-3 px-4" style={{ height: HEADER_HEIGHT }}>
           <BloubAvatar
             agentId={agent.id}
@@ -83,7 +90,7 @@ export function useAgentChatPreview(agent: MobileAgent) {
             className="min-h-0 flex-1 overflow-hidden"
             style={{ padding: BUBBLE_MARGIN, paddingHorizontal: SIDE_INSET }}
           >
-            <PreviewBubble text={text} />
+            <PreviewBubble text={text} width={bubbleWidth} />
           </View>
         ) : null}
       </View>
@@ -93,12 +100,15 @@ export function useAgentChatPreview(agent: MobileAgent) {
   const measurer =
     measuring && text ? (
       <View
+        key={`${bubbleWidth}:${fontScale}:${text}`}
         pointerEvents="none"
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         style={{ position: "absolute", left: 0, top: 0, width: bubbleWidth, opacity: 0 }}
       >
-        <PreviewBubble text={text} onHeight={setBubbleHeight} />
+        <PreviewBubble text={text} width={bubbleWidth} onHeight={(height) => {
+          if (Number.isFinite(height) && height > 0) setMeasurement({ text, width: bubbleWidth, fontScale, height });
+        }} />
       </View>
     ) : null;
 

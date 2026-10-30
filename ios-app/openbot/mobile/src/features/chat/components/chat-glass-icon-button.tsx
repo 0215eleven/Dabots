@@ -1,7 +1,11 @@
 import { type GlassColorScheme, GlassView } from "expo-glass-effect";
 import type { PropsWithChildren } from "react";
-import { type AccessibilityValue, Pressable, type ViewStyle } from "react-native";
+import { type AccessibilityValue, Platform, Pressable, StyleSheet, type ViewStyle } from "react-native";
 import Animated, { type CSSTransitionProperties, cubicBezier } from "react-native-reanimated";
+import { useThemeColor } from "heroui-native/hooks";
+import { useUniwind } from "uniwind";
+import { ChromeGlassSheen } from "@/shared/components/chrome-glass-sheen";
+import { useChromeGlass } from "@/shared/lib/chrome-glass";
 
 const FADE: CSSTransitionProperties = {
   transitionProperty: "opacity",
@@ -24,11 +28,12 @@ interface ChatGlassButtonProps extends PropsWithChildren {
    */
   hidden?: boolean;
   liquidGlassAvailable: boolean;
-  onPress: () => void;
+  /** A native MenuView may own the action instead of a React press handler. */
+  onPress?: () => void;
   width?: number;
 }
 
-/** The floating control above the composer: a glass capsule with an icon, a label, or both. */
+/** Shared glass for compact navigation and floating chat actions, with an icon, label, or both. */
 export function ChatGlassButton({
   accessibilityLabel,
   accessibilityValue,
@@ -43,6 +48,11 @@ export function ChatGlassButton({
   onPress,
   width,
 }: ChatGlassButtonProps) {
+  const { theme } = useUniwind();
+  const edge = useThemeColor("separator");
+  const chrome = useChromeGlass();
+  const web = Platform.OS === "web";
+  const dark = colorScheme === "dark" || (colorScheme !== "light" && theme === "dark");
   return (
     <GlassView
       glassEffectStyle={{
@@ -50,7 +60,7 @@ export function ChatGlassButton({
         animate: true,
         animationDuration: 0.2,
       }}
-      colorScheme={colorScheme}
+      {...(Platform.OS === "ios" ? { colorScheme: colorScheme ?? (theme === "dark" ? "dark" : "light") } : {})}
       isInteractive={liquidGlassAvailable && !disabled && !hidden}
       pointerEvents={hidden ? "none" : "auto"}
       style={{
@@ -61,6 +71,7 @@ export function ChatGlassButton({
         overflow: "hidden",
         opacity: disabled ? 0.45 : 1,
         width,
+        ...(web ? { boxShadow: chrome.boxShadow } : {}),
       }}
     >
       {liquidGlassAvailable ? null : (
@@ -70,15 +81,23 @@ export function ChatGlassButton({
           style={{
             position: "absolute",
             inset: 0,
-            backgroundColor: fallbackBackground,
+            backgroundColor: web && !colorScheme ? chrome.backgroundColor : fallbackBackground,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: web ? (dark ? "rgba(255,255,255,0.18)" : chrome.borderColor) : edge,
+            borderTopColor: web ? (dark ? "rgba(255,255,255,0.32)" : "rgba(255,255,255,0.9)") : edge,
+            borderRadius: height / 2,
+            overflow: "hidden",
             opacity: hidden ? 0 : 1,
             ...FADE,
           }}
-        />
+        >
+          <ChromeGlassSheen highlightOpacity={web ? (dark ? 0.14 : 0.22) : undefined} />
+        </Animated.View>
       )}
       <Pressable
         accessibilityLabel={accessibilityLabel}
         accessibilityValue={accessibilityValue}
+        aria-valuetext={accessibilityValue?.text}
         accessibilityElementsHidden={hidden}
         importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
         accessibilityRole="button"

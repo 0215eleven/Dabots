@@ -4,13 +4,14 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { useUniwind } from "uniwind";
 
 /**
- * The light that falls on the top of the design glass, for the Android glass of `useChromeGlass`. It
+ * The light that falls on the top of the fallback design glass. It
  * lies over the fill, inside a parent that clips it to the shape.
  */
-export function ChromeGlassSheen() {
+export function ChromeGlassSheen({ highlightOpacity }: { highlightOpacity?: number } = {}) {
   const id = `chrome-glass-sheen-${useId()}`;
+  const { theme } = useUniwind();
   // Dark glass takes less light, or it reads brighter than the design.
-  const light = useUniwind().theme === "dark" ? 0.06 : 0.12;
+  const light = highlightOpacity ?? (theme === "dark" ? 0.06 : 0.12);
   return (
     <Svg pointerEvents="none" style={StyleSheet.absoluteFill} height="100%" width="100%">
       <Defs>

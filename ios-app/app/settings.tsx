@@ -1,20 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, Platform, Pressable, View } from "react-native";
 import CheckIcon from "lucide-react-native/icons/check";
+import PencilIcon from "lucide-react-native/icons/pencil";
 import { useThemeColor } from "heroui-native/hooks";
 import { Button, Typography } from "heroui-native";
 import { Host as UiHost, Picker, Switch } from "@expo/ui";
 import Constants from "expo-constants";
 import { Stack, useRouter } from "expo-router";
-import { LargeTitleScrollView } from "@/shared/components/large-title";
-import { hostAddress } from "../src/logic/hosts";
+import { hostAddress, hostKey } from "../src/logic/hosts";
+import { useComputerNames } from "../src/names/ComputerNamesProvider";
 import { setLiveActivityEnabled } from "../src/liveactivity/controller";
 import { LocalePreference, setLocalePreference, useI18n } from "../src/i18n";
 import { errorFeedback, selectionFeedback, successFeedback } from "../src/media/haptics";
 import { useSession } from "../src/session/SessionProvider";
 import { readCache, writeCache } from "../src/storage";
 import { ColorMode, setColorMode, useColorMode } from "../src/theme";
-import { SettingsSection, SettingsRow } from "@/features/settings/components/settings-content";
+import { SettingsContent, SettingsSection, SettingsRow } from "@/features/settings/components/settings-content";
 import { useDs } from "../src/ds/provider";
 import { mutationProblem } from "../src/ds/screen-binding";
 import { THEMES } from "../src/theme";
@@ -35,6 +36,7 @@ function Settings() {
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const router = useRouter();
   const session = useSession();
+  const names = useComputerNames();
   const {view,commands,management}=useDs();
   const [reviewed,setReviewed]=useState<import("../src/ds/management").ManagementIssue[]>([]);
   const [sharedPending,setSharedPending]=useState(false),[sharedBlocked,setSharedBlocked]=useState(false);
@@ -74,18 +76,19 @@ function Settings() {
     { text: tr("Cancel"), style: "cancel" },
     { text: tr("Unpair"), style: "destructive", onPress: () => { errorFeedback(); session.disconnect().catch(err => setMessage(errorText(err))); } },
   ]);
-  const forget = (target: (typeof session.hosts)[number]) => Alert.alert(tr("Forget {p0}?", { p0: target.name }), undefined, [
+  const forget = (target: (typeof session.hosts)[number]) => Alert.alert(tr("Forget {p0}?", { p0: names.name(target) }), undefined, [
     { text: tr("Cancel"), style: "cancel" },
     { text: tr("Forget"), style: "destructive", onPress: () => void session.forgetHost(target).catch(err => setMessage(errorText(err))) },
   ]);
 
   return (
-    <LargeTitleScrollView title={tr("Settings")} caption={host?.name} contentContainerClassName="gap-6 px-4 pt-3">
-      <Stack.Screen options={{ title: "", headerTransparent: true, headerShadowVisible: false }} />
+    <SettingsContent>
+      <Stack.Screen options={{ headerShown: false }} />
       {message || session.error ? <Typography.Paragraph className="text-danger-text px-1">{tr(message || session.error)}</Typography.Paragraph> : null}
       {localeSaveStatus === 'failed' ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-1">{tr('Language changed for this session, but could not be saved on this device.')}</Typography.Paragraph> : null}
+      {names.error ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-1">{tr(names.error)}</Typography.Paragraph> : null}
       <Group title={tr("Connection")} footer={tr("The app reconnects automatically when you change networks or return to the app.")}>
-        <Row title={host?.name || tr("No computer paired")} detail={host ? hostAddress(host) : undefined}>
+        <Row title={host ? names.name(host) : tr("No computer paired")} detail={host ? hostAddress(host) : undefined}>
           <View className="flex-row items-center gap-1.5"><View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: String(session.workspace.online ? success : muted) }}/><Typography.Paragraph className="text-muted" style={{ fontSize: 15 }}>{status}</Typography.Paragraph></View>
         </Row>
         <Row title={tr("Reconnect now")} onPress={host ? () => { successFeedback(); session.resume(); } : undefined} />
@@ -93,10 +96,14 @@ function Settings() {
 
       <Group title={tr("Computers")}>
         {session.hosts.map(item => (
-          <Row key={item.slot || item.serverId} title={item.name} detail={hostAddress(item)} onPress={host && item.serverId === host.serverId ? undefined : () => { selectionFeedback(); void session.switchHost(item); }}>
-            {host && item.serverId === host.serverId ? <CheckIcon accessibilityLabel={tr("Selected")} size={20} color={String(accent)} strokeWidth={2.4}/>
-              : <Pressable accessibilityRole="button" accessibilityLabel={tr("Forget {p0}?", { p0: item.name })} onPress={() => forget(item)} hitSlop={10}><Typography.Paragraph className="text-danger-text" style={{ fontSize: 15 }}>{tr("Forget")}</Typography.Paragraph></Pressable>}
-          </Row>
+          <View key={item.slot || item.serverId} className="flex-row items-center">
+            <View className="min-w-0 flex-1"><Row title={names.name(item)} detail={hostAddress(item)} onPress={host && item.serverId === host.serverId ? undefined : () => { selectionFeedback(); void session.switchHost(item); }}/></View>
+            <View className="flex-row items-center gap-2 pr-3">
+              <Pressable accessibilityRole="button" accessibilityLabel={tr("Rename {p0}", {p0: names.name(item)})} onPress={event => { event.stopPropagation(); router.push({pathname: '/computer-name', params: {serverId: item.serverId, slot: hostKey(item)}}); }} style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><PencilIcon size={19} color={String(muted)} accessible={false}/></Pressable>
+              {host && item.serverId === host.serverId ? <CheckIcon accessibilityLabel={tr("Selected")} size={20} color={String(accent)} strokeWidth={2.4}/>
+                : <Pressable accessibilityRole="button" accessibilityLabel={tr("Forget {p0}?", { p0: names.name(item) })} onPress={event => {event.stopPropagation();forget(item);}} style={{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center'}}><Typography.Paragraph className="text-danger-text" style={{ fontSize: 15 }}>{tr("Forget")}</Typography.Paragraph></Pressable>}
+            </View>
+          </View>
         ))}
         <Row title={tr("Pair a computer")} onPress={() => router.push("/pairing")} />
       </Group>
@@ -146,7 +153,7 @@ function Settings() {
         {host ? <Row title={tr("Unpair this computer")} destructive onPress={unpair} /> : null}
       </Group>
       <Typography.Paragraph className="text-muted text-center" style={{ fontSize: 12 }}>DeepSeek Bot Pro {Constants.expoConfig?.version} · {locale}</Typography.Paragraph>
-    </LargeTitleScrollView>
+    </SettingsContent>
   );
 }
 

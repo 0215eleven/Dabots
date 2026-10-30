@@ -4,7 +4,7 @@ import { useI18n } from "../i18n";
 import React, { useEffect, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Keyboard, Platform, ScrollView, Switch, Text, View } from "react-native";
-import { BotAvatar, mainLook } from "../components/BotAvatar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PairingScanner } from "../components/PairingScanner";
 import { MobileClient, validateServerUrl } from "@ds-bot/mobile-sdk";
 import {
@@ -13,7 +13,6 @@ import {
   Field,
   Label,
   Notice,
-  Sheet,
   styles,
 } from "../components/UI";
 import { cache, Host, tokenStoreFor } from "../storage";
@@ -31,6 +30,7 @@ export function PairingScreen({
   onCancel?: () => void;
 }) {
   const t = useTheme();
+  const insets = useSafeAreaInsets();
   const { tr } = useI18n();
   const [raw, setRaw] = useState("");
   const [device, setDevice] = useState(
@@ -138,22 +138,29 @@ export function PairingScreen({
     }
   }
   return (
+    <View style={{ flex: 1, backgroundColor: t.bg }}>
+    {onCancel && <View style={{ maxWidth: 560, width: "100%", alignSelf: "center", paddingHorizontal: Math.max(16, insets.left, insets.right), paddingVertical: 8 }}>
+      <Button title={tr("Back to my computers")} secondary disabled={busy} onPress={onCancel} />
+    </View>}
     <ScrollView
+      style={{ flex: 1 }}
       keyboardShouldPersistTaps="handled"
+      contentInsetAdjustmentBehavior="never"
+      automaticallyAdjustKeyboardInsets
       contentContainerStyle={[
         styles.page,
         {
           flexGrow: 1,
-          justifyContent: "center",
           maxWidth: 560,
           width: "100%",
           alignSelf: "center",
-          paddingVertical: 42,
+          paddingTop: 8,
+          paddingBottom: insets.bottom + 24,
+          paddingHorizontal: Math.max(16, insets.left, insets.right),
         },
       ]}
     >
       <View style={{ alignItems: "center", gap: 12, paddingBottom: 12 }}>
-        <BotAvatar bot={mainLook} size={72} />
         <Text style={{ color: t.ink, fontSize: 28, fontWeight: "600" }}>
           {tr("DeepSeek Bot Pro")}</Text>
         <Label muted>{tr(onCancel ? "Add another computer." : "Connect to your Bot team.")}</Label>
@@ -238,8 +245,8 @@ export function PairingScreen({
             }}
           />
         )}
-        {onCancel && !busy && <Button title={tr("Back to my computers")} secondary onPress={onCancel} />}
       </Card>
     </ScrollView>
+    </View>
   );
 }

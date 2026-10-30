@@ -2032,8 +2032,12 @@
       "gitBlob": "3856068959a50e1a2be188379f6fc0e221f68ce2",
       "mode": "100644",
       "upstreamSha256": "b781df1925cc364094392b579abba977a6c99576355dd1bd20344da5fdecde60",
-      "importedSha256": "b781df1925cc364094392b579abba977a6c99576355dd1bd20344da5fdecde60",
-      "adaptation": null
+      "importedSha256": "045bbbe6fe6813daae8cf66e7bb6bcdb9c361e70a9b706d63fcaf3f33cad0562",
+      "adaptation": "DS iOS long-press preview: explicit content/bubble geometry independent of pinned tile width, measurement keyed to content/width/font scale, and finite viewport-bounded height. Native Link.Preview and Link.Menu retained; exact upstream original preserved.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/components/agent-chat-preview.tsx",
+        "sha256": "b781df1925cc364094392b579abba977a6c99576355dd1bd20344da5fdecde60"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/components/agent-chat-settings.tsx",
@@ -2573,8 +2577,8 @@
       "gitBlob": "3ad18e9e9ab9095d03a1303349eff7f046955510",
       "mode": "100644",
       "upstreamSha256": "3e7abc7adc71284adeebc610db6fa477033def3174fd2649767976375f7edb21",
-      "importedSha256": "d9ae44934325b9552714616ea6a65d2c15456f54dd19b18f4f9863a9d197ad25",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.",
+      "importedSha256": "cd76800f75cc32cf0fcd5674cea2246bcd0052ae8e1779b573c94c070ecd7237",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge.; creation reports failures with a native alert and inline feedback beside Save, explains unavailable/invalid/duplicate names, preserves draft and uncertainty protection, and retains DSH-only model choices.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/add-agent-screen.tsx",
         "sha256": "3e7abc7adc71284adeebc610db6fa477033def3174fd2649767976375f7edb21"
@@ -2586,8 +2590,8 @@
       "gitBlob": "2d01145d6d1a652a8acf764a86a03b30f51d9700",
       "mode": "100644",
       "upstreamSha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a",
-      "importedSha256": "ac2add968f6d03d7eab16e08160388bf2f416840e6ee65036764cb92264eaf1b",
-      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: canonical quiet motion and hidden pinned Bot visibility. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge; plus DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.; browser hit targets enlarged to44px while preserving36px visuals and native hitSlop.",
+      "importedSha256": "7721edc214d6bf1a99e952ccbda9ad73627240a6d4efb5fe6dadab13a069b936",
+      "adaptation": "Task 3: DSH screen/provider/capability integration; original upstream file retained at preservedOriginal.path. Task 4: canonical quiet motion and hidden pinned Bot visibility. Task 5: reactive Chinese core-page labels and accessible single home heading/settings gear, using the existing locale bridge; plus DS Bot Mobile layout polish (home header, list rows and separators, pinned section, chat notices and composer, avatar colour handling, web guards); original upstream file retained at preservedOriginal.path.; browser hit targets enlarged to44px while preserving36px visuals and native hitSlop.; home list uses its existing manual safe-area padding without duplicate UIKit automatic content insets.; homepage settings uses the existing DS robot avatar at the left, with ordinary 44-point avatar/creation controls and unchanged manual safe-area ownership.; manual lateral list padding keeps the avatar and creation action clear of a landscape notch without automatic double insets.; latest UI uses a three-line information/settings menu icon and the shared chat glass control at44 points for both home actions.; home title follows the current phone-local computer nickname and the status row avoids repeating that name.; latest home removes title/status text, uses an ellipsis menu with a live green/gray status dot and accessible state, retaining existing safe areas and actions.",
       "preservedOriginal": {
         "path": "adaptations/original/src/features/agents/screens/connected-screen.tsx",
         "sha256": "ad6c1ade5ca7d92bad34cec1923ec28f9560bd341d4cc106975a9ce020a6522a"
@@ -3409,8 +3413,12 @@
       "gitBlob": "b7a651354d0b1182430faa13e808770125ebdfae",
       "mode": "100644",
       "upstreamSha256": "5e84ca66486f26951ad7ca8a4b61cffa368a9a9d68685911579b13db564a70f9",
-      "importedSha256": "5e84ca66486f26951ad7ca8a4b61cffa368a9a9d68685911579b13db564a70f9",
-      "adaptation": null
+      "importedSha256": "68fe6cbc839b3e11d31e82cc59fdbbabf096374bbc24a882605c2f6ddc87bd9a",
+      "adaptation": "DS shared compact controls: native regular glass follows phone appearance, while the opaque accessibility/unsupported-platform fallback reuses the existing thin edge and ChromeGlassSheen. Native press/menu behavior and explicit surface color overrides are retained; upstream original preserved.; existing accessibility value text is forwarded explicitly to ARIA on web for the home connection indicator. Web fallback now uses the existing chrome fill tokens, a brighter rim and stronger top highlight so home actions match the shared Back button; native glass and opaque native accessibility fallback retain their appearance.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/chat/components/chat-glass-icon-button.tsx",
+        "sha256": "5e84ca66486f26951ad7ca8a4b61cffa368a9a9d68685911579b13db564a70f9"
+      }
     },
     {
       "source": "apps/mobile/src/features/chat/components/chat-header.tsx",
@@ -3418,8 +3426,12 @@
       "gitBlob": "a0f70114e17c75859c0ad22b191b55c4e6d095ea",
       "mode": "100644",
       "upstreamSha256": "26ac9010740b5cc35bee66cc2e3e7e9d550e4fd89a79a89dd4df56169e64c721",
-      "importedSha256": "26ac9010740b5cc35bee66cc2e3e7e9d550e4fd89a79a89dd4df56169e64c721",
-      "adaptation": null
+      "importedSha256": "e74d17af44aa93b452d2a263d727a994f8ed3ff4d304d4045d0f1abf17ed487d",
+      "adaptation": "Chat identity capsule aligns to the right of the header; back remains on the left and info/menu actions and glass materials are unchanged. Original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/chat/components/chat-header.tsx",
+        "sha256": "26ac9010740b5cc35bee66cc2e3e7e9d550e4fd89a79a89dd4df56169e64c721"
+      }
     },
     {
       "source": "apps/mobile/src/features/chat/components/chat-image-gallery.tsx",
@@ -6929,8 +6941,12 @@
       "gitBlob": "651bce8030caedc638d3e9e01b66c8ecd9d503a3",
       "mode": "100644",
       "upstreamSha256": "ad59e7e95bb6ddf4d530027c3b13f988f20a43418f197fcfe7076b66bcb6ab7f",
-      "importedSha256": "ad59e7e95bb6ddf4d530027c3b13f988f20a43418f197fcfe7076b66bcb6ab7f",
-      "adaptation": null
+      "importedSha256": "c3358222900c6078f52a8be2aed200f3d287be6cbb41cec4cc71b0df63086276",
+      "adaptation": " Optional highlight opacity lets compact web controls strengthen their existing top light; default Android/native fallback appearance is unchanged. Original upstream file is retained.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/shared/components/chrome-glass-sheen.tsx",
+        "sha256": "ad59e7e95bb6ddf4d530027c3b13f988f20a43418f197fcfe7076b66bcb6ab7f"
+      }
     },
     {
       "source": "apps/mobile/src/shared/components/covering-menu-view.tsx",
