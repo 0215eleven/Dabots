@@ -7,7 +7,6 @@ import { Button, Typography } from "heroui-native";
 import { Host as UiHost, Picker, Switch } from "@expo/ui";
 import Constants from "expo-constants";
 import { Stack, useRouter } from "expo-router";
-import { LargeTitleScrollView } from "@/shared/components/large-title";
 import { hostAddress, hostKey } from "../src/logic/hosts";
 import { useComputerNames } from "../src/names/ComputerNamesProvider";
 import { setLiveActivityEnabled } from "../src/liveactivity/controller";
@@ -16,7 +15,7 @@ import { errorFeedback, selectionFeedback, successFeedback } from "../src/media/
 import { useSession } from "../src/session/SessionProvider";
 import { readCache, writeCache } from "../src/storage";
 import { ColorMode, setColorMode, useColorMode } from "../src/theme";
-import { SettingsSection, SettingsRow } from "@/features/settings/components/settings-content";
+import { SettingsContent, SettingsSection, SettingsRow } from "@/features/settings/components/settings-content";
 import { useDs } from "../src/ds/provider";
 import { mutationProblem } from "../src/ds/screen-binding";
 import { THEMES } from "../src/theme";
@@ -83,8 +82,8 @@ function Settings() {
   ]);
 
   return (
-    <LargeTitleScrollView title={tr("Settings")} caption={host ? names.name(host) : undefined} contentContainerClassName="gap-6 px-4 pt-3">
-      <Stack.Screen options={{ title: "", headerTransparent: true, headerShadowVisible: false }} />
+    <SettingsContent>
+      <Stack.Screen options={{ headerShown: false }} />
       {message || session.error ? <Typography.Paragraph className="text-danger-text px-1">{tr(message || session.error)}</Typography.Paragraph> : null}
       {localeSaveStatus === 'failed' ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-1">{tr('Language changed for this session, but could not be saved on this device.')}</Typography.Paragraph> : null}
       {names.error ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-1">{tr(names.error)}</Typography.Paragraph> : null}
@@ -154,7 +153,7 @@ function Settings() {
         {host ? <Row title={tr("Unpair this computer")} destructive onPress={unpair} /> : null}
       </Group>
       <Typography.Paragraph className="text-muted text-center" style={{ fontSize: 12 }}>DeepSeek Bot Pro {Constants.expoConfig?.version} · {locale}</Typography.Paragraph>
-    </LargeTitleScrollView>
+    </SettingsContent>
   );
 }
 

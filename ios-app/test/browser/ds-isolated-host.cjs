@@ -26,7 +26,7 @@ async function until(run, timeout=10000){const start=Date.now();let last;while(D
  async function capture(name,locale='en'){if(!shotDir)return;assert.ok(resolve(shotDir)!==root&&!resolve(shotDir).startsWith(root+'/'));const directory=join(shotDir,locale);await mkdir(directory,{recursive:true,mode:0o700});await page.screenshot({path:join(directory,name+'.png'),style:'#error-toast {visibility:hidden !important}'});}
  const captureChinese=name=>capture(name,'zh');
  const visible=text=>page.getByText(['Connected','已连接','Offline · saved desktop state','离线 · 已保存的电脑状态'].includes(text)?new RegExp('(?:^| · )'+text+'$'):text,{exact:true}).filter({visible:true});
- async function back(){const link=page.getByRole('link',{name:/, back$/}).filter({visible:true});if(await link.count())await link.click();else await page.getByRole('button',{name:/^(Back|返回)$/,exact:true}).click();}
+ async function back(){const link=page.getByRole('link',{name:/, back$/}).filter({visible:true});if(await link.count())await link.click();else {const button=page.getByRole('button',{name:/^(Back|返回)$/,exact:true}).filter({visible:true});if(await button.count())await button.click();else await page.goBack();}}
  async function lostAcknowledgement(h,bot,name){
   stage='lost successful POST acknowledgement';const text='Lost acknowledgement message';let submitted;
   const observe=request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/mobile/v1/submissions'&&request.postDataJSON()?.text===text)submitted=request.postDataJSON();};

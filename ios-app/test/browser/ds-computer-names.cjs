@@ -28,7 +28,7 @@ module.exports=async function({page,h,host,pair,visible,back,check,until,capture
   assert.equal(await page.getByRole('button',{name:'保存名称',exact:true}).isDisabled(),true);
   await field().fill('长'.repeat(41));assert.equal(await page.getByRole('button',{name:'保存名称',exact:true}).isDisabled(),true);
   await save('家里的电脑 🤖');
-  await until(async()=>assert.equal(await visible('家里的电脑 🤖').count(),3,'caption, connection and saved computer use one label'));
+  await until(async()=>assert.equal(await visible('家里的电脑 🤖').count(),2,'connection and saved computer use one label without a redundant title'));
   await capture('settings-nickname','zh');await home('家里的电脑 🤖');await capture('home-nickname','zh');
   const after=await references();assert.ok(after.sameHost&&after.sameClient&&after.sameOutbox);assert.equal(after.rawName,initial.rawName);assert.equal(h.p.controls.upgrades,upgrades);
   check('one confirmed nickname reaches all three surfaces without replacing host/client/outbox or reconnecting');

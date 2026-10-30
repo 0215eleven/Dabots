@@ -5,7 +5,7 @@ module.exports=async function({page,h,bot,visible,back,check,until,capture}){
   const settings=()=>page.getByRole('button',{name:/^(Settings|设置)$/,exact:true});
   const appearance=()=>page.locator('select').filter({has:page.locator('option[value="dark"]')});
   async function canvas(){return page.evaluate(()=>{
-    const heading=[...document.querySelectorAll('[role="heading"]')].find(e=>e.textContent==='Settings'||e.textContent==='DeepSeek Bot Pro'||e.textContent==='设置');
+    const heading=[...document.querySelectorAll('[role="heading"]')].find(e=>e.textContent==='DeepSeek Bot Pro')??document.querySelector('select');
     const key=heading&&Object.keys(heading).find(k=>k.startsWith('__reactFiber$'));
     let fiber=key&&heading[key], themes=[];
     for(;fiber;fiber=fiber.return){

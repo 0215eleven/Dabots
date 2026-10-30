@@ -191,7 +191,7 @@ module.exports.settings = async function settings({page,h,visible,back,capture,c
   assert.equal((await h.call('state')).prefs.accent,'#228866');
   check('current locale failure and successful retry keep mounted localized management feedback');
   await visible('读取电脑当前状态').click();await visible('我已检查当前状态').click();
-  await page.getByRole('heading',{name:'设置',exact:true}).filter({visible:true}).last().scrollIntoViewIfNeeded();
+  await visible('连接方式').scrollIntoViewIfNeeded();
   await capture('05-settings');
   await language.scrollIntoViewIfNeeded();assert.equal(await language.inputValue(),'zh');await capture('06-settings-preferences');
   await back();const state=await h.call('state'),bot=state.bots[0];await visible(bot.name).click();

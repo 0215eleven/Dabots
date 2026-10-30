@@ -307,3 +307,12 @@ Validation covers two computers, offline rename/reconnect, reset, cancel, write
 failure and reload of local preferences in the actual browser app. These checks
 do not establish native sheet gestures, keyboard or device persistence. No IPA
 or native build was run for this change.
+
+
+## Compact settings entry
+
+The DS settings route hides its native header and removes the large title and
+computer-name caption. It reuses SettingsContent for the grouped content and
+existing safe-area/scroll ownership, rather than leaving an empty title region.
+Native stack return gestures remain configured by the navigator; browser checks
+use history back. Native gesture behavior still requires an iPhone check.

@@ -49,7 +49,7 @@ function Root() {
       <Stack screenOptions={{ contentStyle: { backgroundColor: t.bg } }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="connected" options={{ headerShown: false }} />
-        <Stack.Screen name="settings" options={{ headerTransparent: true, headerShadowVisible: false, title: "", headerBackButtonDisplayMode: "minimal" }} />
+        <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="chat/[agentId]" options={{ headerBackButtonDisplayMode: "minimal" }} />
         <Stack.Screen name="add-agent" options={{title:tr("Add Bot"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
         <Stack.Screen name="add-channel" options={{title:tr("New group"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
