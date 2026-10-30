@@ -8,7 +8,11 @@ function harness(initialRemote, initialBusy = false) {
   const hooks = [], calls = []
   const state = { status: { enabled: true, remote: initialRemote, url: initialRemote.url }, busy: initialBusy, operation: initialBusy ? 'remote.start' : null }
   const controller = {
-    configureRemote: (...args) => calls.push(['configure', ...args]),
+    configureRemote: (mode, url, token) => {
+      calls.push(['configure', mode, url, token])
+      state.status.remote = { ...state.status.remote, mode, configuredUrl: url, configuredUrls: { ...state.status.remote.configuredUrls, [mode]: url } }
+    },
+    snapshot: () => state,
     startRemote: (...args) => calls.push(['start', ...args]),
     stopRemote: () => calls.push(['stop']),
   }
@@ -65,15 +69,16 @@ test('the startup UI always offers stop and does not auto restart on error', () 
   assert.equal(ui.find('a', '安装 cloudflared（官方指南）').props.href, 'https://developers.cloudflare.com/tunnel/downloads/')
 })
 
-test('mode selection restores its saved URL and saving never claims to create a tunnel', () => {
+test('mode selection restores its saved URL and fixed-mode saving reports success without starting a tunnel', async () => {
   const ui = harness(quick)
   ui.render()
   ui.find('select', '远程连接方式').props.onChange({ target: { value: 'fixed' } })
   assert.deepEqual(ui.calls, [])
   assert.equal(ui.find('input', 'HTTPS 入口地址').props.value, 'https://fixed.example')
   ui.find('input', 'HTTPS 入口地址').props.onChange({ target: { value: 'https://new.example' } })
-  ui.find('form', '配置远程入口').props.onSubmit({ preventDefault() {} })
-  assert.deepEqual(ui.calls, [['configure', 'fixed', 'https://new.example']])
+  await ui.find('form', '配置远程入口').props.onSubmit({ preventDefault() {} })
+  assert.deepEqual(ui.calls, [['configure', 'fixed', 'https://new.example', '']])
+  assert.ok(ui.text(ui.render()).includes('已保存并生效：https://new.example'))
   assert.ok(ui.text(ui.render()).includes('只检查地址格式'))
   assert.equal(ui.find('a', '打开 Cloudflare 后台').props.href, 'https://dash.cloudflare.com/')
   assert.equal(ui.find('a', '查看隧道配置步骤').props.href, 'https://developers.cloudflare.com/tunnel/get-started/')
