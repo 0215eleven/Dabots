@@ -66,7 +66,7 @@ export function previewClient(serverId = "preview"): MobileClient {
     work: { bots: { "preview-design": { said: "正在调整首页的配色", since: now - 90_000 } }, approvals: [] },
   };
   const client = {
-    info: async () => ({ serverId, capabilities: { history: true, stream: true, send: true, groups: true, "agent-open": true } }),
+    info: async () => ({ serverId, capabilities: { history: true, stream: true, send: true, groups: true, "agent-open": true, botManagement: true, groupManagement: true, actions: ["create-bot", "create-room"] } }),
     state: async () => state,
     conversations: async () => ({ conversations }),
     messages: async (id: string) => ({ messages: transcripts[id] ?? [], cursor: null, sessionId: "s" }),
