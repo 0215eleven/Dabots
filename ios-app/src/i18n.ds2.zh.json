@@ -163,5 +163,7 @@
   "The computer did not return a supported queue.": "电脑未返回受支持的队列。",
   "The conversation session changed. Refresh its queue.": "对话会话已更改，请刷新队列。",
   "Pinned chats": "置顶",
-  "All": "全部"
+  "All": "全部",
+  "Computer offline": "电脑离线",
+  "This address now answers as another computer.": "这个地址现在对应的是另一台电脑。"
 }

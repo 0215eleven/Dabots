@@ -19,7 +19,8 @@ import { setColorMode, setThemePreferences, type ColorMode } from "../theme";
 import { LocalePreference, setHostLocale, setLocalePreference } from "../i18n";
 import { errorText } from "../types";
 import { createDurableOutboxStore } from "../outbox/store";
-import { openHost } from "./open-host";
+import { hostClients } from "./shared-host-clients";
+import type { HostLease } from "./host-clients";
 import { enabledFixture, fixtureControl } from "../preview/enabled-fixture";
 import { designPreview, previewClient, previewHosts } from "../preview/preview-session";
 
@@ -76,6 +77,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const agentMode = agentChoice && agentsAvailable;
   const workspaceRef = useRef(workspace);
   workspaceRef.current = workspace;
+  // Leases on the shared per-computer clients this session has shown; released when it stops showing one.
+  const leases = useRef(new Map<MobileClient, HostLease[]>());
+  const hold = (lease: HostLease) => { leases.current.set(lease.client, [...(leases.current.get(lease.client) ?? []), lease]); return lease.client; };
+  const letGo = (value: MobileClient) => {
+    const held = leases.current.get(value);
+    const lease = held?.shift();
+    if (held && !held.length) leases.current.delete(value);
+    if (lease) lease.release(); else value.dispose();
+  };
 
   useEffect(() => {
     void readCache<ColorMode>("app", "colorMode").then(value => { if (value === "dark" || value === "light") setColorMode(value); }).catch(() => {});
@@ -92,8 +102,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (designPreview) {
       setHosts(previewHosts);
       setHost(previewHosts[0]);
-      setClient(previewClient());
-      setLoading(false);
+      void hostClients.acquire(previewHosts[0]).then(lease => setClient(hold(lease))).finally(() => setLoading(false));
       return;
     }
     let mounted = true;
@@ -107,10 +116,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (!target) return;
         const stored = await tokenStoreFor(target.slot).get();
         if (!stored && list.length === 1) return;
-        const connection = await openHost(target);
-        if (!mounted) return connection.dispose();
+        const lease = await hostClients.acquire(target);
+        if (!mounted) return lease.release();
         setHost(target);
-        setClient(connection);
+        setClient(hold(lease));
       })
       .catch(err => setError(errorText(err)))
       .finally(() => { if (mounted) setLoading(false); });
@@ -119,7 +128,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stop = watchConversationStreamLifecycle(client, AppState, setForeground);
-    return () => { stop(); client?.dispose(); };
+    return () => { stop(); if (client) letGo(client); };
   }, [client]);
 
   useEffect(() => { setThemePreferences(workspace.team.prefs); }, [workspace.team.prefs]);
@@ -232,7 +241,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (client) conversationStreams.clear(client);
     setHosts(next);
     setHost(value);
-    setClient(connection);
+    setClient(hold(hostClients.adopt(value, connection)));
     setError("");
     setPairingSlot(newSlot());
     resetHostView();
@@ -241,11 +250,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (client && host && hostKey(host) === hostKey(target)) return true;
     setError("");
     try {
-      const connection = await openHost(target);
-      await writeCache("app", "activeHost", hostKey(target));
+      const lease = await hostClients.acquire(target);
+      try { await writeCache("app", "activeHost", hostKey(target)); }
+      catch (err) { lease.release(); throw err; }
       if (client) conversationStreams.clear(client);
       setHost(target);
-      setClient(connection);
+      setClient(hold(lease));
       resetHostView();
       return true;
     } catch (err) {

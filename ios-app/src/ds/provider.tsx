@@ -32,8 +32,10 @@ interface Binding {
     online: boolean;
     agents: MobileAgent[];
     commands: ReturnType<typeof createScreenCommands> | null;
+    /** Latest activity (ms) of each Bot and group chat, to order chats across computers. */
+    times: Readonly<Record<string, number>>;
 }
-const Context = createContext<Binding>({ management: null, core: null, view: null, online: false, agents: [], commands: null });
+const Context = createContext<Binding>({ management: null, core: null, view: null, online: false, agents: [], commands: null, times: {} });
 export const useDs = () => useContext(Context);
 export function DsProvider({ children }: {
     children: React.ReactNode;
@@ -120,7 +122,8 @@ export function DsProvider({ children }: {
         hideChannel: id => { void flag(id, { hidden: true }).catch(fail); return false; }, unhideChannel: id => { void flag(id, { hidden: false }).catch(fail); return false; },
     };
     const commands = useMemo(() => core && serverId ? createScreenCommands(core, serverId) : null, [core, serverId]);
+    const times = useMemo(() => Object.fromEntries([...(view?.bots ?? []), ...(view?.groups ?? [])].map(item => { const at = lastOf(item.conversationId).at; return [item.id, at ? Date.parse(at) : 0]; })), [session.workspace.team, session.workspace.conversations, core, previews, previewAccess]);
     useEffect(() => { useAppLanguage.setState({ value: locale === 'zh' ? 'zh' : 'en', ready: true }); }, [locale]);
     useEffect(() => { Uniwind.setTheme(mode); useAppearance.setState({ value: mode, ready: true }); useMotionPreferences.setState({ allAnimations: t.motion !== 'quiet', ready: true }); Uniwind.updateCSSVariables(t.dark ? 'dark' : 'light', { '--background': t.bg, '--foreground': t.ink, '--accent': t.accent, '--accent-foreground': t.accentText, '--openbot-accent': t.accent, '--openbot-text-on-accent': t.accentText, '--openbot-bg-canvas': t.bg, '--openbot-bg-native-canvas': t.bg, '--openbot-bg-native-sidebar': t.sidebar, '--openbot-bg-sheet': t.sheet, '--openbot-bg-control': t.bubble, '--openbot-bg-surface': t.surface, '--openbot-text-primary': t.ink }); }, [mode, t.dark, t.accent, t.accentText, t.bg, t.ink, t.motion, t.sidebar, t.sheet, t.bubble, t.surface]);
-    return <Context.Provider value={{ management: binding, core, view, online: session.workspace.online, agents, commands }}><WorkspaceContexts value={value} actions={value}><AgentPinTransitionProvider>{children}</AgentPinTransitionProvider></WorkspaceContexts></Context.Provider>;
+    return <Context.Provider value={{ management: binding, core, view, online: session.workspace.online, agents, commands, times }}><WorkspaceContexts value={value} actions={value}><AgentPinTransitionProvider>{children}</AgentPinTransitionProvider></WorkspaceContexts></Context.Provider>;
 }

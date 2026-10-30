@@ -25,7 +25,9 @@ import { useMobileWorkspace, type MobileAgent } from '@/features/workspace/conte
 import type { MobileSidebarItem } from '@/features/workspace/model/sidebar-layout';
 import { useLargeTitleScroll } from '@/shared/components/large-title';
 import { useDs } from '@ds/provider';
-import { useComputerNames, useComputers } from '@ds/computers';
+import { peerBotColor, peerRows, useComputerNames, useComputers, usePeerHosts, type PeerRow } from '@ds/computers';
+import { PeerChatRow } from '@/features/agents/components/peer-chat-row';
+import { useUniwind } from 'uniwind';
 import { ComputerTagContext } from '@/features/workspace/components/computer-tag';
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 
@@ -145,7 +147,7 @@ function ComputerChip({ label, selected, status, onPress }: { label: string; sel
 }
 /** Original OpenBot list composition, bound to the selected DS computer. */
 export function ConnectedScreen() {
-    const { view, online } = useDs();
+    const { view, online, times } = useDs();
     const { tr } = useDsText();
     const [foreground, success, muted] = useThemeColor(['foreground', 'success', 'muted']);
     const reducedMotion = useReducedMotion();
@@ -178,13 +180,26 @@ export function ConnectedScreen() {
         const host = computers.hosts.find(h => h.serverId === serverId);
         if (host && host.serverId !== computers.host?.serverId) void computers.switchHost(host);
     };
+    // "All" merges the other computers' chats, newest first, with the active computer's unpinned chats.
+    const { peers } = usePeerHosts();
+    const dark = useUniwind().theme === 'dark';
+    const peerItems = useMemo(() => !multiple || filter !== 'all' ? [] : Object.values(peers).flatMap(peer => peerRows(peer, peerBotColor(dark)).map(row => ({ id: row.id, peer: row, at: row.at }))), [multiple, filter, peers, dark]);
+    const listed: Array<{ id: string; agent?: MobileAgent; channel?: ChannelSummary; peer?: PeerRow }> = peerItems.length
+        ? [...items.map(item => ({ ...item, at: times[item.id] ?? 0 })), ...peerItems].sort((a, b) => b.at - a.at)
+        : items;
+    const status = (serverId: string): 'online' | 'offline' => serverId === computers.host?.serverId ? (online ? 'online' : 'offline') : peers[serverId]?.online ? 'online' : 'offline';
+    const openPeer = async (row: PeerRow) => {
+        const host = computers.hosts.find(h => h.serverId === row.serverId);
+        if (!host || !(await computers.switchHost(host))) return;
+        router.push(row.kind === 'group' ? { pathname: '/channel/[channelId]', params: { channelId: row.id, serverId: row.serverId } } : { pathname: '/chat/[agentId]', params: { agentId: row.id } });
+    };
     return <ComputerTagContext.Provider value={tags}><View className="flex-1 bg-background">
   <Stack.Screen options={{ headerShown: false }}/>
   {/* The list pads both safe-area edges itself; UIKit must not add them again. Settings and New float at the bottom corners. */}
-  <Animated.FlatList data={items} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24 + 60, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => <TransitioningChatRow {...item} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
+  <Animated.FlatList data={listed} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24 + 60, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => item.peer ? <PeerChatRow row={item.peer} online={peers[item.peer.serverId]?.online === true} onOpen={row => void openPeer(row)}/> : <TransitioningChatRow agent={item.agent} channel={item.channel} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
    {multiple ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: ROW_LEFT, paddingTop: 4, paddingBottom: 4 }}>
     <ComputerChip label={tr('All')} selected={filter === 'all'} onPress={() => setFilter('all')}/>
-    {computers.hosts.map(h => <ComputerChip key={h.slot || h.serverId} label={names.name(h)} selected={filter === h.serverId} status={h.serverId === computers.host?.serverId && online ? 'online' : 'offline'} onPress={() => pick(h.serverId)}/>)}
+    {computers.hosts.map(h => <ComputerChip key={h.slot || h.serverId} label={names.name(h)} selected={filter === h.serverId} status={status(h.serverId)} onPress={() => pick(h.serverId)}/>)}
    </ScrollView> : null}
    {view?.readOnly ? <View className="mx-4 mb-3 rounded-2xl bg-control px-4 py-3"><Typography.Paragraph className="text-text-secondary" style={{ fontSize: 13, lineHeight: 18 }}>{tr(view.readOnly)}</Typography.Paragraph></View> : null}
    {hasPinned ? <>

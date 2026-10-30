@@ -48,13 +48,25 @@ export const previewHosts: Host[] = [
   { url: "https://studio.local:7443", serverId: "studio", name: "Studio PC", slot: "b" },
 ];
 
+// A second computer with its own Bots, so "All" shows chats from two computers.
+const studioBots = [
+  { id: "studio-review", name: "代码审查", role: "检查改动", sessionId: "s-review" },
+  { id: "studio-ops", name: "运维助手", role: "服务器与部署", sessionId: "s-ops", color: "tangerine" },
+];
+const studioConversations: Conversation[] = studioBots.map((bot, index) => ({ id: bot.id, kind: "bot", name: bot.name, role: bot.role, sessionId: bot.sessionId, updatedAt: now - (12 + index * 95) * 60_000 }));
+const studioTranscripts: Record<string, Message[]> = {
+  "studio-review": [message(1, "assistant", "PR #42 有两个小问题需要改。", 12)],
+  "studio-ops": [message(1, "assistant", "中转服务运行正常，证书还有 60 天到期。", 107)],
+};
+
 export function previewClient(serverId = "preview"): MobileClient {
+  if (serverId === "studio") return studioClient();
   const state = {
     bots, rooms: [room], models: [], agentAccess: true, mainBotIds: ["preview-chief"], prefs: {},
     work: { bots: { "preview-design": { said: "正在调整首页的配色", since: now - 90_000 } }, approvals: [] },
   };
   const client = {
-    info: async () => ({ serverId: "preview", capabilities: { history: true, stream: true, send: true, groups: true, "agent-open": true } }),
+    info: async () => ({ serverId, capabilities: { history: true, stream: true, send: true, groups: true, "agent-open": true } }),
     state: async () => state,
     conversations: async () => ({ conversations }),
     messages: async (id: string) => ({ messages: transcripts[id] ?? [], cursor: null, sessionId: "s" }),
@@ -78,4 +90,32 @@ export function previewClient(serverId = "preview"): MobileClient {
     },
   };
   return enableFixture(client as unknown as MobileClient, state, conversations, serverId);
+}
+
+function studioClient(): MobileClient {
+  const state = { bots: studioBots, rooms: [], models: [], agentAccess: false, mainBotIds: ["studio-review"], prefs: {}, work: { bots: {}, approvals: [] } };
+  return {
+    info: async () => ({ serverId: "studio", capabilities: { history: true, stream: true, send: true } }),
+    state: async () => state,
+    conversations: async () => ({ conversations: studioConversations }),
+    messages: async (id: string) => ({ messages: studioTranscripts[id] ?? [], cursor: null, sessionId: "s" }),
+    settings: async () => ({ writable: false, hasDocument: false, namespaces: [] }),
+    target: async (id: string) => ({ sessionId: `s-${id}` }),
+    submission: async () => { throw Object.assign(new Error("This send was already resolved. Reopen this conversation."), { status: 404 }); },
+    submit: async (payload: { requestId: string }) => ({ requestId: payload.requestId, status: "accepted" }),
+    rememberAcceptedSubmission: async () => {},
+    action: async () => ({}),
+    logout: async () => {},
+    dispose() {},
+    getCachedMessages: async () => [],
+    connect({ conversationId, onEvent, onStatus }: { conversationId: string; onEvent(event: MobileEvent): void; onStatus?(status: string): void }) {
+      const timer = setTimeout(() => {
+        onStatus?.("connected");
+        onEvent({ type: "ready", conversationId, protocol: 2, heartbeatMs: 15000 });
+        onEvent({ type: "reset", conversationId, eventSeq: 1, messages: studioTranscripts[conversationId] ?? [], busy: false });
+      }, 50);
+      onStatus?.("connecting");
+      return { close() { clearTimeout(timer); }, reconnectNow() {}, cursor: 1 };
+    },
+  } as unknown as MobileClient;
 }

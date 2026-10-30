@@ -20,6 +20,7 @@ import { MotionProvider } from "../src/components/Motion";
 import { LocaleBridge } from "../src/openbot/locale-bridge";
 import { SessionProvider } from "../src/session/SessionProvider";
 import { ComputerNamesProvider } from "../src/names/ComputerNamesProvider";
+import { PeerHostsProvider } from "../src/session/PeerHostsProvider";
 import { useTheme } from "../src/theme";
 
 // Screenshots of the design preview should show the screens, not development warnings.
@@ -75,7 +76,7 @@ export default function Layout() {
           <HeroUINativeProvider>
             <MotionProvider>
               <SessionProvider>
-                <ComputerNamesProvider><QueryClientProvider client={queryClient}><DsProvider><LocaleBridge /><Root /></DsProvider></QueryClientProvider></ComputerNamesProvider>
+                <ComputerNamesProvider><PeerHostsProvider><QueryClientProvider client={queryClient}><DsProvider><LocaleBridge /><Root /></DsProvider></QueryClientProvider></PeerHostsProvider></ComputerNamesProvider>
               </SessionProvider>
             </MotionProvider>
           </HeroUINativeProvider>
