@@ -177,3 +177,51 @@ curl -s -i -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Ve
 ## 安全依赖版本补充（PR19）
 
 本分支 Relay `0.1.0-codex.4`、Bridge `0.0.9-codex.6` 固定 `ws@8.22.0`，覆盖上述分片耗尽与TypedArray关闭原因公告。不要用旧8.18.3归档替代本候选；生产部署仍须独立确认、校验归档与版本，保留资源限制及原站点回滚。升级通过本地测试不表示已部署或已完成真机验收。
+
+## 六、开启账号（Relay 0.2.0）
+
+0.2.0 起中转服务可以记录"谁拥有哪些电脑"：电脑插件用账号登记，手机登录同一账号后能列出这些电脑。服务器只存账号、密码哈希（scrypt）、会话令牌哈希和电脑公钥，不存任何聊天内容；手机到电脑仍是端到端加密，手机第一次连电脑仍需电脑批准。原有的注册密钥方式继续可用。
+
+- 数据文件：`/var/lib/ds-bot-relay/accounts.json`（0600，systemd `StateDirectory` 创建，只有服务用户可写）。
+- 新账号：`RELAY_REGISTRATION=invite`（默认，管理员发邀请码）、`open` 或 `closed`。
+- 第一个账号（管理员）必须使用服务启动时写到 `/var/lib/ds-bot-relay/bootstrap-code` 的一次性代码，只有能登录服务器的人能读到；管理员建好后该文件自动删除。这样服务一上线，别人也无法抢先注册管理员。
+
+### 更新步骤（在有 SSH 密钥的电脑上，Windows PowerShell）
+
+```powershell
+# 1. 在仓库目录拉取最新 main
+cd <仓库目录>
+git pull origin main
+# 2. 上传 relay 目录到服务器临时目录
+$key = "<SSH 私钥路径>"; $server = "root@<服务器 IP>"
+ssh -i $key $server "rm -rf /tmp/ds-bot-relay-update"
+scp -i $key -r plugin\tools\relay ${server}:/tmp/ds-bot-relay-update
+# 3. 运行更新脚本（-t：脚本会提示输入管理员用户名和密码）
+ssh -t -i $key $server "rm -rf /tmp/ds-bot-relay-update/node_modules /tmp/ds-bot-relay-update/test; bash /tmp/ds-bot-relay-update/deploy/update.sh"
+```
+
+脚本 `deploy/update.sh` 会：检查 systemd 服务和 Node 版本 → 备份当前安装目录 → 安装新文件并 `npm ci` → 首次运行时写入 `/etc/systemd/system/ds-bot-relay.service.d/accounts.conf` 开启账号 → 重启并检查 `/healthz` 与 `/v1/account/info`，失败自动回滚 → 若还没有账号，提示创建管理员。脚本不打印密钥、密码或令牌。若中转跑在 Docker 里，脚本会停下并列出容器，不会擅自修改。
+
+### 验证
+
+```bash
+curl -s https://<中转域名>/v1/account/info   # {"registration":"invite","relay":"wss://..."}
+```
+
+### 账号接口（JSON，均为 `/v1/account/`）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `info` | 注册方式与中转地址 |
+| POST | `register` | `{username, email?, password, invite?}`；第一个账号用 bootstrap 代码作 `invite` |
+| POST | `login` | `{login: 用户名或邮箱, password, client?: "phone"/"computer"}` → `{token, expiresAt, account}` |
+| POST | `logout` | 结束当前令牌 |
+| GET | `me` | 当前账号 |
+| POST | `password` | `{password, next}`；结束该账号所有其他会话 |
+| POST | `invites` | 管理员生成一次性邀请码（7 天有效） |
+| GET | `computers` | 本账号登记的电脑：`computerId`、`computerKey`、`serverId`、`name`、`relay`、`online` |
+| DELETE | `computers/<computerId>` | 移除一台电脑 |
+
+除 `info`、`register`、`login`、`logout` 外均需 `Authorization: Bearer <token>`。带 `Origin` 头的浏览器请求一律拒绝。同一 IP 或同一账号 15 分钟内 10 次登录失败后暂时拒绝；每个 IP 每分钟最多 120 次请求。令牌 90 天有效，每个账号最多 50 个会话。
+
+电脑登记：WebSocket `register` 帧可用 `accountToken`（该账号的会话令牌）代替 `secret`，可附带 `name`、`serverId`。同一台电脑（同一 Ed25519 公钥）只能属于一个账号。插件与手机端的登录界面将在后续版本加入。
