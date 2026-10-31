@@ -92,7 +92,7 @@ export function createTeamActions({ callTeam, snapshot, sessionController = {}, 
     return item
   }
   async function safe(value, v, signal, item = v.conversations.find(row => row.kind === 'bot')) {
-    if (!item || !textViews) fail(501, 'REDACTION_REQUIRED', 'A DS Bot-owned text redactor is required.')
+    if (!item || !textViews) fail(501, 'REDACTION_REQUIRED', 'A Dabots-owned text redactor is required.')
     const texts = []
     const collect = node => { if (typeof node === 'string') texts.push(node); else if (Array.isArray(node)) node.forEach(collect); else if (node && typeof node === 'object') Object.values(node).forEach(collect) }
     collect(value)
@@ -101,7 +101,7 @@ export function createTeamActions({ callTeam, snapshot, sessionController = {}, 
     for (let start = 0; start < texts.length; start += 100) {
       const batch = texts.slice(start, start + 100)
       const result = await redactTexts({ conversationId: item.id, expectedSessionId: item.sessionId, texts: batch }, signal)
-      if (!Array.isArray(result) || result.length !== batch.length || result.some(text => typeof text !== 'string')) fail(503, 'REDACTION_FAILED', 'The DS Bot text redactor did not confirm the result.')
+      if (!Array.isArray(result) || result.length !== batch.length || result.some(text => typeof text !== 'string')) fail(503, 'REDACTION_FAILED', 'The Dabots text redactor did not confirm the result.')
       redacted.push(...result)
     }
     signal.throwIfAborted()

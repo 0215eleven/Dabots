@@ -165,10 +165,10 @@ var ZH = {
   "Add a provider": "添加服务商",
   "Needs an API key": "需要 API key",
   "Key set": "已设置 key",
-  "Key set outside DS Bot": "key 在 DS Bot 之外设置",
+  "Key set outside Dabots": "key 在 Dabots 之外设置",
   "No models": "没有模型",
   "{count} models": "{count} 个模型",
-  "This key comes from outside DS Bot, such as an environment variable, and cannot be changed here.": "这个 key 来自 DS Bot 之外（例如环境变量），这里改不了。",
+  "This key comes from outside Dabots, such as an environment variable, and cannot be changed here.": "这个 key 来自 Dabots 之外（例如环境变量），这里改不了。",
   "and {count} more": "还有 {count} 个",
   "Remove {name}? Bots on its models need another model.": "删除 {name}？用它的模型的 Bot 要换一个模型。",
   "Remove provider": "删除服务商",
@@ -200,7 +200,7 @@ var ZH = {
   "Sign in to DeepSeek": "登录 DeepSeek 账号",
   "Enter a DeepSeek API key": "填入 DeepSeek API key",
   "Open settings to set up a custom model": "打开设置配置自定义模型",
-  "DS Bot": "DS Bot",
+  "Dabots": "Dabots",
   // Header
   "Message {name}": "给 {name} 发消息",
   Message: "发消息",
@@ -425,7 +425,7 @@ var ZH = {
   "No group chats yet.": "还没有群聊。",
   "A group chat lets several Bots work on one thing with you.": "在群聊里，几个 Bot 和你一起做一件事。",
   "Back to group chats": "返回群聊列表",
-  "DS Bot settings": "DS Bot 设置",
+  "Dabots settings": "Dabots 设置",
   "Settings pages": "设置页面",
   "Models, providers, and the rest of DeepSeek Harness": "模型、服务商和 DeepSeek Harness 的其他设置",
   "Harness settings": "Harness 设置",
@@ -455,13 +455,13 @@ var ZH = {
   "{n} h": "{n} 小时",
   "{n} d": "{n} 天",
   // Plugin updates
-  "DS Bot {version} is available": "DS Bot {version} 可以更新",
-  "Updating DS Bot…": "正在更新 DS Bot…",
-  "DS Bot {version} is installed. Restart DSH to use it.": "DS Bot {version} 已安装，重启 DSH 后生效",
-  "DS Bot update": "DS Bot 更新",
-  "DS Bot {version}": "DS Bot {version}",
+  "Dabots {version} is available": "Dabots {version} 可以更新",
+  "Updating Dabots…": "正在更新 Dabots…",
+  "Dabots {version} is installed. Restart DSH to use it.": "Dabots {version} 已安装，重启 DSH 后生效",
+  "Dabots update": "Dabots 更新",
+  "Dabots {version}": "Dabots {version}",
   "Update installed": "更新已安装",
-  "Restart DSH to start using DS Bot {version}.": "重启 DSH 后开始使用 DS Bot {version}。",
+  "Restart DSH to start using Dabots {version}.": "重启 DSH 后开始使用 Dabots {version}。",
   "You have {version}.": "当前版本 {version}。",
   "The update did not finish: {reason}": "更新没有完成：{reason}",
   "What's new": "更新说明",
@@ -471,7 +471,7 @@ var ZH = {
   "DSH update": "DSH 更新",
   "DSH {version}": "DSH {version}",
   "Restart DSH to start using DSH {version}.": "重启 DSH 后开始使用 DSH {version}。",
-  "Update DS Bot {version} first.": "先更新 DS Bot {version}。",
+  "Update Dabots {version} first.": "先更新 Dabots {version}。",
   "Open updates": "打开更新",
   // Command palette
   Messages: "消息",
@@ -821,11 +821,11 @@ var ZH = {
   "Compared with the {count} days before": "与再往前 {count} 天相比",
   "{share}% of all usage from {span}": "占 {span} 全部用量的 {share}%",
   // About
-  "About DS Bot": "关于 DS Bot",
+  "About Dabots": "关于 Dabots",
   "Version {version}": "版本 {version}",
-  "Star DS Bot on GitHub": "在 GitHub 上给 DS Bot 点 Star",
+  "Star Dabots on GitHub": "在 GitHub 上给 Dabots 点 Star",
   "{count} stars": "{count} 个 Star",
-  "If DS Bot helps you, a star on GitHub helps more people find it.": "如果 DS Bot 对你有用，欢迎在 GitHub 上点个 Star，让更多人看到它。",
+  "If Dabots helps you, a star on GitHub helps more people find it.": "如果 Dabots 对你有用，欢迎在 GitHub 上点个 Star，让更多人看到它。",
   Updates: "更新",
   "Check for updates": "检查更新",
   "Checking…": "正在检查…",
@@ -851,7 +851,7 @@ var ZH = {
   Show: "查看",
   Hide: "收起",
   "GitHub issue": "GitHub issue",
-  "Opens a new issue in the DS Bot repository with all of this filled in. Nothing is sent until you submit it there.": "在 DS Bot 仓库新建一个 issue，并填好以上内容。你在 GitHub 上提交之前，什么都不会发出。",
+  "Opens a new issue in the Dabots repository with all of this filled in. Nothing is sent until you submit it there.": "在 Dabots 仓库新建一个 issue，并填好以上内容。你在 GitHub 上提交之前，什么都不会发出。",
   "Report on GitHub": "在 GitHub 上报告",
   "Copied the diagnostics.": "已复制诊断信息。",
   "Could not copy. Select the text below and copy it.": "无法复制。请选中下面的文字手动复制。",
@@ -863,7 +863,7 @@ var ZH = {
   "Recent errors": "最近的错误",
   "Recent errors · {count}": "最近的错误 · {count}",
   "No errors recorded.": "没有错误记录。",
-  "Failed model calls and DS Bot problems show here, newest first.": "模型调用失败和 DS Bot 的问题会显示在这里，最新的在前。",
+  "Failed model calls and Dabots problems show here, newest first.": "模型调用失败和 Dabots 的问题会显示在这里，最新的在前。",
   "Model call": "模型调用",
   "This window": "这个窗口",
   "Error log": "错误日志",
@@ -968,11 +968,28 @@ var ZH = {
   "Use this folder": "使用这个文件夹",
   "Up one level": "上一级",
   "No folders inside.": "里面没有文件夹。",
-  "Some folders are not shown.": "还有一些文件夹没有显示。"
+  "Some folders are not shown.": "还有一些文件夹没有显示。",
+  // Older hosts can still return these legacy message keys.
+  "Key set outside DS Bot": "key 在 Dabots 之外设置",
+  "This key comes from outside DS Bot, such as an environment variable, and cannot be changed here.": "这个 key 来自 Dabots 之外（例如环境变量），这里改不了。",
+  "DS Bot": "Dabots",
+  "DS Bot settings": "Dabots 设置",
+  "DS Bot {version} is available": "Dabots {version} 可以更新",
+  "Updating DS Bot…": "正在更新 Dabots…",
+  "DS Bot {version} is installed. Restart DSH to use it.": "Dabots {version} 已安装，重启 DSH 后生效",
+  "DS Bot update": "Dabots 更新",
+  "DS Bot {version}": "Dabots {version}",
+  "Restart DSH to start using DS Bot {version}.": "重启 DSH 后开始使用 Dabots {version}。",
+  "Update DS Bot {version} first.": "先更新 Dabots {version}。",
+  "About DS Bot": "关于 Dabots",
+  "Star DS Bot on GitHub": "在 GitHub 上给 Dabots 点 Star",
+  "If DS Bot helps you, a star on GitHub helps more people find it.": "如果 Dabots 对你有用，欢迎在 GitHub 上点个 Star，让更多人看到它。",
+  "Opens a new issue in the DS Bot repository with all of this filled in. Nothing is sent until you submit it there.": "在 Dabots 仓库新建一个 issue，并填好以上内容。你在 GitHub 上提交之前，什么都不会发出。",
+  "Failed model calls and DS Bot problems show here, newest first.": "模型调用失败和 Dabots 的问题会显示在这里，最新的在前。"
 };
 var HOST_ERRORS = [
   [/^Model (.+) is not available\. Available: (.*)$/, "模型 $1 不可用。可用的：$2"],
-  [/^The API key for (.+) is set outside DS Bot and cannot be changed here$/, "$1 的 API key 是在 DS Bot 之外设置的，这里改不了"],
+  [/^The API key for (.+) is set outside (?:Dabots|DS Bot) and cannot be changed here$/, "$1 的 API key 是在 Dabots 之外设置的，这里改不了"],
   [/^(.+) takes no API key here$/, "$1 不能在这里填 API key"],
   [/^(.+) is already set up$/, "$1 已经设置过了"],
   [/^DSH offers no provider (.+)$/, "DSH 没有服务商 $1"],
@@ -1139,8 +1156,8 @@ function failureLabel(code, message) {
 }
 var URL_LIMIT = 7e3;
 var WHAT_MAX = 2e3;
-var PASTE_NOTE = "DS Bot copied the diagnostics to the clipboard. Paste them here.";
-var REST_NOTE = "The recent errors do not fit in the link. DS Bot copied the diagnostics to the clipboard: paste them below this line.";
+var PASTE_NOTE = "Dabots copied the diagnostics to the clipboard. Paste them here.";
+var REST_NOTE = "The recent errors do not fit in the link. Dabots copied the diagnostics to the clipboard: paste them below this line.";
 function issueUrl(base, { what = "", diagnostics }) {
   const text = what.trim().slice(0, WHAT_MAX);
   const title = text.split("\n")[0].slice(0, 80);
@@ -6405,10 +6422,10 @@ function UpdateButton({ useUpdate, actions }) {
     setDshError("");
     void actions.installDshUpdate().catch((failure) => setDshError(hostText(failure?.message ?? String(failure))));
   };
-  const label = phase === "installing" ? t("Updating DS Bot…") : dshPhase === "installing" ? t("Updating DSH…") : phase === "installed" ? t("DS Bot {version} is installed. Restart DSH to use it.", { version: update.installed ?? update.latest }) : dshPhase === "installed" ? t("Restart DSH to start using DSH {version}.", { version: dsh.installed ?? dsh.verified }) : update?.available ? t("DS Bot {version} is available", { version: update.latest }) : t("DSH {version} is available", { version: dsh?.verified });
+  const label = phase === "installing" ? t("Updating Dabots…") : dshPhase === "installing" ? t("Updating DSH…") : phase === "installed" ? t("Dabots {version} is installed. Restart DSH to use it.", { version: update.installed ?? update.latest }) : dshPhase === "installed" ? t("Restart DSH to start using DSH {version}.", { version: dsh.installed ?? dsh.verified }) : update?.available ? t("Dabots {version} is available", { version: update.latest }) : t("DSH {version} is available", { version: dsh?.verified });
   const message = error || (phase === "failed" ? update.error : "");
   const dshMessage = dshError || (dshPhase === "failed" ? dsh?.error : "");
-  const dshText = dshPhase === "installed" ? t("Restart DSH to start using DSH {version}.", { version: dsh.installed ?? dsh.verified }) : dsh?.available === false && dsh?.blockedBy ? t("Update DS Bot {version} first.", { version: dsh.blockedBy }) : t("You have {version}.", { version: dsh?.current });
+  const dshText = dshPhase === "installed" ? t("Restart DSH to start using DSH {version}.", { version: dsh.installed ?? dsh.verified }) : dsh?.available === false && dsh?.blockedBy ? t("Update Dabots {version} first.", { version: dsh.blockedBy }) : t("You have {version}.", { version: dsh?.current });
   return (0, import_react11.createElement)(
     import_react11.Fragment,
     null,
@@ -6425,12 +6442,12 @@ function UpdateButton({ useUpdate, actions }) {
     }, (0, import_react11.createElement)(CloudDownloadIcon, { done: phase === "installed" }), phase === "failed" || dshPhase === "failed" ? (0, import_react11.createElement)("span", { className: "bt-update-dot", "aria-hidden": true }) : null),
     open && box ? (0, import_react_dom3.createPortal)((0, import_react11.createElement)(
       "div",
-      { className: "bt-update-pop", role: "dialog", "aria-label": update?.available || phase !== "idle" ? t("DS Bot update") : t("DSH update"), style: box },
+      { className: "bt-update-pop", role: "dialog", "aria-label": update?.available || phase !== "idle" ? t("Dabots update") : t("DSH update"), style: box },
       update?.available || phase !== "idle" ? (0, import_react11.createElement)(
         import_react11.Fragment,
         null,
-        (0, import_react11.createElement)("div", { className: "bt-update-title" }, phase === "installed" ? t("Update installed") : t("DS Bot {version}", { version: update.latest })),
-        (0, import_react11.createElement)("div", { className: "bt-update-text" }, phase === "installed" ? t("Restart DSH to start using DS Bot {version}.", { version: update.installed ?? update.latest }) : t("You have {version}.", { version: update.current })),
+        (0, import_react11.createElement)("div", { className: "bt-update-title" }, phase === "installed" ? t("Update installed") : t("Dabots {version}", { version: update.latest })),
+        (0, import_react11.createElement)("div", { className: "bt-update-text" }, phase === "installed" ? t("Restart DSH to start using Dabots {version}.", { version: update.installed ?? update.latest }) : t("You have {version}.", { version: update.current })),
         message ? (0, import_react11.createElement)("div", { className: "bt-update-error", role: "alert" }, t("The update did not finish: {reason}", { reason: message })) : null,
         (0, import_react11.createElement)(
           "div",
@@ -6668,9 +6685,9 @@ function BotReturn({ wide, useSurface, actions }) {
   if (mode !== "agent") return null;
   return (0, import_react11.createElement)(
     "button",
-    { type: "button", className: "bt-return", "aria-label": t("DS Bot"), title: t("DS Bot"), onClick: () => actions.setSurface("bot") },
+    { type: "button", className: "bt-return", "aria-label": t("Dabots"), title: t("Dabots"), onClick: () => actions.setSurface("bot") },
     (0, import_react11.createElement)("span", { className: "bt-brand-bloub", style: { width: 20, height: 20 }, dangerouslySetInnerHTML: { __html: bloubBrandMarkup() } }),
-    wide ? (0, import_react11.createElement)("span", { className: "bt-return-name" }, t("DS Bot")) : null
+    wide ? (0, import_react11.createElement)("span", { className: "bt-return-name" }, t("Dabots")) : null
   );
 }
 var RETURN_CSS = `
@@ -6721,7 +6738,7 @@ function BrandMark({ size = 24 }) {
   return (0, import_react11.createElement)("span", { className: "bt-brand-whale" }, (0, import_react11.createElement)("span", { className: "bt-brand-bloub", style: { width: 24, height: 24 }, dangerouslySetInnerHTML: { __html: bloubBrandMarkup() } }));
 }
 function BrandName() {
-  return (0, import_react11.createElement)("span", { style: { fontWeight: 600, fontSize: 14 } }, "DS Bot");
+  return (0, import_react11.createElement)("span", { style: { fontWeight: 600, fontSize: 14 } }, "Dabots");
 }
 var SIDEBAR_CSS = `
 .bt-side-top .bt-brand{cursor:default;padding-left:6px}
@@ -6737,7 +6754,7 @@ var SIDEBAR_CSS = `
 [class*="_footArea"]:has(.bt-foot-account)>[class*="_settingsArea"]{grid-column:3}
 [class*="_footArea"]:has(.bt-foot-account)>[class*="_settingsArea"] button[class*="_trigger"] [class*="_label"]{display:none!important}
 
-/* The update cloud springs in when a newer DS Bot shows up; its arrow drops in a
+/* The update cloud springs in when a newer Dabots shows up; its arrow drops in a
    loop while the install runs. */
 .bt-round.bt-update{position:relative;color:var(--bt-accent,#4D6BFE);animation:bt-update-in ${SPRING_SHAPE.duration}ms ${SPRING_SHAPE.easing}}
 .bt-round.bt-update svg{width:17px;height:17px}
@@ -11846,7 +11863,7 @@ function entrySummary(entry) {
   if (entry.source === "turn") return failureLabel(entry.code, entry.text);
   return entry.text;
 }
-var SOURCES = { turn: "Model call", host: "DS Bot", api: "DS Bot", browser: "This window" };
+var SOURCES = { turn: "Model call", host: "Dabots", api: "Dabots", browser: "This window" };
 function issueWindow() {
   if (window.dshDesktop !== void 0) return { go: (url) => {
     window.open(url, "_blank");
@@ -11929,7 +11946,7 @@ function FeedbackPage({ actions, run, Section, Row: Row3 }) {
       preview ? (0, import_react30.createElement)("div", { className: "bt-set-row bt-fb-preview" }, (0, import_react30.createElement)("pre", { tabIndex: 0, "aria-label": t("Diagnostics") }, report?.markdown || t("Loading…"))) : null,
       (0, import_react30.createElement)(
         Row3,
-        { label: t("GitHub issue"), hint: t("Opens a new issue in the DS Bot repository with all of this filled in. Nothing is sent until you submit it there.") },
+        { label: t("GitHub issue"), hint: t("Opens a new issue in the Dabots repository with all of this filled in. Nothing is sent until you submit it there.") },
         (0, import_react30.createElement)("button", { type: "button", className: "bt-fb-primary", onClick: openIssue }, t("Report on GitHub"))
       )
     ),
@@ -11942,7 +11959,7 @@ function FeedbackPage({ actions, run, Section, Row: Row3 }) {
     (0, import_react30.createElement)(
       Section,
       { key: "errors", title: report ? t("Recent errors · {count}", { count: total }) : t("Recent errors") },
-      shown.length === 0 ? (0, import_react30.createElement)(Row3, { label: t("No errors recorded."), hint: t("Failed model calls and DS Bot problems show here, newest first.") }) : shown.map((entry, index) => (0, import_react30.createElement)(
+      shown.length === 0 ? (0, import_react30.createElement)(Row3, { label: t("No errors recorded."), hint: t("Failed model calls and Dabots problems show here, newest first.") }) : shown.map((entry, index) => (0, import_react30.createElement)(
         "div",
         { key: `${entry.time}-${index}`, className: "bt-set-row bt-fb-entry", title: entry.text },
         (0, import_react30.createElement)("span", { className: "bt-fb-dot", "data-level": entry.level, "aria-hidden": true }),
@@ -11950,7 +11967,7 @@ function FeedbackPage({ actions, run, Section, Row: Row3 }) {
           "div",
           { className: "bt-set-copy" },
           (0, import_react30.createElement)("span", { className: "bt-fb-text" }, entrySummary(entry)),
-          (0, import_react30.createElement)("span", { className: "bt-set-hint" }, [whenText(entry.time), entry.bot, entry.where, t(SOURCES[entry.source] ?? "DS Bot")].filter(Boolean).join(" · "))
+          (0, import_react30.createElement)("span", { className: "bt-set-hint" }, [whenText(entry.time), entry.bot, entry.where, t(SOURCES[entry.source] ?? "Dabots")].filter(Boolean).join(" · "))
         ),
         entry.code ? (0, import_react30.createElement)("span", { className: "bt-tag bt-fb-code" }, entry.status ? `${entry.code} ${entry.status}` : entry.code) : null
       )),
@@ -12021,10 +12038,10 @@ var import_react31 = require("react");
 var CHEER_MS = 1800;
 var starCount = (count) => new Intl.NumberFormat(dateLocale(), { notation: "compact", maximumFractionDigits: 1 }).format(count);
 function botHint(update) {
-  if (update.phase === "installing") return t("Updating DS Bot…");
-  if (update.phase === "installed") return t("Restart DSH to start using DS Bot {version}.", { version: update.installed ?? update.latest });
+  if (update.phase === "installing") return t("Updating Dabots…");
+  if (update.phase === "installed") return t("Restart DSH to start using Dabots {version}.", { version: update.installed ?? update.latest });
   if (update.phase === "failed") return t("The update did not finish: {reason}", { reason: hostText(update.error ?? "") });
-  if (update.available) return t("DS Bot {version} is available", { version: update.latest });
+  if (update.available) return t("Dabots {version} is available", { version: update.latest });
   if (update.source === "app") return t("Updates come with the DeepSeek Bot app.");
   if (update.enabled === false) return t("Update checks are off.");
   if (update.source === "path") return t("Installed from a local folder; update it there.");
@@ -12037,7 +12054,7 @@ function dshHint(dsh, shown) {
   if (dsh.phase === "installing") return t("Updating DSH…");
   if (dsh.phase === "installed") return t("Restart DSH to start using DSH {version}.", { version: dsh.installed ?? dsh.verified });
   if (dsh.phase === "failed") return t("The update did not finish: {reason}", { reason: hostText(dsh.error ?? "") });
-  if (dsh.available === false && dsh.blockedBy) return t("Update DS Bot {version} first.", { version: dsh.blockedBy });
+  if (dsh.available === false && dsh.blockedBy) return t("Update Dabots {version} first.", { version: dsh.blockedBy });
   if (shown) return t("DSH {version} is available", { version: dsh.verified });
   return t("Version {version}", { version: dsh.current });
 }
@@ -12097,7 +12114,7 @@ function AboutPage({ useUpdate, actions, run, Section, Row: Row3 }) {
       (0, import_react31.createElement)(
         "div",
         { className: "bt-about-copy" },
-        (0, import_react31.createElement)("span", { className: "bt-about-name" }, "DS Bot"),
+        (0, import_react31.createElement)("span", { className: "bt-about-name" }, "Dabots"),
         update.current ? (0, import_react31.createElement)("span", { className: "bt-about-version" }, t("Version {version}", { version: update.current })) : null
       ),
       repo ? (0, import_react31.createElement)(
@@ -12107,18 +12124,18 @@ function AboutPage({ useUpdate, actions, run, Section, Row: Row3 }) {
           href: repo,
           target: "_blank",
           rel: "noopener noreferrer",
-          title: t("Star DS Bot on GitHub"),
-          "aria-label": stars === null ? t("Star DS Bot on GitHub") : `${t("Star DS Bot on GitHub")} · ${t("{count} stars", { count: stars })}`
+          title: t("Star Dabots on GitHub"),
+          "aria-label": stars === null ? t("Star Dabots on GitHub") : `${t("Star Dabots on GitHub")} · ${t("{count} stars", { count: stars })}`
         },
         (0, import_react31.createElement)("span", { className: "bt-star-main" }, (0, import_react31.createElement)("span", { className: "bt-star-icon" }, (0, import_react31.createElement)(StarLineIcon)), "Star"),
         stars === null ? null : (0, import_react31.createElement)("span", { className: "bt-star-count" }, starCount(stars))
       ) : null
     ),
-    repo ? (0, import_react31.createElement)("p", { key: "ask", className: "bt-about-ask" }, t("If DS Bot helps you, a star on GitHub helps more people find it.")) : null,
+    repo ? (0, import_react31.createElement)("p", { key: "ask", className: "bt-about-ask" }, t("If Dabots helps you, a star on GitHub helps more people find it.")) : null,
     (0, import_react31.createElement)(
       Section,
       { key: "updates", title: t("Updates") },
-      (0, import_react31.createElement)(Row3, { label: "DS Bot", hint: botHint(update) }, botControl, update.available && update.notesUrl ? (0, import_react31.createElement)("a", linkProps(update.notesUrl), t("What's new")) : null),
+      (0, import_react31.createElement)(Row3, { label: "Dabots", hint: botHint(update) }, botControl, update.available && update.notesUrl ? (0, import_react31.createElement)("a", linkProps(update.notesUrl), t("What's new")) : null),
       dsh?.current ? (0, import_react31.createElement)(Row3, { label: "DeepSeek Harness", hint: dshHint(dsh, dshShown) }, dshControl) : null
     ),
     (0, import_react31.createElement)(
@@ -12198,7 +12215,7 @@ function ProvidersPage({ actions, run, Section }) {
 function keyState(key) {
   if (key === null) return null;
   if (!key.configured) return ["missing", t("Needs an API key")];
-  return key.writable ? ["set", t("Key set")] : ["outside", t("Key set outside DS Bot")];
+  return key.writable ? ["set", t("Key set")] : ["outside", t("Key set outside Dabots")];
 }
 function ProviderRow({ provider, apply: apply2, actions, open, onToggle }) {
   const [confirm, setConfirm] = (0, import_react32.useState)(false);
@@ -12226,7 +12243,7 @@ function ProviderRow({ provider, apply: apply2, actions, open, onToggle }) {
       "div",
       { className: "bt-secret-edit" },
       provider.key?.writable ? (0, import_react32.createElement)(KeyEditor, { provider, apply: apply2, actions }) : null,
-      provider.key && !provider.key.writable ? (0, import_react32.createElement)("div", { className: "bt-set-hint" }, t("This key comes from outside DS Bot, such as an environment variable, and cannot be changed here.")) : null,
+      provider.key && !provider.key.writable ? (0, import_react32.createElement)("div", { className: "bt-set-hint" }, t("This key comes from outside Dabots, such as an environment variable, and cannot be changed here.")) : null,
       provider.models.length > 0 ? (0, import_react32.createElement)(
         "div",
         { className: "bt-secret-edit-block" },
@@ -12438,7 +12455,7 @@ var PROVIDERS_CSS = `
 // src/client/settings.js
 var import_react33 = require("react");
 var capitalize2 = (word) => word[0].toUpperCase() + word.slice(1);
-var SETTINGS_PAGES = [["general", "General"], ["models", "Models"], ["bots", "Bots"], ["groups", "Group chats"], ["connectors", "Connectors"], ["capabilities", "Capabilities"], ["schedules", "Scheduled tasks"], ["usage", "Usage"], ["secrets", "Secrets"], ["feedback", "Feedback"], ["about", "About DS Bot"]];
+var SETTINGS_PAGES = [["general", "General"], ["models", "Models"], ["bots", "Bots"], ["groups", "Group chats"], ["connectors", "Connectors"], ["capabilities", "Capabilities"], ["schedules", "Scheduled tasks"], ["usage", "Usage"], ["secrets", "Secrets"], ["feedback", "Feedback"], ["about", "About Dabots"]];
 var PAGE_ICONS = { ...SETTINGS_ICONS, models: SlidersIcon, connectors: ConnectorIcon, capabilities: PlugIcon, schedules: ClockIcon, secrets: KeyIcon, feedback: FeedbackIcon, about: InfoIcon };
 function SetSection({ title, className = "", children }) {
   return (0, import_react33.createElement)("section", { className: `bt-set-section ${className}`.trim() }, (0, import_react33.createElement)("h3", null, title), (0, import_react33.createElement)("div", { className: "bt-set-card" }, children));
@@ -12709,7 +12726,7 @@ function SettingsDialog({ page, id, roster, actions, useUpdate, leaving = false 
     (0, import_react33.createElement)("div", { className: "bt-scrim", onMouseDown: close }),
     (0, import_react33.createElement)(
       "div",
-      { className: "bt-settings", role: "dialog", "aria-modal": true, "aria-label": t("DS Bot settings") },
+      { className: "bt-settings", role: "dialog", "aria-modal": true, "aria-label": t("Dabots settings") },
       (0, import_react33.createElement)(
         "nav",
         { ref: nav.box, className: "bt-settings-nav", "aria-label": t("Settings pages") },

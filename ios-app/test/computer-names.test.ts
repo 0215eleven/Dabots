@@ -8,7 +8,9 @@ function storage(){
 }
 const a={serverId:'A',slot:'one',name:'Desktop A',url:'https://a.example'},b={serverId:'B',slot:'two',name:'Desktop B',url:'https://b.example'};
 test('one display name falls back to the paired computer and accepts Chinese and emoji nicknames',()=>{
- assert.equal(computerName(a,{}),'Desktop A');assert.equal(computerName(null,{}),'DeepSeek Bot Pro');
+ assert.equal(computerName(a,{}),'Desktop A');assert.equal(computerName(null,{}),'Dabots');
+ assert.equal(computerName({...a,name:'DeepSeek Bot Pro'},{}),'DeepSeek Bot Pro');
+ assert.equal(computerName(a,{A:'DS Bot'}),'DS Bot');
  assert.equal(normalizeComputerName('  我的电脑 🤖  '),'我的电脑 🤖');
  assert.equal(computerName(a,{A:'家里的电脑'}),'家里的电脑');assert.equal(computerName(b,{A:'家里的电脑'}),'Desktop B');
  assert.equal(computerName({...a,serverId:'constructor'},{}),'Desktop A');

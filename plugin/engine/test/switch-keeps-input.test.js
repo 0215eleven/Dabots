@@ -175,7 +175,7 @@ const until = async (check, ms = 3000) => {
 
 const text = message => message.content.map(block => block.text ?? '').join('\n')
 const inboxTexts = agent => [...agent.inbox.nextStep, ...agent.inbox.nextTurn].map(text)
-const PAUSE = 'DS Bot paused your turn for a context check. Go on with it now from where you stopped.'
+const PAUSE = 'Dabots paused your turn for a context check. Go on with it now from where you stopped.'
 const said = (id, body, exchangeId) => ({ id, role: 'user', content: [{ type: 'text', text: body }], source: { kind: 'user', ...(exchangeId ? { exchangeId } : {}) } })
 // A folder outside the team workspace asks for approval once; then the move is allowed.
 const services = {
@@ -242,6 +242,21 @@ test('a move that never started keeps carry and one pause note in the inbox; a r
   assert.deepEqual(inboxTexts(host.agentOf('b')), [])
   // The move finished and nothing stayed behind, so the mark is gone.
   assert.deepEqual(host.state().switching, {})
+})
+
+for (const location of ['inbox', 'carry']) test(`a legacy pause note in ${location} survives a Dabots retry without duplication`, async (t) => {
+  const legacy = 'DS Bot paused your turn for a context check. Go on with it now from where you stopped.'
+  const fail = { create: true, flush: true }
+  const host = await start({ fail, services })
+  t.after(host.stop)
+  const note = said('legacy-pause', legacy)
+  if (location === 'inbox') host.agentOf('b').inbox.nextTurn.push(note)
+  await moveWriter(host, [...(location === 'carry' ? [note] : []), said('keep', 'keep me')])
+  await until(() => host.infos.some(line => line.includes('plugin unloaded')))
+  const texts = inboxTexts(host.agentOf('b'))
+  assert.equal(texts.filter(line => line === legacy).length, 1)
+  assert.equal(texts.includes(PAUSE), false)
+  assert.equal(texts.filter(line => line === 'keep me').length, 1)
 })
 
 test('an ordinary failure during the move is still a warning, not the unload note', async (t) => {

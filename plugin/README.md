@@ -1,4 +1,4 @@
-# DeepSeek Bot Pro 桌面插件
+# Dabots 桌面插件
 
 安装到现有 DSH 宿主中的单个 `ds-bot` 插件，内部包含团队引擎、手机 Bridge 和配对界面。独立 Electron 应用不属于这个仓库的产品。
 
@@ -13,7 +13,7 @@ npm run check
 npm run pack:plugin
 ```
 
-正式产物为 `artifacts/ds-bot-0.2.0-pro.1.tgz`；`plugin-release.json` 与 `SHA256SUMS-plugin` 记录精确源码提交、引擎来源及校验值。打包要求已提交且干净的工作树。
+正式产物为 `artifacts/Dabots-0.2.0-pro.1.tgz`；`plugin-release.json` 与 `SHA256SUMS-plugin` 记录精确源码提交、引擎来源及校验值。打包要求已提交且干净的工作树。
 
 正式引擎位于 [engine/](engine/README.md)。其公开 Bridge 接口适配说明见 [PATCHED.md](engine/PATCHED.md)。带 `.dev` 的兼容夹具归档只用于测试，不能用于日常安装。
 

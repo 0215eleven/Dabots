@@ -1,7 +1,7 @@
 {
   "name": "ds-bot-mobile-bridge",
   "version": "0.0.9-pro.1",
-  "description": "DeepSeek Bot Pro Bridge — secure pairing and scoped access to an existing DS Bot team",
+  "description": "Dabots Bridge — secure pairing and scoped access to an existing Dabots team",
   "license": "Apache-2.0",
   "type": "module",
   "main": "index.mjs",
@@ -64,13 +64,13 @@
     "esbuild": "0.28.2",
     "oxlint": "1.76.0"
   },
-  "homepage": "https://github.com/0215eleven/ds-bot-mobile/tree/main/plugin/bridge",
+  "homepage": "https://github.com/0215eleven/Dabots/tree/main/plugin/bridge",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0215eleven/ds-bot-mobile.git",
+    "url": "git+https://github.com/0215eleven/Dabots.git",
     "directory": "plugin/bridge"
   },
   "bugs": {
-    "url": "https://github.com/0215eleven/ds-bot-mobile/issues"
+    "url": "https://github.com/0215eleven/Dabots/issues"
   }
 }

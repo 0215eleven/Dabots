@@ -8,7 +8,7 @@ Pod::Spec.new do |s|
   s.license = package['license']
   s.author = package['author']
   s.homepage = package['homepage']
-  s.source = { :git => 'https://github.com/QingJ01/DS-Bot-App.git' }
+  s.source = { :git => 'https://github.com/0215eleven/Dabots.git' }
   s.platforms = { :ios => '15.1' }
   s.swift_version = '5.9'
   s.static_framework = true

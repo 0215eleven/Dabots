@@ -20,5 +20,6 @@
   },
   "engines": {
     "node": ">=24 <25"
-  }
+  },
+  "description": "Dabots — desktop Bot teams and a paired mobile companion"
 }

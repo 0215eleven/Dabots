@@ -78,7 +78,7 @@ test('a registry install finds the newest version on the next registry and insta
   assert.equal(view.latest, '9.0.0')
   assert.equal(view.current, PKG.version)
   assert.equal(view.source, 'registry')
-  assert.equal(view.notesUrl, 'https://github.com/Fei2411/DeepSeek-Bot/releases')
+  assert.equal(view.notesUrl, 'https://github.com/0215eleven/Dabots/releases')
   assert.equal(rt.updateStart().phase, 'installing')
   await flush()
   assert.deepEqual(installs, [[`${PKG.name}@9.0.0`, { registry: 'https://registry.npmmirror.com/' }]])
@@ -134,13 +134,28 @@ test('a versioned GitHub install follows the release to the repository\'s curren
   assert.deepEqual(installs, [['github:Fei2411/DeepSeek-Bot#v9.1.0&path:/ds-bot', {}]])
 })
 
+test('a renamed Dabots repository preserves the versioned legacy install path', async () => {
+  const { rt, installs } = start({
+    source: 'github:0215eleven/ds-bot-mobile#v0.2.0&path:/plugin',
+    answers: {
+      'https://api.github.com/repos/0215eleven/ds-bot-mobile/releases/latest': {
+        tag_name: 'v9.1.0', html_url: 'https://github.com/0215eleven/Dabots/releases/tag/v9.1.0',
+      },
+    },
+  })
+  assert.equal((await rt.updateCheck()).available, true)
+  rt.updateStart()
+  await flush()
+  assert.deepEqual(installs, [['github:0215eleven/Dabots#v9.1.0&path:/plugin', {}]])
+})
+
 test('a linked checkout, an unversioned git install, or a disabled check never asks the network', async () => {
   for (const source of [`link:/work/${PKG.name}`, 'github:Fei2411/DeepSeek-Bot#main', undefined]) {
     const { rt, fetched } = start({ source })
     const view = await rt.updateCheck()
     assert.equal(view.available, false)
     assert.deepEqual(fetched, [])
-    assert.throws(() => rt.updateStart(), /No DS Bot update/)
+    assert.throws(() => rt.updateStart(), /No Dabots update/)
   }
   const { rt, fetched } = start({ source: `${PKG.name}@^${PKG.version}`, config: { updateCheck: false } })
   assert.equal((await rt.updateCheck({ fresh: true })).available, false)
@@ -155,14 +170,14 @@ test('in the desktop app, which updates as a whole, it never asks the network an
   assert.equal(view.source, 'app')
   assert.equal(view.available, false)
   assert.deepEqual(fetched, [])
-  assert.throws(() => rt.updateStart(), /No DS Bot update/)
+  assert.throws(() => rt.updateStart(), /No Dabots update/)
 })
 
 test('the star count comes from the repository, is kept for an hour, and survives a failed answer', async () => {
-  const repo = 'https://api.github.com/repos/Fei2411/DeepSeek-Bot'
+  const repo = 'https://api.github.com/repos/0215eleven/Dabots'
   const answers = { [repo]: new Error('offline') }
   const { rt, fetched } = start({ source: `${PKG.name}@^${PKG.version}`, answers })
-  assert.equal(rt.updateView().repoUrl, 'https://github.com/Fei2411/DeepSeek-Bot')
+  assert.equal(rt.updateView().repoUrl, 'https://github.com/0215eleven/Dabots')
   assert.equal(await rt.repoStars(), null)
   answers[repo] = { stargazers_count: 42 }
   assert.equal(await rt.repoStars(), 42)
@@ -201,7 +216,7 @@ test('a check that finds nothing clears the version a check before it found', as
   const linked = await rt.updateCheck({ fresh: true })
   assert.equal(linked.available, false)
   assert.equal(linked.latest, null)
-  assert.throws(() => rt.updateStart(), /No DS Bot update/)
+  assert.throws(() => rt.updateStart(), /No Dabots update/)
   // Back on the registry with no copy answering: the offer stays cleared.
   delete answers[latest]
   setSource(`^${PKG.version}`)

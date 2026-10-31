@@ -1,11 +1,11 @@
-# DeepSeek Bot Pro
+# Dabots
 
 This repository has two product directories:
 
 | Directory | Product | Artifact |
 | --- | --- | --- |
-| [plugin/](plugin/README.md) | One desktop DSH plugin with the team engine, Mobile Bridge and pairing UI | `ds-bot-0.2.0-pro.1.tgz` |
-| [ios-app/](ios-app/README.md) | iOS app source and an unsigned lite build | `DeepSeekBotPro-<version>-lite-unsigned.ipa` |
+| [plugin/](plugin/README.md) | One desktop DSH plugin with the team engine, Mobile Bridge and pairing UI | `Dabots-0.2.0-pro.1.tgz` |
+| [ios-app/](ios-app/README.md) | iOS app source and an unsigned lite build | `Dabots-<version>-lite-unsigned.ipa` |
 
 The optional relay deployment tools live inside `plugin/tools/relay/`. Package binaries belong in Actions artifacts or Releases, not Git.
 

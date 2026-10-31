@@ -2162,7 +2162,7 @@ var messages = {
   REMOTE_BUSY: "另一项连接操作正在进行，请刷新状态后重试。",
   REMOTE_CLOSED: "Bridge 已停止，请检查插件状态后重新打开本页。",
   REMOTE_CLEANUP_REQUIRED: "上次卸载后尚未确认旧 cloudflared 已退出。请先在电脑上确认其停止，再手动移除 Bridge 专用目录中的 remote-cleanup-required.json，然后重新启用 Bridge。",
-  CONFIGURATION_REQUIRED: "请先启用 DeepSeek Bot Pro Bridge，并配置独立的绝对存储目录与 loopback 监听。",
+  CONFIGURATION_REQUIRED: "请先启用 Dabots Bridge，并配置独立的绝对存储目录与 loopback 监听。",
   OPERATOR_REQUIRED: "请在已登录的电脑所有者会话中打开本页。",
   OPERATOR_REFUSED: "操作被拒绝。请刷新状态后检查配置并重试。",
   INVALID_RELAY_URL: "请输入完整的 wss:// 中转服务地址，不含账号、路径、查询或片段。",
@@ -2235,7 +2235,7 @@ function createOperatorClient({ root, fetchImpl = fetch, location: location2 = g
     if (!METHODS.has(method)) throw Error("Unsupported device operation");
     const rpcId = uuid();
     const response = await fetchImpl(new URL(`mobile-operator/${method}`, base), { method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "client-request", rpcId, method, payload }), signal });
-    if (!response.ok) throw Object.assign(Error(response.status === 404 || response.status === 405 ? "请先安装并配置 DeepSeek Bot Pro Bridge，然后启用插件。" : response.status === 401 || response.status === 403 ? "请在已登录的电脑所有者会话中打开本页。" : "无法连接 DeepSeek Bot Pro Bridge，请检查电脑端连接。"), { code: `HTTP_${response.status}` });
+    if (!response.ok) throw Object.assign(Error(response.status === 404 || response.status === 405 ? "请先安装并配置 Dabots Bridge，然后启用插件。" : response.status === 401 || response.status === 403 ? "请在已登录的电脑所有者会话中打开本页。" : "无法连接 Dabots Bridge，请检查电脑端连接。"), { code: `HTTP_${response.status}` });
     const body = await response.json();
     if (body?.type !== "server-response" || body.rpcId !== rpcId) throw Error("响应校验失败，请刷新后重试。");
     if (body.result?.ok !== true) {
@@ -2578,7 +2578,7 @@ function AccountEntry({ store }) {
       document.querySelector(".bt-account[aria-expanded=true]")?.click();
       store.open();
     }
-  }, (0, import_react.createElement)(PhoneIcon), (0, import_react.createElement)("span", { className: "bt-menu-label" }, "DeepSeek Bot Pro 手机访问")), container);
+  }, (0, import_react.createElement)(PhoneIcon), (0, import_react.createElement)("span", { className: "bt-menu-label" }, "Dabots 手机访问")), container);
 }
 function ProviderContent({ provider }) {
   return provider.render();
@@ -2647,10 +2647,10 @@ function AccessDialog({ store, state }) {
     (0, import_react.createElement)(
       "header",
       { className: "dsb-access-heading" },
-      (0, import_react.createElement)("div", null, (0, import_react.createElement)(PhoneIcon), (0, import_react.createElement)("h1", { id: `${uid}-heading` }, "DeepSeek Bot Pro 手机访问")),
+      (0, import_react.createElement)("div", null, (0, import_react.createElement)(PhoneIcon), (0, import_react.createElement)("h1", { id: `${uid}-heading` }, "Dabots 手机访问")),
       (0, import_react.createElement)(
         "button",
-        { ref: closeButton, type: "button", className: "dsb-access-close", "aria-label": "关闭 DeepSeek Bot Pro 手机访问", onClick: () => store.close() },
+        { ref: closeButton, type: "button", className: "dsb-access-close", "aria-label": "关闭 Dabots 手机访问", onClick: () => store.close() },
         (0, import_react.createElement)("svg", { viewBox: "0 0 24 24", width: 21, height: 21, fill: "none", stroke: "currentColor", strokeWidth: 1.8, "aria-hidden": true }, (0, import_react.createElement)("path", { d: "m6 6 12 12M18 6 6 18" }))
       )
     ),
@@ -2724,8 +2724,8 @@ function BridgeSetupNotice({ status }) {
     "div",
     { className: "dsma-setup" },
     (0, import_react2.createElement)("h3", null, "准备 App 连接"),
-    (0, import_react2.createElement)("p", null, "先启用 DeepSeek Bot Pro Bridge，配置独立的绝对存储目录和 loopback 监听；随后可选择服务器中转或自己直连。"),
-    link("https://github.com/0215eleven/ds-bot-mobile/blob/main/plugin/docs/connection.md", "查看设置指南")
+    (0, import_react2.createElement)("p", null, "先启用 Dabots Bridge，配置独立的绝对存储目录和 loopback 监听；随后可选择服务器中转或自己直连。"),
+    link("https://github.com/0215eleven/Dabots/blob/main/plugin/docs/connection.md", "查看设置指南")
   );
 }
 function RemoteConnectionPanel({ state, controller }) {
@@ -2980,8 +2980,8 @@ function DevicesPage({ controller }) {
       (0, import_react3.createElement)(
         "div",
         { className: "dsma-add" },
-        (0, import_react3.createElement)("div", { className: "dsma-section-head" }, (0, import_react3.createElement)("h3", null, "连接 DeepSeek Bot Pro"), !state.pairing ? (0, import_react3.createElement)("button", { type: "button", className: "dsma-primary", disabled: state.busy || !canPair(status), onClick: controller.create }, state.busy ? "正在生成…" : "生成配对二维码") : null),
-        (0, import_react3.createElement)("p", null, "用 DeepSeek Bot Pro 手机端扫码，再在电脑上批准连接。"),
+        (0, import_react3.createElement)("div", { className: "dsma-section-head" }, (0, import_react3.createElement)("h3", null, "连接 Dabots"), !state.pairing ? (0, import_react3.createElement)("button", { type: "button", className: "dsma-primary", disabled: state.busy || !canPair(status), onClick: controller.create }, state.busy ? "正在生成…" : "生成配对二维码") : null),
+        (0, import_react3.createElement)("p", null, "用 Dabots 手机端扫码，再在电脑上批准连接。"),
         state.pairing ? (0, import_react3.createElement)("div", { className: "dsma-pairing" }, (0, import_react3.createElement)(PairingQR, { data: state.pairing }), (0, import_react3.createElement)("p", null, "配对码两分钟内有效"), (0, import_react3.createElement)("div", { className: "dsma-actions" }, (0, import_react3.createElement)("button", { type: "button", onClick: () => controller.copy(navigator.clipboard) }, state.copied ? "已复制配对资料" : "复制配对资料"), (0, import_react3.createElement)("button", { type: "button", className: "dsma-text-button", onClick: () => {
           controller.clearPairing();
           setShowManual(false);
@@ -3018,7 +3018,7 @@ function DevicesEntry({ createController }) {
   return controller ? (0, import_react3.createElement)(DevicesPage, { controller }) : null;
 }
 function CompanionSettings({ access }) {
-  return (0, import_react3.createElement)("div", { className: "dsma-page" }, (0, import_react3.createElement)("p", null, "通过统一手机访问入口配对 DeepSeek Bot Pro，并管理已授权设备。"), (0, import_react3.createElement)("button", { type: "button", onClick: access.open }, "打开手机访问"));
+  return (0, import_react3.createElement)("div", { className: "dsma-page" }, (0, import_react3.createElement)("p", null, "通过统一手机访问入口配对 Dabots，并管理已授权设备。"), (0, import_react3.createElement)("button", { type: "button", onClick: access.open }, "打开手机访问"));
 }
 function apply(ctx) {
   const controllers = /* @__PURE__ */ new Set();
@@ -3032,7 +3032,7 @@ function apply(ctx) {
     controllers.add(controller);
     return controller;
   };
-  const access = registerMobileAccessProvider({ id: "app", label: "DeepSeek Bot Pro", order: 20, render: () => (0, import_react3.createElement)(DevicesEntry, { createController }) });
+  const access = registerMobileAccessProvider({ id: "app", label: "Dabots", order: 20, render: () => (0, import_react3.createElement)(DevicesEntry, { createController }) });
   ctx.effect(() => {
     const style = document.createElement("style");
     style.textContent = style_default;

@@ -43,8 +43,8 @@ export function DevicesPage({ controller }) {
     !enabled ? h(BridgeSetupNotice, { status }) :
     h('div', null,
       h(ConnectionModePanel, { state, controller }),
-      h('div', { className: 'dsma-add' }, h('div', { className: 'dsma-section-head' }, h('h3', null, '连接 DeepSeek Bot Pro'), !state.pairing ? h('button', { type: 'button', className: 'dsma-primary', disabled: state.busy || !canPair(status), onClick: controller.create }, state.busy ? '正在生成…' : '生成配对二维码') : null),
-        h('p', null, '用 DeepSeek Bot Pro 手机端扫码，再在电脑上批准连接。'),
+      h('div', { className: 'dsma-add' }, h('div', { className: 'dsma-section-head' }, h('h3', null, '连接 Dabots'), !state.pairing ? h('button', { type: 'button', className: 'dsma-primary', disabled: state.busy || !canPair(status), onClick: controller.create }, state.busy ? '正在生成…' : '生成配对二维码') : null),
+        h('p', null, '用 Dabots 手机端扫码，再在电脑上批准连接。'),
         state.pairing ? h('div', { className: 'dsma-pairing' }, h(PairingQR, { data: state.pairing }), h('p', null, '配对码两分钟内有效'), h('div', { className: 'dsma-actions' }, h('button', { type: 'button', onClick: () => controller.copy(navigator.clipboard) }, state.copied ? '已复制配对资料' : '复制配对资料'), h('button', { type: 'button', className: 'dsma-text-button', onClick: () => { controller.clearPairing(); setShowManual(false) } }, '收起')), h('details', { open: showManual, onToggle: event => setShowManual(event.currentTarget.open) }, h('summary', null, '手动配对'), showManual ? h('textarea', { readOnly: true, 'aria-label': '手动配对 JSON', value: JSON.stringify(state.pairing) }) : null)) : null),
       pending.length ? h('div', { className: 'dsma-section' }, h('h3', null, '待批准请求'), ...pending.map(item => h('div', { className: 'dsma-device', key: item.requestId }, h('span', { className: 'dsma-device-icon' }, h(DeviceIcon)), h('div', { className: 'dsma-device-copy' }, h('strong', null, item.deviceName), h('small', null, '核对设备名称后批准')), h('div', { className: 'dsma-actions' }, h('button', { type: 'button', className: 'dsma-primary', disabled: state.busy, onClick: () => controller.decide(item.requestId, true) }, '批准'), h('button', { type: 'button', disabled: state.busy, onClick: () => controller.decide(item.requestId, false) }, '拒绝'))))) : null,
       h('div', { className: 'dsma-section' }, h('h3', null, '已授权设备', h('span', { className: 'dsma-count' }, devices.length)), ...devices.map(item => h('div', { className: 'dsma-device', key: item.id }, h('span', { className: 'dsma-device-icon' }, h(DeviceIcon)), h('div', { className: 'dsma-device-copy' }, h('strong', null, item.name), h('small', null, item.lastSeenAt ? '最近连接 '+new Date(item.lastSeenAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '等待首次连接'), h(AgentAccess, { item, state, controller })), state.confirmRevoke === item.id ? h('div', { className: 'dsma-confirm', role: 'group', 'aria-label': '确认撤销设备' }, h('p', null, '此设备将需要重新配对。'), h('div', { className: 'dsma-actions' }, h('button', { type: 'button', className: 'dsma-danger', disabled: state.busy, onClick: () => controller.revoke(item.id) }, '确认撤销'), h('button', { type: 'button', onClick: controller.cancelRevoke }, '取消'))) : h('button', { type: 'button', className: 'dsma-text-button', disabled: state.busy, onClick: () => controller.confirmRevoke(item.id), 'aria-label': '撤销 '+item.name+' 的访问' }, '撤销'))), !devices.length ? h('p', { className: 'dsma-empty' }, '还没有已连接的手机。') : null),
@@ -69,7 +69,7 @@ export function DevicesEntry({ createController }) {
   return controller ? h(DevicesPage, { controller }) : null
 }
 export function CompanionSettings({ access }) {
-  return h('div', { className: 'dsma-page' }, h('p', null, '通过统一手机访问入口配对 DeepSeek Bot Pro，并管理已授权设备。'), h('button', { type: 'button', onClick: access.open }, '打开手机访问'))
+  return h('div', { className: 'dsma-page' }, h('p', null, '通过统一手机访问入口配对 Dabots，并管理已授权设备。'), h('button', { type: 'button', onClick: access.open }, '打开手机访问'))
 }
 export function apply(ctx) {
   const controllers = new Set()
@@ -80,7 +80,7 @@ export function apply(ctx) {
     controllers.add(controller)
     return controller
   }
-  const access = registerMobileAccessProvider({ id: 'app', label: 'DeepSeek Bot Pro', order: 20, render: () => h(DevicesEntry, { createController }) })
+  const access = registerMobileAccessProvider({ id: 'app', label: 'Dabots', order: 20, render: () => h(DevicesEntry, { createController }) })
   ctx.effect(() => {
     const style = document.createElement('style'); style.textContent = css; document.head.append(style)
     return () => { access.dispose(); style.remove(); for (const controller of controllers) controller.dispose(); controllers.clear() }

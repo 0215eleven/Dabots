@@ -2,7 +2,7 @@
   "name": "@ds-bot/mobile-sdk",
   "version": "0.1.1-codex.4",
   "private": true,
-  "description": "Portable client for the DS Bot self-hosted mobile bridge",
+  "description": "Portable client for the Dabots self-hosted mobile bridge",
   "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",

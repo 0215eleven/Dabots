@@ -1,4 +1,4 @@
-# DeepSeek Bot Pro · bundled team engine
+# Dabots · bundled team engine
 
 Production ds-bot 0.2.0 source, with the Mobile Bridge contract adapted locally.
 The original Apache-2.0 [LICENSE](LICENSE) and [NOTICE](NOTICE) remain intact;

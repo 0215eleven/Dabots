@@ -84,7 +84,7 @@ jobs:
           xcodebuild archive \
             -workspace "$workspace" -scheme "$project" \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/DeepSeekBotPro.xcarchive" \
+            -archivePath "$RUNNER_TEMP/Dabots.xcarchive" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             | tail -n 60
       - name: Package and verify the unsigned IPA
@@ -92,19 +92,19 @@ jobs:
           set -euo pipefail
           version=$(node -p "require('./ios-app/app.json').expo.version")
           bundle_id=$(node -p "require('./ios-app/app.json').expo.ios.bundleIdentifier")
-          app=$(python3 -c 'from pathlib import Path; import sys; a=list((Path(sys.argv[1])/"Products/Applications").glob("*.app")); assert len(a)==1, "Expected one archived app"; print(a[0])' "$RUNNER_TEMP/DeepSeekBotPro.xcarchive")
+          app=$(python3 -c 'from pathlib import Path; import sys; a=list((Path(sys.argv[1])/"Products/Applications").glob("*.app")); assert len(a)==1, "Expected one archived app"; print(a[0])' "$RUNNER_TEMP/Dabots.xcarchive")
           if codesign --display "$app" >/dev/null 2>&1; then
             echo 'Main application is unexpectedly signed' >&2
             exit 1
           fi
           mkdir -p "$RUNNER_TEMP/pro-ipa/Payload" artifacts
           cp -R "$app" "$RUNNER_TEMP/pro-ipa/Payload/"
-          ipa="$GITHUB_WORKSPACE/artifacts/DeepSeekBotPro-$version-lite-unsigned.ipa"
+          ipa="$GITHUB_WORKSPACE/artifacts/Dabots-$version-lite-unsigned.ipa"
           test ! -e "$ipa"
           (cd "$RUNNER_TEMP/pro-ipa" && zip -qry "$ipa" Payload)
           python3 ios-app/scripts/verify-ipa.py "$ipa" --bundle-id "$bundle_id" > artifacts/ios-artifact.json
           node -e 'const fs=require("node:fs"); const p="artifacts/ios-artifact.json"; const d=JSON.parse(fs.readFileSync(p)); d.sourceCommit=process.env.GITHUB_SHA; d.variant="lite"; fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n")'
-          (cd artifacts && shasum -a 256 "DeepSeekBotPro-$version-lite-unsigned.ipa" > SHA256SUMS-ios)
+          (cd artifacts && shasum -a 256 "Dabots-$version-lite-unsigned.ipa" > SHA256SUMS-ios)
       - uses: actions/upload-artifact@v4
         with:
           name: ios-unsigned

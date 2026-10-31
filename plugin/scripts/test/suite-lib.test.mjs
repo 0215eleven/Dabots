@@ -59,7 +59,7 @@ test('the manifest keeps the engine and adds the Bridge export and dependency', 
   const manifest=composeManifest({engine,bridge,version:'0.2.0-suite.1',suite:{revision:1}})
   assert.equal(manifest.name,'ds-bot'); assert.equal(manifest.version,'0.2.0-suite.1')
   assert.equal(manifest.exports['./bridge'],'./bridge/index.mjs'); assert.equal(manifest.exports['./client'],'./client.js')
-  assert.deepEqual(manifest.repository,{type:'git',url:'git+https://github.com/0215eleven/ds-bot-mobile.git',directory:'plugin'})
+  assert.deepEqual(manifest.repository,{type:'git',url:'git+https://github.com/0215eleven/Dabots.git',directory:'plugin/engine'})
   assert.deepEqual(manifest.dependencies,{ws:'8.18.3'})
   assert.ok(manifest.files.includes('bridge/'))
   assert.throws(()=>composeManifest({engine:{...engine,name:'other'},bridge,version:'x'}))

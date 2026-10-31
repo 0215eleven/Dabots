@@ -32,7 +32,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     const response = await dispatcher.fetch(new Request('http://bridge.invalid/api/bot', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ endpoint, payload }), signal,
     }), peer)
-    if (!response.ok) throw error(503, 'TEAM_UNAVAILABLE', 'The existing DS Bot channel is unavailable.')
+    if (!response.ok) throw error(503, 'TEAM_UNAVAILABLE', 'The existing Dabots channel is unavailable.')
     const result = await response.json()
     if (result?.ok !== true) {
       const code = result?.error?.code ?? 'TEAM_REFUSED'
@@ -116,7 +116,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
   function textAllowed() {
     // Unknown key values cannot be removed by regular expressions. Production
     // must obtain a DS Bot-owned redacted projection before enabling transcript.
-    if (!fixtureText && (description.version !== 1 || description.redactedText !== true)) throw error(501, 'REDACTED_PROJECTION_REQUIRED', 'A DS Bot-owned redacted transcript is required.')
+    if (!fixtureText && (description.version !== 1 || description.redactedText !== true)) throw error(501, 'REDACTED_PROJECTION_REQUIRED', 'A Dabots-owned redacted transcript is required.')
   }
   const options = (item, sessionId) => ({ sessionId, kind: item.kind, hiddenTurns: item.hiddenTurns[sessionId] ?? [], redact })
   // Only plain human and assistant text is released: no tools, reasoning, paths,
@@ -250,8 +250,8 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     compatibility: () => ({ protocolVersion: description.version ?? null,
       missing: [...(description.version === 1 ? [] : ['bridge.describe v1']), ...(description.stableRequestId === true ? [] : ['bridge.submit (stable request ID)']), ...(description.redactedText === true ? [] : ['bridge.redact (known-value redaction)'])],
       message: description.version === 1 && description.stableRequestId === true && description.redactedText === true
-        ? 'Text chat is available through the DS Bot-owned bridge contract.'
-        : 'This DS Bot version does not provide the required mobile chat interfaces. Pairing and team summaries are available; chat controls must remain disabled.' }),
+        ? 'Text chat is available through the Dabots-owned bridge contract.'
+        : 'This Dabots version does not provide the required mobile chat interfaces. Pairing and team summaries are available; chat controls must remain disabled.' }),
     capabilities: () => ({ discovery: true, pairing: true, conversations: true, history: fixtureText || (description.version === 1 && description.redactedText === true), stream: fixtureText || (description.version === 1 && description.redactedText === true),
       send: description.version === 1 && description.stableRequestId === true, attachments: false, cancel: false,
       actions: [], images: false, files: false, transcription: false, attachmentDownloads: [], audioStreaming: false,

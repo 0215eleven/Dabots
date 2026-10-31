@@ -10,7 +10,7 @@ export function normalizeComputerName(value: unknown): string {
 }
 export function computerName(host: Pick<SavedHost, 'serverId' | 'name'> | null | undefined, names: ComputerNameSnapshot): string {
   const local = host && Object.prototype.hasOwnProperty.call(names, host.serverId) ? names[host.serverId] : null;
-  return typeof local === 'string' ? local : host?.name?.trim() || 'DeepSeek Bot Pro';
+  return typeof local === 'string' ? local : host?.name?.trim() || 'Dabots';
 }
 
 /** Display-only records: connection, credential, language and desktop data are never written. */

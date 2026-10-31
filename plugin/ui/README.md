@@ -1,4 +1,4 @@
-# DeepSeek Bot Pro · Desktop pairing UI
+# Dabots · Desktop pairing UI
 
 This internal UI is merged with the engine's client module in the single
 `ds-bot` plugin. It provides owner-authorized pairing, device management and

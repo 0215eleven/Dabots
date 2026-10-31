@@ -167,7 +167,7 @@ export function PairingScreen({
     >
       <View style={{ alignItems: "center", gap: 12, paddingBottom: 12 }}>
         <Text style={{ color: t.ink, fontSize: 28, fontWeight: "600" }}>
-          {tr("DeepSeek Bot Pro")}</Text>
+          {tr("Dabots")}</Text>
         <Label muted>{tr(onCancel ? "Add another computer." : "Connect to your Bot team.")}</Label>
       </View>
       {Platform.OS === "web" && (
@@ -181,7 +181,7 @@ export function PairingScreen({
         <Label>{tr("Connect your host")}</Label>
         <Label muted>
           {tr(
-            "This preview uses DeepSeek Bot Pro Bridge. Follow the project installation guide to generate pairing data on your computer, scan it here, then approve your phone on the computer.",
+            "This preview uses Dabots Bridge. Follow the project installation guide to generate pairing data on your computer, scan it here, then approve your phone on the computer.",
           )}
         </Label>
         <Label muted>

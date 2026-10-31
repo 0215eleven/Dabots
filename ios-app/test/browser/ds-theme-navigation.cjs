@@ -40,7 +40,7 @@ module.exports=async function({page,h,bot,visible,back,check,until,capture}){
     assert.equal(right.width,44);assert.equal(right.height,44);assert.equal(right.x,330);assert.equal(left.y,right.y);
     assert.ok(left.y<100,'navigation stays at the top, with no floating bottom action');
     assert.equal(await menu.locator('svg[viewBox="0 0 24 24"]').count(),1,'home information/settings uses the navigation menu icon');
-    assert.equal(await page.getByRole('heading',{name:'DeepSeek Bot Pro',exact:true}).filter({visible:true}).count(),0);
+    assert.equal(await page.getByRole('heading',{name:'Dabots',exact:true}).filter({visible:true}).count(),0);
   }
   await settings().focus();await page.keyboard.press('Enter');await appearance().selectOption('dark');
   await visible('Computer appearance').waitFor();await expectCanvas('#000000','rgb(0, 0, 0)',true);

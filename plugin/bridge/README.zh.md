@@ -1,4 +1,4 @@
-# DeepSeek Bot Pro · Bridge 内部模块
+# Dabots · Bridge 内部模块
 
 Bridge 已归入[单一桌面插件](../README.md)，用户安装一个 `ds-bot` TGZ。配对、设备授权、消息回执、重连和可选中转能力保持在该模块中。
 

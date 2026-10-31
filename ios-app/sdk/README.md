@@ -3,7 +3,7 @@
 Used by ios-app via file:./sdk and by desktop protocol tests; not a separate product. See ../../plugin/README.md for the composed desktop plugin.
 
 
-# DS Bot mobile SDK
+# Dabots mobile SDK
 
 A dependency-free ESM client for the self-hosted `/mobile/v1` bridge. It runs in React Native, browsers, and Node; `index.d.ts` supplies the public types.
 

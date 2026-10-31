@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "DeepSeek Bot Pro Bridge configuration",
+  "title": "Dabots Bridge configuration",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -15,7 +15,7 @@
     "certPath": { "type": "string", "minLength": 1 },
     "keyPath": { "type": "string", "minLength": 1 },
     "devAllowInsecure": { "type": "boolean", "default": false },
-    "name": { "type": "string", "minLength": 1, "default": "DeepSeek Bot Pro" }
+    "name": { "type": "string", "minLength": 1, "default": "Dabots" }
   },
   "allOf": [
     { "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] }, "then": { "required": ["home"] } },

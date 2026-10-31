@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import {spawnSync} from 'node:child_process'
 import {createHash} from 'node:crypto'
-import {mkdtemp,rm} from 'node:fs/promises'
+import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join,resolve} from 'node:path'
 import test from 'node:test'
@@ -45,10 +45,21 @@ for(const [label,engine] of [
   ['public 0.1.7 compatibility input','plugin/bridge/fixture/extended/package'],
 ])test(`composed archive carries Bloub terms when branding ${label}`,async t=>{
   const out=await outputDirectory(t)
+  const legacy=join(out,'ds-bot-legacy.tgz')
+  await writeFile(legacy,'existing historical artifact\n')
   const stdout=run(process.execPath,[join(root,'plugin/scripts/pack-suite.mjs'),'--dev','--engine',join(root,engine),'--engine-source',`license test: ${label}`,'--out',out])
   const release=JSON.parse(stdout.trim().split('\n').at(-1))
   const archive=join(out,release.filename)
+  assert.match(release.filename,/^Dabots-.*\.tgz$/)
+  assert.equal(JSON.parse(archiveFile(archive,'package.json')).name,'ds-bot')
+  assert.match(archiveFile(archive,'README.md'),/^# Dabots\n/)
   assertBloubTerms(archive)
   assert.match(archiveFile(archive,'client.js'),/BT-BLOUB-BRAND/)
   assert.match(archiveFile(archive,'NOTICE'),/THIRD_PARTY_RELAY_NOTICES\.txt/)
+  assert.equal(await readFile(legacy,'utf8'),'existing historical artifact\n')
+  const before=await readFile(archive)
+  const repeated=spawnSync(process.execPath,[join(root,'plugin/scripts/pack-suite.mjs'),'--dev','--engine',join(root,engine),'--engine-source',`license test: ${label}`,'--out',out],{cwd:root,encoding:'utf8',timeout:60_000})
+  assert.notEqual(repeated.status,0)
+  assert.match(repeated.stderr,/EEXIST/)
+  assert.deepEqual(await readFile(archive),before,'repeat packaging cannot replace the prior candidate')
 })

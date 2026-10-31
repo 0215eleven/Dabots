@@ -131,7 +131,7 @@ test('a cleanup-blocked Bridge shows manual recovery without echoing unknown ser
   assert.deepEqual(ui.calls, [])
   ui.state.status = { enabled: false, reason: 'UNKNOWN_PRIVATE_REASON', message: 'untrusted server diagnostic' }
   const fallback = ui.text(ui.renderSetup())
-  assert.ok(fallback.includes('启用 DeepSeek Bot Pro Bridge'))
+  assert.ok(fallback.includes('启用 Dabots Bridge'))
   assert.equal(fallback.includes('remote-cleanup-required.json'), false)
   assert.equal(fallback.includes('untrusted server diagnostic'), false)
 })

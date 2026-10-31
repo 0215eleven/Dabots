@@ -15,9 +15,9 @@ rules={
 reviewed={
  # OpenBot fixed upstream test: repeated synthetic body and partial PEM marker assertions.
  ('ios-app/openbot/packages/logging/src/redaction.test.ts','private-key'):'19569c4f750022c9393345227ba848ff03d77e15e7105bdbe98c972c96c9a15e',
- ('plugin/engine/test/diagnostics.test.js','personal-path'):'53572bbb6666b62b93add1e2f5c66ac34844ce60699b5e698a0a7f38df8e206f',
+ ('plugin/engine/test/diagnostics.test.js','personal-path'):'00865b52ef255bbbcc9675636a1b1042f44798672a647be3ce770e12f494371c',
  ('plugin/engine/test/memory.test.js','credential'):'0a2285a16bea8e8359cfbcc3cb1104551f6b622c2a181e19572abd1fdab06290',
- ('plugin/engine/test/update.test.js','personal-path'):'0fe8d6ae0de1e51a9ad2e717a2d14801791828dbe26a6c84c2076c0689d640a1',
+ ('plugin/engine/test/update.test.js','personal-path'):'5bcb4de998ba9853249f79947c115a2a149487f6c7fb42079eaf3db64d1eda5f',
 }
 findings=[]; count=0
 def check(name,data):

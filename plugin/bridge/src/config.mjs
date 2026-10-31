@@ -13,7 +13,7 @@ export const Config = z.object({
   certPath: z.string(),
   keyPath: z.string(),
   devAllowInsecure: z.boolean().default(false),
-  name: z.string().default('DeepSeek Bot Pro'),
+  name: z.string().default('Dabots'),
 })
 
 export function validateConfig(config) {

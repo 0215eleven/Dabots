@@ -51,8 +51,8 @@ function fakeChild(code) {
 
 const registryLatest = dsBot => ({ [`https://registry.npmjs.org/${PKG.name}/latest`]: { version: PKG.version, dsBot } })
 const githubLatest = (tag, manifest) => ({
-  'https://api.github.com/repos/Fei2411/DeepSeek-Bot/releases/latest': { tag_name: tag },
-  [`https://raw.githubusercontent.com/Fei2411/DeepSeek-Bot/${tag}/ds-bot/package.json`]: manifest,
+  'https://api.github.com/repos/0215eleven/Dabots/releases/latest': { tag_name: tag },
+  [`https://raw.githubusercontent.com/0215eleven/Dabots/${tag}/plugin/engine/package.json`]: manifest,
 })
 
 test('the newest released bot declares the verified DSH, offered to an older npm install', async () => {
@@ -103,10 +103,23 @@ test('a git or local install asks the public repo\'s latest release for its decl
     const view = await rt.dshUpdateCheck()
     assert.equal(view.verified, '8.8.8')
     assert.deepEqual(fetched, [
-      'https://api.github.com/repos/Fei2411/DeepSeek-Bot/releases/latest',
-      'https://raw.githubusercontent.com/Fei2411/DeepSeek-Bot/v9.0.0/ds-bot/package.json',
+      'https://api.github.com/repos/0215eleven/Dabots/releases/latest',
+      'https://raw.githubusercontent.com/0215eleven/Dabots/v9.0.0/plugin/engine/package.json',
     ])
   }
+})
+
+test('historical tags keep their old manifest layout after the repository rename', async () => {
+  const { rt, fetched } = start({ source: 'link:/work/ds-bot', answers: {
+    'https://api.github.com/repos/0215eleven/Dabots/releases/latest': { tag_name: 'v9.0.0' },
+    'https://raw.githubusercontent.com/0215eleven/Dabots/v9.0.0/ds-bot/package.json': { dsBot: { verifiedDsh: '8.8.8' } },
+  } })
+  assert.equal((await rt.dshUpdateCheck()).verified, '8.8.8')
+  assert.deepEqual(fetched, [
+    'https://api.github.com/repos/0215eleven/Dabots/releases/latest',
+    'https://raw.githubusercontent.com/0215eleven/Dabots/v9.0.0/plugin/engine/package.json',
+    'https://raw.githubusercontent.com/0215eleven/Dabots/v9.0.0/ds-bot/package.json',
+  ])
 })
 
 test('a bundled package manager means the app owns the runtime: report only, never install', async () => {

@@ -1,8 +1,8 @@
-# DeepSeek Bot Pro engine modifications
+# Dabots engine modifications
 
 This is the Apache-2.0 `ds-bot` 0.2.0 source bundled in the original cleaned
 snapshot `5e5d62ba4d03d93f74f72e1ea611fbd02081868c` of
-https://github.com/0215eleven/ds-bot-mobile. Its original LICENSE is retained.
+https://github.com/0215eleven/Dabots. Its original LICENSE is retained.
 
 `src/host/channel.js` registers the Mobile Bridge contract implemented in
 `src/host/mobile-bridge.js`. This adapts the repository's reviewed
@@ -25,3 +25,7 @@ through `characterMarkup`, and one face per group row. `scripts/patch-bloub-bran
 is idempotent and runs in the source client builder (`engine/scripts/build-client.mjs`)
 and `scripts/pack-suite.mjs`, so normal builds, freshness checks and packaged clients
 all retain the same branding without a manual step.
+
+## Dabots display branding
+
+The active UI, new default computer name and current project links use Dabots. The installed `ds-bot` identity, rows, protocol, state paths and credentials are unchanged. Original DS Bot source attribution, notices and historical release inputs remain intact.

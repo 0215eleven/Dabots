@@ -123,7 +123,7 @@ export function install(rt) {
     if (!(await isFolder(path))) throw new Error(`${text} is a file, not a folder`)
     if (await holdsData(path)) throw new Error(`${text} holds DeepSeek Harness data, so it cannot be the team workspace`)
     if (path === await realTeam()) return path
-    const workspace = await ctx.workspaceRegistry.resolveByPath(path) ?? await ctx.workspaceRegistry.create(path, 'DS Bot')
+    const workspace = await ctx.workspaceRegistry.resolveByPath(path) ?? await ctx.workspaceRegistry.create(path, 'Dabots')
     state.workspaceId = workspace.id
     await rt.save()
     return path

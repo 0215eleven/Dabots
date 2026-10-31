@@ -152,7 +152,7 @@ function Settings() {
         {view?.capabilities.agents?<Row title={tr("DSH Agent")} detail={tr("Owner-granted Agent conversations")} onPress={() => router.push("/classic")} />:null}
         {host ? <Row title={tr("Unpair this computer")} destructive onPress={unpair} /> : null}
       </Group>
-      <Typography.Paragraph className="text-muted text-center" style={{ fontSize: 12 }}>DeepSeek Bot Pro {Constants.expoConfig?.version} · {locale}</Typography.Paragraph>
+      <Typography.Paragraph className="text-muted text-center" style={{ fontSize: 12 }}>Dabots {Constants.expoConfig?.version} · {locale}</Typography.Paragraph>
     </SettingsContent>
   );
 }

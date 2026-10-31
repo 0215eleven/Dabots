@@ -80,7 +80,7 @@ sudo chmod 600 /etc/ds-bot-relay/secret
 
 ```ini
 [Unit]
-Description=DS Bot relay
+Description=Dabots relay
 After=network-online.target
 Wants=network-online.target
 
@@ -157,7 +157,7 @@ curl -s -i -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Ve
   -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' 'https://relay.example.com/v1/phone?computer=x' | head -1
 ```
 
-然后由所有者在电脑上：DSH → 插件 → DS Bot 设置 → 手机连接方式选“服务器中转”，填写 `wss://relay.example.com` 和服务器上的密钥，保存。状态显示“已连接中转服务，可以扫码”后生成二维码，用手机扫码并在电脑上批准。
+然后由所有者在电脑上：DSH → 插件 → Dabots 设置 → 手机连接方式选“服务器中转”，填写 `wss://relay.example.com` 和服务器上的密钥，保存。状态显示“已连接中转服务，可以扫码”后生成二维码，用手机扫码并在电脑上批准。
 
 ## 四、运维
 

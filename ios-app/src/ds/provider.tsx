@@ -85,7 +85,7 @@ export function DsProvider({ children }: {
         // Until the first answer (or failure) arrives the computer is connecting quietly, not offline, so avatars and
         // bubbles do not open grey and fade in.
         resuming: !session.workspace.online && !session.workspace.error, connectionMessage: session.error || null, address: null, accent: '', publicKey: '', membershipId: '', role: 'member' };
-    const fail = (error: unknown) => Alert.alert('DeepSeek Bot Pro', tr(mutationProblem(error).message));
+    const fail = (error: unknown) => Alert.alert('Dabots', tr(mutationProblem(error).message));
     const flag = async (id: string, patch: {
         pinned?: boolean;
         hidden?: boolean;

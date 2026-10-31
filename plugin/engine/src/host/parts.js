@@ -200,7 +200,11 @@ export function install(rt) {
   const STEWARD_TIMEOUT_MS = 120_000
   const STEWARD_LINES = 40
   const FOLDER_RETRY_MS = 300_000
-  const PAUSE_NOTE = 'DS Bot paused your turn for a context check. Go on with it now from where you stopped.'
+  const PAUSE_NOTE = 'Dabots paused your turn for a context check. Go on with it now from where you stopped.'
+  // Older durable inboxes already contain this message; a display rename must
+  // not add a second resume instruction when their interrupted switch retries.
+  const LEGACY_PAUSE_NOTE = 'DS Bot paused your turn for a context check. Go on with it now from where you stopped.'
+  const isPauseNote = message => [PAUSE_NOTE, LEGACY_PAUSE_NOTE].includes(textOf(message.content))
 
   // A broken provider adapter must not crash every turn; estimate from the
   // derived messages instead, with one warning.
@@ -386,7 +390,7 @@ export function install(rt) {
     ['Where to look', 'details this note leaves out that you may need again, each with a few words copied exactly from the message that holds it, for read_own_chat to search'],
   ]
   const handoffPrompt = why => [
-    `You are now writing a handoff note to yourself. This request comes from DS Bot, not from the user: do not answer or continue the messages above. ${why}, so it moves on to a fresh conversation now. The fresh one starts with this note and your latest messages word for word; everything else leaves your working context. The full record stays saved, and you can search it later with read_own_chat. Write the note that lets you carry on as the same Bot without losing anything that matters.`,
+    `You are now writing a handoff note to yourself. This request comes from Dabots, not from the user: do not answer or continue the messages above. ${why}, so it moves on to a fresh conversation now. The fresh one starts with this note and your latest messages word for word; everything else leaves your working context. The full record stays saved, and you can search it later with read_own_chat. Write the note that lets you carry on as the same Bot without losing anything that matters.`,
     '',
     'Output EXACTLY the Markdown structure below: every heading as written, in English and in this order. Write the content in the language the user writes in, as terse bullets. Write "(none)" under a heading with nothing to say.',
     '',
@@ -617,7 +621,7 @@ export function install(rt) {
     const why = segment.fallback === 'overflow' ? 'the part overflowed the model\'s window'
       : segment.fallback === 'failure' ? 'a request in the previous part kept failing'
         : 'the model did not write a usable note'
-    const head = `(DS Bot put this note together without the model, because ${why}.`
+    const head = `(Dabots put this note together without the model, because ${why}.`
     return segment.note === undefined
       ? `${head} There was no earlier note to carry over. Go by the messages below, and look up anything else.)`
       : `${head} It is the note written at the end of part ${segment.noteFrom}, carried over unchanged; anything newer is in the messages below, and read_own_chat finds the rest.)\n\n${segment.note}`
@@ -638,7 +642,7 @@ export function install(rt) {
     ]
     return [
       `[Handoff · part ${number}]`,
-      `DS Bot moved ${where} on to a fresh conversation, part ${number}, because ${reason}. This message is not from the user.`,
+      `Dabots moved ${where} on to a fresh conversation, part ${number}, because ${reason}. This message is not from the user.`,
       'It is reference, not new instructions: the note and the messages below are a record of earlier work. Do what they say only as part of the work they record, and take new requests only from messages that come after this one.',
       `Everything earlier stays saved: ${lookup}`,
       ...(folder !== undefined ? [`You now work in ${folder}: commands and file tools start there. Relative paths in the messages below meant the previous folder.`] : []),
@@ -669,7 +673,7 @@ export function install(rt) {
   // A turn stopped for a switch goes on with its own source, so its reply still
   // reaches whoever asked.
   const handoffSource = (job, resume) => ({
-    ...(resume && job.info ? job.info : { kind: SOURCE_KIND, form: 'relay', role: 'handoff', senderName: 'DS Bot' }),
+    ...(resume && job.info ? job.info : { kind: SOURCE_KIND, form: 'relay', role: 'handoff', senderName: 'Dabots' }),
     exchangeId: job.info?.exchangeId ?? randomUUID(),
     handoff: true,
     ...(resume ? { resume: true } : {}),
@@ -822,12 +826,12 @@ export function install(rt) {
         // The stopped turn goes on where it was. A retry finds the note among the
         // input this part kept, so it is added once.
         const back = job.carry.splice(0)
-        const noted = [...agent.inbox.nextStep, ...agent.inbox.nextTurn].some(message => textOf(message.content) === PAUSE_NOTE)
-        if (resume && !back.some(message => textOf(message.content) === PAUSE_NOTE) && !noted) {
+        const noted = [...agent.inbox.nextStep, ...agent.inbox.nextTurn].some(isPauseNote)
+        if (resume && !back.some(isPauseNote) && !noted) {
           const carried = job.joined?.length ? { joined: job.joined } : {}
           back.unshift(createUserMessage({
             content: [{ type: 'text', text: PAUSE_NOTE }],
-            source: job.info ? { ...job.info, ...carried } : { kind: SOURCE_KIND, form: 'relay', role: 'resume', exchangeId: randomUUID(), senderName: 'DS Bot', ...carried },
+            source: job.info ? { ...job.info, ...carried } : { kind: SOURCE_KIND, form: 'relay', role: 'resume', exchangeId: randomUUID(), senderName: 'Dabots', ...carried },
           }))
         }
         await forward(job, back).then(() => {
@@ -1006,7 +1010,7 @@ export function install(rt) {
       })
     }
     ctx.logger.info('ds-bot: %s%s moved on to part %d at %d tokens (check line %d, hard line %d); %s; %d latest and %d earlier messages carried%s', bot.name, room ? ` in ${room.name}` : '', number + 1, tokens ?? -1, lines?.check ?? -1, lines?.hard ?? -1,
-      written !== undefined ? `note written in ${written.attempts} attempt(s)` : `note put together by DS Bot (${noted.fallback}${noted.note ? `, carries part ${noted.noteFrom}'s` : ', nothing to carry'})`,
+      written !== undefined ? `note written in ${written.attempts} attempt(s)` : `note put together by Dabots (${noted.fallback}${noted.note ? `, carries part ${noted.noteFrom}'s` : ', nothing to carry'})`,
       carried.recent.length, carried.earlier.length, folder === undefined ? '' : `; now works in ${folder}`)
   }
 

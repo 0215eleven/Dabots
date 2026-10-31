@@ -1,6 +1,8 @@
-# DeepSeek Bot Pro changelog
+# Dabots changelog
 
 ## Unreleased: 0.1.10-pro.1
+
+- Rename the product and current repository to Dabots. Preserve ds-bot package/module IDs, app.dsbot.mobile, the dsbot scheme, stored credentials and original third-party notices. New delivery filenames use Dabots; historical tags and assets are unchanged.
 
 - Consolidate the source into plugin/ and ios-app/ with one desktop TGZ and one unsigned lite iOS IPA workflow.
 - Include the production 0.2.0 team engine and adapt the reviewed mobile contract through public DSH APIs.

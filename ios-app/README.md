@@ -1,4 +1,4 @@
-# DeepSeek Bot Pro · iOS
+# Dabots · iOS
 
 iOS App 源码，基于 Expo 58 / React Native 0.88。默认交付 lite 未签名 IPA；无 Live Activity 扩展或 App Group。保留的共用平台代码不构成 Android 发行入口。
 
@@ -20,7 +20,7 @@ npm run ios:start
 
 GitHub Actions 使用 `macos-26`，依次执行仓库 setup、Expo prebuild、pod install 和关闭签名的 Xcode archive，再校验 Payload、Info.plist、Mach-O 可执行文件、ZIP 完整性及 SHA-256。
 
-实际编译通过后，归档在 `ios-unsigned` artifact 中，文件名为 `DeepSeekBotPro-0.1.10-lite-unsigned.ipa`。源码仓库不内置已构建 IPA。详见 [构建与后签名](docs/build-and-sign.md)。
+实际编译通过后，归档在 `ios-unsigned` artifact 中，文件名为 `Dabots-0.1.10-lite-unsigned.ipa`。源码仓库不内置已构建 IPA。详见 [构建与后签名](docs/build-and-sign.md)。
 
 安装身份保持 `app.dsbot.mobile`、`dsbot` scheme 和既有 Keychain/缓存标识。签名工具改写 Bundle ID 时，旧配对信息可能无法沿用，应按实际结果重新配对。
 

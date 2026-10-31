@@ -1,6 +1,6 @@
-# DeepSeek Bot Pro · Bridge module
+# Dabots · Bridge module
 
-Internal desktop module of the single [DeepSeek Bot Pro plugin](../README.md).
+Internal desktop module of the single [Dabots plugin](../README.md).
 Users install the composed `ds-bot` TGZ; this module is not a separate product.
 
 The Bridge uses public DSH Connection/Session APIs for device pairing, scoped

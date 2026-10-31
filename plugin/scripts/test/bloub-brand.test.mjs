@@ -45,7 +45,7 @@ function avatarRuntime(source) {
   const last = factory.body.statements.at(-1)
   assert.ok(ts.isReturnStatement(last))
   const exposed = factorySource.slice(0, last.getStart(ast))
-    + 'return { characterMarkup, RoomAvatar, BotMark };'
+    + 'return { characterMarkup, RoomAvatar, BotMark, BrandName, BotReturn, DICTIONARY, t };'
     + factorySource.slice(last.end)
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...props }, children }),
@@ -61,6 +61,18 @@ function avatarRuntime(source) {
 
 test('the source builder eliminates the legacy character renderer after the Bloub return', () => {
   assertNoDeadTail(built, 'characterMarkup')
+})
+
+test('the actual generated title and return button display Dabots with stable module identity', () => {
+  const runtime = avatarRuntime(built)
+  assert.deepEqual(runtime.BrandName().children, ['Dabots'])
+  const button = runtime.BotReturn({ wide: true, useSurface: () => 'agent', actions: { setSurface() {} } })
+  assert.equal(button.props['aria-label'], 'Dabots')
+  assert.equal(button.props.title, 'Dabots')
+  assert.equal(button.children[1].children[0], 'Dabots')
+  assert.equal(runtime.DICTIONARY.zh.Dabots, 'Dabots')
+  assert.equal(runtime.t('Dabots'), 'Dabots')
+  assert.match(built, /id: 'ds-bot'/)
 })
 
 test('the source builder eliminates the legacy room cluster after the Bloub return', () => {

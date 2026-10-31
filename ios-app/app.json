@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "DeepSeek Bot Pro",
+    "name": "Dabots",
     "slug": "ds-bot-mobile-app",
     "version": "0.1.10",
     "orientation": "portrait",
@@ -11,7 +11,7 @@
       "bundleIdentifier": "app.dsbot.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocalNetworkUsageDescription": "Connect securely to your paired DeepSeek Bot Pro computer on Wi-Fi.",
+        "NSLocalNetworkUsageDescription": "Connect securely to your paired Dabots computer on Wi-Fi.",
         "NSSupportsLiveActivities": true
       }
     },
@@ -26,7 +26,7 @@
     },
     "web": {
       "bundler": "metro",
-      "name": "DeepSeek Bot Pro"
+      "name": "Dabots"
     },
     "plugins": [
       "expo-router",
@@ -112,7 +112,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Scan your computer’s pairing QR code to connect DeepSeek Bot Pro.",
+          "cameraPermission": "Scan your computer’s pairing QR code to connect Dabots.",
           "microphonePermission": false
         }
       ],

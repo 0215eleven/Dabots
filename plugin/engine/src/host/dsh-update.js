@@ -92,8 +92,16 @@ export function install(rt) {
       const release = await fetchJson(`https://api.github.com/repos/${repo}/releases/latest`, { 'user-agent': `${PKG.name}/${PKG.version}` })
       const tag = cleanVersion(release?.tag_name)
       if (!tag) return null
-      const manifest = await fetchJson(`https://raw.githubusercontent.com/${repo}/${release.tag_name}/ds-bot/package.json`, { 'user-agent': `${PKG.name}/${PKG.version}` })
-      return manifest?.dsBot?.verifiedDsh ? manifest.dsBot : null
+      // Current source lives under plugin/engine. Historical releases retain
+      // the old ds-bot layout, so a repository rename must not strand them.
+      const directory = PKG.repository?.directory || 'ds-bot'
+      for (const path of new Set([directory, 'ds-bot'])) {
+        try {
+          const manifest = await fetchJson(`https://raw.githubusercontent.com/${repo}/${release.tag_name}/${path}/package.json`, { 'user-agent': `${PKG.name}/${PKG.version}` })
+          return manifest?.dsBot?.verifiedDsh ? manifest.dsBot : null
+        } catch { /* older tags may predate the current source layout */ }
+      }
+      return null
     } catch { return null }
   }
 

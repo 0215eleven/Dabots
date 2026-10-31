@@ -1,11 +1,11 @@
-# DeepSeek Bot Pro
+# Dabots
 
 一个仓库，两个产品部分：
 
 | 目录 | 用途 | 交付物 |
 | --- | --- | --- |
-| [plugin/](plugin/README.md) | 安装到现有 DeepSeek Harness / DSH 的桌面插件，包含 Bot 团队、Bridge 和手机配对界面 | `ds-bot-0.2.0-pro.1.tgz` |
-| [ios-app/](ios-app/README.md) | iOS 客户端源码、原生模块及 lite 未签名构建流程 | `DeepSeekBotPro-<版本>-lite-unsigned.ipa` |
+| [plugin/](plugin/README.md) | 安装到现有 DeepSeek Harness / DSH 的桌面插件，包含 Bot 团队、Bridge 和手机配对界面 | `Dabots-0.2.0-pro.1.tgz` |
+| [ios-app/](ios-app/README.md) | iOS 客户端源码、原生模块及 lite 未签名构建流程 | `Dabots-<版本>-lite-unsigned.ipa` |
 
 插件内部保留配对、逐设备授权、消息回执、重连、直连与可选中转能力。用户只需安装一个插件包。中转部署工具在 `plugin/tools/relay/`；它不是第三个客户端产品。
 
@@ -44,6 +44,6 @@ npm run pack:plugin
 
 ## 兼容与许可
 
-显示名称为 **DeepSeek Bot Pro**；桌面包名 `ds-bot`、Bridge 行 ID、iOS Bundle ID `app.dsbot.mobile`、`dsbot` scheme 和存储身份保持兼容。改名不会重写用户自定义名称。
+显示名称为 **Dabots**；桌面包名 `ds-bot`、Bridge 行 ID、iOS Bundle ID `app.dsbot.mobile`、`dsbot` scheme 和存储身份保持兼容。改名不会重写用户自定义名称。
 
 本项目及 DS Bot / Bridge 相关代码使用 Apache-2.0。iOS 中复用的 OpenBot UI 和美术使用 **PolyForm Noncommercial 1.0.0**，不属于 Apache-2.0；商业使用需遵守其许可。原始许可证、第三方通知和来源见 [SOURCES.md](SOURCES.md)、[NOTICE](NOTICE) 及 [iOS UI 来源](ios-app/src/openbot/README.md)。

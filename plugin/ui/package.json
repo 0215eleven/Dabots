@@ -2,7 +2,7 @@
   "name": "ds-bot-mobile-app",
   "version": "0.2.1-pro.1",
   "private": true,
-  "description": "DeepSeek Bot Pro — desktop pairing and device management companion",
+  "description": "Dabots — desktop pairing and device management companion",
   "license": "Apache-2.0",
   "type": "module",
   "main": "index.mjs",
@@ -36,10 +36,10 @@
     "esbuild": "0.28.2",
     "qrcode": "1.5.4"
   },
-  "homepage": "https://github.com/0215eleven/ds-bot-mobile/tree/main/plugin/ui",
+  "homepage": "https://github.com/0215eleven/Dabots/tree/main/plugin/ui",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0215eleven/ds-bot-mobile.git",
+    "url": "git+https://github.com/0215eleven/Dabots.git",
     "directory": "plugin/ui"
   },
   "engines": {
