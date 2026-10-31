@@ -12,6 +12,7 @@ import { createRelayConnector } from './relay-client.mjs'
 // for relays with open registration) nor key material ever leaves this module's files.
 const refuse = (code, message) => { throw new BridgeError(400, code, message) }
 const MODES = new Set(['direct', 'relay'])
+export const OFFICIAL_RELAY = 'wss://dsbot.ziyuegege.com'
 async function writeAtomic(path, text) {
   const temporary = `${path}.${randomUUID()}.tmp`
   await writeFile(temporary, text, { mode: 0o600 })
@@ -48,6 +49,7 @@ async function loadIdentity(path) {
 
 export async function createRelaySettings({ home, server, Socket, connect = createRelayConnector, defaultRelay = null }) {
   const path = join(home, 'relay-connection.json'), identityPath = join(home, 'relay-identity.json')
+  const selectionPath = join(home, 'relay-selection.json')
   let settings = defaultRelay ? { version: 1, mode: 'relay', relay: validateRelayUrl(defaultRelay), secret: null } : { version: 1, mode: 'direct', relay: null, secret: null }
   // Until the owner saves a choice the relay is only the default: if it cannot be reached,
   // pairing falls back to the direct code instead of failing.
@@ -59,6 +61,15 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
     settings = saved
     chosen = true
   }
+  // Even an old saved record at the official address must never send its secret.
+  if (settings.relay === OFFICIAL_RELAY) settings = { ...settings, secret: null }
+  const legacy = { ...settings }
+  const selection = await readJson(selectionPath)
+  if (selection && (selection.version !== 1 || !['official', 'direct', 'saved'].includes(selection.mode))) throw Error('Saved connection selection is invalid.')
+  if (selection) {
+    settings = selection.mode === 'official' ? { version: 1, mode: 'relay', relay: OFFICIAL_RELAY, secret: null } : selection.mode === 'direct' ? { ...legacy, mode: 'direct' } : legacy
+    chosen = true
+  }
   let connector = null, generationOwner = null, state = { state: 'disabled', computerId: null, computerKey: null }, disposed = false, busy = false, revision = 0
   const relayReady = () => state.state === 'ready' && Boolean(state.computerId && state.computerKey)
   const pairingStatus = () => {
@@ -67,7 +78,8 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
   }
   const pairingContext = () => JSON.stringify([pairingStatus(), ...(relayReady() ? [state.computerId, state.computerKey] : [])])
   const snapshot = () => ({ mode: settings.mode, relay: settings.relay, secretSet: Boolean(settings.secret), state: state.state,
-    computerId: state.computerId, ready: settings.mode === 'relay' && relayReady(), revision })
+    computerId: state.computerId, ready: settings.mode === 'relay' && relayReady(), revision,
+    ...(settings.relay === OFFICIAL_RELAY && !settings.secret ? { official: true } : {}) })
   async function stop() {
     const current = connector
     connector = null
@@ -93,13 +105,20 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
       } })
     connector = current
   }
-  async function change(next) {
+  async function change(next, selectionMode = null) {
     if (disposed) refuse('REMOTE_CLOSED', '插件已停止，请重新打开管理页面。')
     if (busy) refuse('REMOTE_BUSY', '连接设置正在更新，请稍后重试。')
     busy = true
     try {
+      server.invalidatePairings()
       await stop()
-      await writeAtomic(path, JSON.stringify(next))
+      if (selectionMode) await writeAtomic(selectionPath, JSON.stringify({ version: 1, mode: selectionMode }))
+      else {
+        await writeAtomic(path, JSON.stringify(next))
+        Object.assign(legacy, next)
+        // A legacy/admin operation still records the public choice separately.
+        await writeAtomic(selectionPath, JSON.stringify({ version: 1, mode: 'saved' }))
+      }
       settings = next
       chosen = true
       revision++
@@ -113,27 +132,30 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
   return {
     snapshot,
     pairingStatus,
+    official() { return change({ version: 1, mode: 'relay', relay: OFFICIAL_RELAY, secret: null }, 'official') },
     async configure(payload) {
       if (!payload || typeof payload !== 'object' || Object.keys(payload).some(key => !['relay', 'secret'].includes(key))) refuse('INVALID_RELAY_SETTINGS', '请填写中转服务地址。')
       const relay = validateRelayUrl(payload.relay)
       if (payload.secret !== undefined && payload.secret !== '' && !validSecret(payload.secret)) refuse('INVALID_RELAY_SECRET', '注册密钥至少 32 字节，且不能包含空白字符。')
       // An empty secret is allowed: open relays need none. A saved one is kept for the same address.
-      const secret = payload.secret === '' ? null : payload.secret ?? (relay === settings.relay ? settings.secret : null)
+      const secret = relay === OFFICIAL_RELAY ? null : payload.secret === '' ? null : payload.secret ?? (relay === settings.relay ? settings.secret : null)
       return change({ ...settings, relay, secret })
     },
     async select(payload) {
       if (!payload || !MODES.has(payload.mode) || Object.keys(payload).some(key => key !== 'mode')) refuse('INVALID_CONNECTION_MODE', '请选择服务器中转或自己直连。')
       if (payload.mode === 'relay' && !settings.relay) refuse('RELAY_NOT_CONFIGURED', '请先保存中转服务地址。')
+      if (payload.mode === 'direct') return change({ ...legacy, mode: 'direct' }, 'direct')
+      if (settings.relay === OFFICIAL_RELAY) return change({ version: 1, mode: 'relay', relay: OFFICIAL_RELAY, secret: null }, 'official')
       return change({ ...settings, mode: payload.mode })
     },
     // Relay pairing material: no URL, only what the phone needs to reach and
     // authenticate this computer through the owner's relay.
-    pairing() {
+    pairing(options) {
       if (settings.mode !== 'relay') return null
       if (pairingStatus().mode === 'direct') return null
       if (!relayReady()) throw new BridgeError(409, 'RELAY_NOT_READY', '中转连接尚未就绪，请检查网络和中转服务地址。')
-      const created = server.createPairing()
-      return { v: 2, relay: settings.relay, computerId: state.computerId, computerKey: state.computerKey, serverId: created.serverId, code: created.code, expiresAt: created.expiresAt }
+      const created = server.createPairing(options)
+      return { v: 2, relay: settings.relay, computerId: state.computerId, computerKey: state.computerKey, serverId: created.serverId, code: created.code, expiresAt: created.expiresAt, ...(options?.automatic ? { leaseId: created.leaseId } : {}) }
     },
     async dispose() { disposed = true; await stop() },
   }

@@ -1,6 +1,6 @@
 import { remoteErrorMessage } from './remote-model.mjs'
 
-const METHODS = new Set(['status', 'pairing.create', 'pairing.approve', 'pairing.deny', 'device.revoke', 'device.agents', 'remote.configure', 'remote.start', 'remote.stop', 'relay.configure', 'relay.select'])
+const METHODS = new Set(['status', 'pairing.create', 'pairing.cancel', 'pairing.approve', 'pairing.deny', 'device.revoke', 'device.agents', 'remote.configure', 'remote.start', 'remote.stop', 'relay.official', 'relay.configure', 'relay.select'])
 export function createOperatorClient({ root, fetchImpl = fetch, location = globalThis.location, uuid = () => crypto.randomUUID() }) {
   const base = new URL(root)
   const desktop = base.protocol === 'dsh-app:' && base.host === 'app' && base.pathname === '/'
@@ -9,7 +9,7 @@ export function createOperatorClient({ root, fetchImpl = fetch, location = globa
   return async (method, payload = {}, signal) => {
     if (!METHODS.has(method)) throw Error('Unsupported device operation')
     const rpcId = uuid()
-    const response = await fetchImpl(new URL(`mobile-operator/${method}`, base), { method: 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'client-request', rpcId, method, payload }), signal })
+    const response = await fetchImpl(new URL(`mobile-operator/${method}`, base), { method: 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'client-request', rpcId, method, payload }), ...(method === 'pairing.cancel' ? { keepalive: true } : {}), signal })
     if (!response.ok) throw Object.assign(Error(response.status === 404 || response.status === 405 ? '请先安装并配置 Dabots Bridge，然后启用插件。' : response.status === 401 || response.status === 403 ? '请在已登录的电脑所有者会话中打开本页。' : '无法连接 Dabots Bridge，请检查电脑端连接。'), { code: `HTTP_${response.status}` })
     const body = await response.json()
     if (body?.type !== 'server-response' || body.rpcId !== rpcId) throw Error('响应校验失败，请刷新后重试。')

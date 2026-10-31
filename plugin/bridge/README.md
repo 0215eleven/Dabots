@@ -18,8 +18,11 @@ npm --prefix plugin/bridge test
 npm run check:integration
 ```
 
-The owner config uses the existing `ds-bot-mobile-bridge` row ID and a dedicated
-absolute home, separate from DSH_HOME. See [connection](../docs/connection.md),
+The existing `ds-bot-mobile-bridge` row ID and explicit legacy homes remain stable.
+First use initializes a dedicated `data/ds-bot-mobile-bridge` directory through
+the public DSH home path API and starts a loopback listener. Installation alone
+remains inert. The owner chooses official login or one of the two tunnel options;
+only a ready connection can create a two-minute, single-use QR authorization. See [connection](../docs/connection.md),
 [compatibility](../docs/compatibility.md) and [owner API](../docs/bridge-api.md).
 
 For a Bridge-managed Cloudflare tunnel, the owner-entered tunnel token is stored

@@ -42,9 +42,23 @@ export async function createAuthStore(home, { now = Date.now, onRevoke = () => {
   await save()
   const codes = new Map()
   const claims = new Map()
+  const cancelled = new Map()
+  let lease = null
+  let cancellationBlock = 0
+  const validLease = id => typeof id === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(id)
+  function invalidateLease(id) {
+    for (const [key, item] of codes) if (item.leaseId === id) codes.delete(key)
+    for (const [key, item] of claims) if (item.leaseId === id) {
+      item.invalidated = true
+      claims.delete(key)
+    }
+    if (lease?.leaseId === id) lease = null
+  }
   function prunePairings() {
     for (const [id, item] of codes) if (item.expiresAt <= now()) codes.delete(id)
     for (const [id, item] of claims) if (item.expiresAt <= now()) claims.delete(id)
+    for (const [id, expiry] of cancelled) if (expiry <= now()) cancelled.delete(id)
+    if (lease?.expiresAt <= now()) invalidateLease(lease.leaseId)
   }
   // agents: the owner's per-device grant to use the team's DSH Agent. Missing means denied;
   // a re-paired phone is a new device and starts without it.
@@ -70,14 +84,32 @@ export async function createAuthStore(home, { now = Date.now, onRevoke = () => {
       codes.clear()
       for (const claim of claims.values()) claim.invalidated = true
       claims.clear()
+      lease = null
     },
-    createPairing(url) {
+    cancelPairing(leaseId) {
       prunePairings()
+      if (!validLease(leaseId)) throw new BridgeError(400, 'INVALID_PAIRING_LEASE', 'A valid owner pairing lease is required.')
+      invalidateLease(leaseId)
+      // Cancellation must remain fail-closed even if owner requests exhaust
+      // tombstone memory. Conservatively pause all creation until reordered
+      // requests can no longer belong to this two-minute window.
+      if (!cancelled.has(leaseId) && cancelled.size >= 256) cancellationBlock = now() + 120_000
+      else cancelled.set(leaseId, now() + 120_000)
+      return { cancelled: true }
+    },
+    pairingStatus() { prunePairings(); return lease ? { ...lease } : null },
+    createPairing(url, { automatic = false, leaseId = randomUUID() } = {}) {
+      prunePairings()
+      if (cancellationBlock > now()) throw new BridgeError(429, 'PAIRING_LIMIT', 'Too many pairing operations. Try again shortly.')
+      if (!validLease(leaseId)) throw new BridgeError(400, 'INVALID_PAIRING_LEASE', 'A valid owner pairing lease is required.')
+      if (cancelled.has(leaseId)) throw new BridgeError(409, 'PAIRING_CANCELLED', 'This pairing window was closed.')
+      if (lease) invalidateLease(lease.leaseId)
       codes.clear()
       const code = randomBytes(9).toString('base64url')
       const expiresAt = now() + 120_000
-      codes.set(digest(code), { expiresAt })
-      return { url, code, serverId: data.serverId, expiresAt }
+      codes.set(digest(code), { expiresAt, automatic, leaseId })
+      lease = { leaseId, state: 'available', expiresAt }
+      return { url, code, serverId: data.serverId, expiresAt, leaseId }
     },
     beginPairing({ code, deviceName }) {
       prunePairings()
@@ -85,10 +117,12 @@ export async function createAuthStore(home, { now = Date.now, onRevoke = () => {
       if (!codes.has(key)) throw new BridgeError(400, 'INVALID_PAIRING_CODE', 'The pairing code is invalid or has expired.')
       if (typeof deviceName !== 'string' || !deviceName.trim() || deviceName.length > 100) throw new BridgeError(400, 'INVALID_DEVICE_NAME', 'Enter a device name of at most 100 characters.')
       if (claims.size >= 20) throw new BridgeError(429, 'PAIRING_LIMIT', 'Too many pending pairing requests.')
+      const pairing = codes.get(key)
       codes.delete(key)
       const claimToken = token()
       const requestId = randomUUID()
-      claims.set(requestId, { requestId, claimHash: digest(claimToken), deviceName: deviceName.trim(), status: 'pending', createdAt: now(), expiresAt: now() + 300_000 })
+      claims.set(requestId, { requestId, claimHash: digest(claimToken), deviceName: deviceName.trim(), status: pairing.automatic ? 'approved' : 'pending', createdAt: now(), expiresAt: pairing.automatic ? pairing.expiresAt : now() + 300_000, leaseId: pairing.automatic ? pairing.leaseId : null })
+      if (lease?.leaseId === pairing.leaseId) lease.state = 'claimed'
       return { claimToken, requestId, status: 'pending' }
     },
     pending() {
@@ -114,7 +148,7 @@ export async function createAuthStore(home, { now = Date.now, onRevoke = () => {
       const device = { id: randomUUID(), name: claim.deviceName, createdAt: now(), lastSeenAt: now() }
       data.devices.push(device)
       claim.issuing = issueSession(device).then(async session => {
-        if (claim.invalidated) {
+        if (claim.invalidated || claim.expiresAt <= now()) {
           device.revokedAt = now()
           delete device.accessHash
           delete device.refreshHash
@@ -122,6 +156,7 @@ export async function createAuthStore(home, { now = Date.now, onRevoke = () => {
           throw new BridgeError(404, 'PAIRING_NOT_FOUND', 'The pairing address changed. Start pairing again.')
         }
         claim.session = session
+        if (lease?.leaseId === claim.leaseId) lease.state = 'paired'
         claim.expiresAt = now() + 60_000
         return session
       })

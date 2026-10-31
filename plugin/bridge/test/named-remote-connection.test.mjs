@@ -172,3 +172,18 @@ test('a real fixed loopback listener keeps the named origin reachable after a Br
   assert.equal(remote.snapshot().state, 'running')
   assert.equal((await fetch(`${origin}/mobile/v1/info`)).status, 200)
 })
+
+test('official selection can retain named credentials without resuming its connector', async t => {
+  const f = await fixture(t)
+  await f.remote.configure({ mode: 'named', url, token })
+  await f.remote.dispose()
+  const before = await readFile(join(f.home, 'remote-connection.json'), 'utf8')
+  let started = false
+  const remote = await createRemoteConnection({ home: f.home, config: { port: 34123 }, server: f.server, resumeNamed: false,
+    createNamed() { started = true; throw Error('must not start a second door') } })
+  t.after(() => remote.dispose())
+  assert.equal(started, false)
+  assert.equal(remote.snapshot().state, 'stopped')
+  assert.equal(remote.snapshot().tokenSet, true)
+  assert.equal(await readFile(join(f.home, 'remote-connection.json'), 'utf8'), before)
+})

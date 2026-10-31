@@ -20,10 +20,15 @@
 | method | payload | 用途 |
 | --- | --- | --- |
 | `status` | `{}` | 查看配置、监听和设备状态 |
-| `pairing.create` | `{}` | 生成配对资料 |
+| `relay.official` | `{}` | 首次自动初始化并连接官方服务；不接受密钥 |
+| `relay.select` | `{"mode":"direct"}` | 选择隧道入口，首次可自动初始化 |
+| `pairing.create` | `{"automatic":true,"leaseId":"UUID"}` | 主人打开本次两分钟单次扫码授权；返回资料中的 leaseId 仅供电脑管理，不能编码入二维码 |
+| `pairing.cancel` | `{"leaseId":"UUID"}` | 撤销匹配的二维码及未完成授权；支持取消先于生成到达 |
 | `pairing.approve` | `{"requestId":"…"}` | 批准手机申请 |
 | `pairing.deny` | `{"requestId":"…"}` | 拒绝申请 |
 | `device.revoke` | `{"id":"…"}` | 撤销设备授权 |
+
+不传 automatic 时保留旧手动批准流程。status.pairingLease 返回本次 leaseId、available/claimed/paired 状态及到期时间。成功配对后关闭二维码不撤销设备。
 
 使用宿主现有的所有者认证会话；普通远程请求不能因此取得管理权限。配对资料、请求结果和设备凭据应只在本机受信任界面中处理。
 

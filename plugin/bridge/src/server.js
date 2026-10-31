@@ -390,16 +390,17 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
     },
     serverId: auth.data.serverId,
     invalidatePairings: () => auth.invalidatePairings(),
-    createPairing: () => auth.createPairing(null),
+    createPairing: options => auth.createPairing(null, options),
     relayEndpoint: remoteKey => createRelayEndpoint({ remoteKey, route, acceptSocket }),
     hasActiveDevices: () => auth.data.devices.some(device => !device.revokedAt && device.refreshExpiresAt > Date.now()),
     isDeviceAuthorized: id => auth.data.devices.some(device => device.id === id && !device.revokedAt && device.refreshExpiresAt > Date.now()),
     async operator(endpoint, payload = {}) {
       switch (endpoint) {
-        case 'status': return { enabled: true, url: publicUrl, serverId: auth.data.serverId, capabilities: adapter.capabilities?.() ?? {}, compatibility: adapter.compatibility?.() ?? {}, pending: auth.pending(), devices: auth.devices() }
+        case 'status': return { enabled: true, url: publicUrl, serverId: auth.data.serverId, capabilities: adapter.capabilities?.() ?? {}, compatibility: adapter.compatibility?.() ?? {}, pending: auth.pending(), devices: auth.devices(), pairingLease: auth.pairingStatus() }
         case 'pairing.create':
           if (!publicUrl) fail(409, 'REMOTE_NOT_READY', 'Configure an HTTPS address or explicitly start the temporary tunnel before pairing.')
-          return auth.createPairing(publicUrl)
+          return auth.createPairing(publicUrl, payload)
+        case 'pairing.cancel': return auth.cancelPairing(payload.leaseId)
         case 'pairing.approve': return auth.decidePairing(payload.requestId, true)
         case 'pairing.deny': return auth.decidePairing(payload.requestId, false)
         case 'device.revoke': return auth.revoke(payload.id ?? payload.deviceId)

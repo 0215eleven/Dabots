@@ -18,8 +18,13 @@ export function createRelayConnector({relay,secret,identity,serverId,endpoint,So
  function connect(){
   if(stopped)return
   publish('connecting');const ws=new Socket(`${url.origin}/v1/computer`);socket=ws
+  let refusal=null
   const timeout=setTimeout(()=>ws.terminate(),15000);timeout.unref()
   ws.on('error',()=>{})
+  ws.on('unexpected-response',(_request,response)=>{
+   refusal=response.statusCode===429?'limited':response.statusCode===403?'denied':null
+   response.resume();ws.terminate()
+  })
   const write=async(entry,record)=>{
    const deadline=Date.now()+10000
    while(ws.bufferedAmount>1024*1024){if(entry.closed||Date.now()>deadline)throw Error('Relay backpressure');await new Promise(r=>setTimeout(r,5))}
@@ -69,7 +74,7 @@ export function createRelayConnector({relay,secret,identity,serverId,endpoint,So
     entry.rpc.receive(value)
    }).catch(()=>endStream(id)).finally(()=>{entry.bytes-=data.length;queued-=data.length})
   })
-  ws.on('close',()=>{clearTimeout(timeout);if(socket!==ws)return;for(const id of streams.keys())endStream(id,false);socket=null;if(stopped)return;publish('offline');reconnect=setTimeout(connect,Math.min(30000,500*2**Math.min(attempts++,6)));reconnect.unref()})
+  ws.on('close',code=>{clearTimeout(timeout);if(socket!==ws)return;for(const id of streams.keys())endStream(id,false);socket=null;if(stopped)return;const failure=code===4429?'limited':code===4403?'denied':refusal??'offline';publish(failure);if(failure==='denied')return;reconnect=setTimeout(connect,failure==='limited'?60000:Math.min(30000,500*2**Math.min(attempts++,6)));reconnect.unref()})
  }
  const idle=setInterval(()=>{for(const [id,entry] of streams)if(Date.now()-entry.last>300000)endStream(id)},10000);idle.unref()
  connect()

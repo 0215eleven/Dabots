@@ -1,9 +1,9 @@
 import z from '@deepseek-ai/schemastery'
 
-// Installation is inert until the owner supplies dedicated storage and transport.
+// Installation is inert until the owner selects a connection; existing enabled profiles resume.
 export const Config = z.object({
   enabled: z.boolean().default(false),
-  home: z.string().description('Absolute directory owned only by this bridge; never DSH_HOME.'),
+  home: z.string().description('Optional dedicated absolute directory; first use otherwise initializes the Bridge in DSH plugin data storage.'),
   host: z.string().default('127.0.0.1'),
   port: z.natural().max(65535).default(0),
   publicUrl: z.string().description('Existing HTTPS origin; no credentials, path or query. May be configured in the owner remote connection page.'),

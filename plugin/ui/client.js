@@ -2133,6 +2133,8 @@ var import_qrcode = __toESM(require_browser(), 1);
 
 // src/remote-model.mjs
 var messages = {
+  TEAM_UNAVAILABLE: "Bot 团队尚未准备好，请稍后重试。",
+  BRIDGE_START_FAILED: "手机访问初始化失败，请重试或检查插件存储权限。",
   MISSING_CLOUDFLARED: "未找到 cloudflared。请按官方安装指南自行安装，然后重试。",
   CLOUDFLARED_MISSING: "未找到 cloudflared。请按官方安装指南自行安装，然后重试。",
   START_TIMEOUT: "临时隧道连接超时。请检查网络后手动重试。",
@@ -2162,7 +2164,7 @@ var messages = {
   REMOTE_BUSY: "另一项连接操作正在进行，请刷新状态后重试。",
   REMOTE_CLOSED: "Bridge 已停止，请检查插件状态后重新打开本页。",
   REMOTE_CLEANUP_REQUIRED: "上次卸载后尚未确认旧 cloudflared 已退出。请先在电脑上确认其停止，再手动移除 Bridge 专用目录中的 remote-cleanup-required.json，然后重新启用 Bridge。",
-  CONFIGURATION_REQUIRED: "请先启用 Dabots Bridge，并配置独立的绝对存储目录与 loopback 监听。",
+  CONFIGURATION_REQUIRED: "请先安装并启用 Dabots Bridge，然后选择连接方式。",
   OPERATOR_REQUIRED: "请在已登录的电脑所有者会话中打开本页。",
   OPERATOR_REFUSED: "操作被拒绝。请刷新状态后检查配置并重试。",
   INVALID_RELAY_URL: "请输入完整的 wss:// 中转服务地址，不含账号、路径、查询或片段。",
@@ -2170,8 +2172,8 @@ var messages = {
   RELAY_SECRET_REQUIRED: "请填写中转服务的注册密钥。",
   INVALID_RELAY_SETTINGS: "请填写中转服务地址和注册密钥。",
   RELAY_NOT_CONFIGURED: "请先保存中转服务地址和注册密钥。",
-  RELAY_NOT_READY: "中转连接尚未就绪，请检查中转服务地址、注册密钥和网络。",
-  INVALID_CONNECTION_MODE: "请选择服务器中转或自己直连。",
+  RELAY_NOT_READY: "官方连接尚未就绪，请稍后重试或切换隧道连接。",
+  INVALID_CONNECTION_MODE: "请选择官方登录或隧道连接。",
   REMOTE_NOT_READY: "请先配置 HTTPS 入口或启动临时隧道，再生成配对码。"
 };
 function remoteErrorMessage(code) {
@@ -2225,7 +2227,7 @@ function canPair(status) {
 }
 
 // src/operator-client.mjs
-var METHODS = /* @__PURE__ */ new Set(["status", "pairing.create", "pairing.approve", "pairing.deny", "device.revoke", "device.agents", "remote.configure", "remote.start", "remote.stop", "relay.configure", "relay.select"]);
+var METHODS = /* @__PURE__ */ new Set(["status", "pairing.create", "pairing.cancel", "pairing.approve", "pairing.deny", "device.revoke", "device.agents", "remote.configure", "remote.start", "remote.stop", "relay.official", "relay.configure", "relay.select"]);
 function createOperatorClient({ root, fetchImpl = fetch, location: location2 = globalThis.location, uuid = () => crypto.randomUUID() }) {
   const base = new URL(root);
   const desktop = base.protocol === "dsh-app:" && base.host === "app" && base.pathname === "/";
@@ -2234,7 +2236,7 @@ function createOperatorClient({ root, fetchImpl = fetch, location: location2 = g
   return async (method, payload = {}, signal) => {
     if (!METHODS.has(method)) throw Error("Unsupported device operation");
     const rpcId = uuid();
-    const response = await fetchImpl(new URL(`mobile-operator/${method}`, base), { method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "client-request", rpcId, method, payload }), signal });
+    const response = await fetchImpl(new URL(`mobile-operator/${method}`, base), { method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "client-request", rpcId, method, payload }), ...method === "pairing.cancel" ? { keepalive: true } : {}, signal });
     if (!response.ok) throw Object.assign(Error(response.status === 404 || response.status === 405 ? "请先安装并配置 Dabots Bridge，然后启用插件。" : response.status === 401 || response.status === 403 ? "请在已登录的电脑所有者会话中打开本页。" : "无法连接 Dabots Bridge，请检查电脑端连接。"), { code: `HTTP_${response.status}` });
     const body = await response.json();
     if (body?.type !== "server-response" || body.rpcId !== rpcId) throw Error("响应校验失败，请刷新后重试。");
@@ -2249,10 +2251,18 @@ function createOperatorClient({ root, fetchImpl = fetch, location: location2 = g
 // src/controller.mjs
 var RELAY_ID = /^[A-Za-z0-9_-]{22}$/;
 var RELAY_KEY = /^[A-Za-z0-9_-]{43}$/;
-function createDeviceController({ call, now = Date.now }) {
+function createDeviceController({ call, now = Date.now, uuid = () => crypto.randomUUID() }) {
   const listeners = /* @__PURE__ */ new Set(), requests = /* @__PURE__ */ new Set();
   let state = { status: null, pairing: null, busy: false, operation: null, error: "", confirmRevoke: null, confirmAgents: null, copied: false };
   let disposed = false, generation = 0, refreshEpoch = 0, refreshFlight = null, operating = false, pairingEpoch = 0;
+  let leaseId = null, autoAttempted = false;
+  function cancelLease() {
+    const id = leaseId;
+    leaseId = null;
+    if (!id) return Promise.resolve();
+    return Promise.resolve(call("pairing.cancel", { leaseId: id })).catch(() => {
+    });
+  }
   const emit = (patch) => {
     if (disposed) return;
     state = { ...state, ...patch };
@@ -2276,12 +2286,21 @@ function createDeviceController({ call, now = Date.now }) {
         const status = await invoke("status", {});
         if (!disposed && issued === refreshEpoch) {
           const changed = state.status !== null && pairingContext(status) !== pairingContext(state.status);
-          if (changed) pairingEpoch++;
-          emit({ status, error: "", ...changed || !canPair(status) ? { pairing: null, copied: false } : {} });
+          if (changed) {
+            pairingEpoch++;
+            void cancelLease();
+          }
+          const consumed = leaseId && status.pairingLease?.leaseId === leaseId && ["claimed", "paired"].includes(status.pairingLease.state);
+          if (consumed) {
+            pairingEpoch++;
+            if (status.pairingLease.state === "paired") leaseId = null;
+          }
+          emit({ status, error: "", ...changed || consumed || !canPair(status) ? { pairing: null, copied: false } : {}, ...consumed ? { pairingResult: status.pairingLease.state } : {} });
         }
       } catch (error) {
         if (!disposed && issued === refreshEpoch) {
           pairingEpoch++;
+          void cancelLease();
           emit({ status: null, pairing: null, copied: false, error: error.message || "无法刷新设备状态，请检查电脑连接。" });
         }
       }
@@ -2297,9 +2316,12 @@ function createDeviceController({ call, now = Date.now }) {
     const issued = ++generation;
     refreshEpoch++;
     const changesTransport = method.startsWith("remote.") || method.startsWith("relay.");
-    if (changesTransport) pairingEpoch++;
+    if (changesTransport) {
+      pairingEpoch++;
+      void cancelLease();
+    }
     const pairingIssued = pairingEpoch;
-    emit({ busy: true, operation: method, error: "", ...method === "pairing.create" || changesTransport ? { pairing: null, copied: false } : {} });
+    emit({ busy: true, operation: method, error: "", ...method === "pairing.create" || changesTransport ? { pairing: null, copied: false, pairingResult: null } : {} });
     try {
       const value = await invoke(method, payload);
       if (disposed || issued !== generation) return;
@@ -2320,6 +2342,7 @@ function createDeviceController({ call, now = Date.now }) {
       refreshEpoch++;
       await refresh({ afterCurrent: true });
     } catch (error) {
+      if (method === "pairing.create" && issued === generation) void cancelLease();
       if (!disposed && issued === generation) emit({ error: error.message || (changesTransport ? remoteErrorMessage(error.code) : "设备操作未完成，请刷新后重试。") });
     } finally {
       if (issued === generation) {
@@ -2328,6 +2351,18 @@ function createDeviceController({ call, now = Date.now }) {
       }
     }
   }
+  function createPairing() {
+    if (disposed || operating) return Promise.resolve();
+    autoAttempted = true;
+    void cancelLease();
+    leaseId = uuid();
+    return operation("pairing.create", { automatic: true, leaseId });
+  }
+  function autoPair() {
+    const status = state.status;
+    if (disposed || operating || autoAttempted || state.pairing || !canPair(status) || status?.relay?.mode !== "relay" || status.relay.official !== true) return Promise.resolve();
+    return createPairing();
+  }
   return {
     snapshot: () => state,
     subscribe(listener) {
@@ -2335,7 +2370,14 @@ function createDeviceController({ call, now = Date.now }) {
       return () => listeners.delete(listener);
     },
     refresh,
-    create: () => operation("pairing.create"),
+    create: createPairing,
+    autoPair,
+    async useOfficial() {
+      if (disposed || operating) return;
+      autoAttempted = false;
+      await operation("relay.official");
+      if (!state.error) await autoPair();
+    },
     configureRemote(mode, value, token = "") {
       if (!["existing", "fixed", "quick", "named"].includes(mode)) {
         emit({ error: "请选择支持的远程连接方式。" });
@@ -2377,6 +2419,7 @@ function createDeviceController({ call, now = Date.now }) {
         emit({ error: remoteErrorMessage("INVALID_CONNECTION_MODE") });
         return Promise.resolve();
       }
+      autoAttempted = true;
       return operation("relay.select", { mode });
     },
     decide(requestId, approved) {
@@ -2403,9 +2446,14 @@ function createDeviceController({ call, now = Date.now }) {
       if (state.status?.devices?.some((item) => item.id === id && item.agents === true)) return operation("device.agents", { id, enabled: false });
     },
     tick() {
-      if (state.pairing && state.pairing.expiresAt <= now()) emit({ pairing: null, copied: false });
+      if (state.pairing && state.pairing.expiresAt <= now()) {
+        void cancelLease();
+        emit({ pairing: null, copied: false, pairingResult: "expired" });
+      }
     },
     clearPairing() {
+      autoAttempted = true;
+      void cancelLease();
       generation++;
       refreshEpoch++;
       pairingEpoch++;
@@ -2425,6 +2473,7 @@ function createDeviceController({ call, now = Date.now }) {
     },
     dispose() {
       if (disposed) return;
+      void cancelLease();
       disposed = true;
       generation++;
       for (const request of requests) request.abort();
@@ -2435,7 +2484,7 @@ function createDeviceController({ call, now = Date.now }) {
 }
 
 // src/style.css
-var style_default = '.dsma-page{--dsma-ink:var(--bt-ink,#171717);--dsma-muted:var(--bt-ink-2,#666);--dsma-line:var(--bt-line,#e8e8e8);--dsma-bg:var(--bt-main,#fff);--dsma-surface:var(--bt-bubble,#f2f2f2);width:100%;min-width:0;color:var(--dsma-ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}\n.dsma-page *{box-sizing:border-box}.dsma-page h3{font-size:14px;line-height:22px;margin:0;font-weight:600}.dsma-page p{margin:6px 0 0;color:var(--dsma-muted);font-size:13px}.dsma-state-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px}.dsma-state{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dsma-muted)}.dsma-state i{width:7px;height:7px;border-radius:50%;background:currentColor}.dsma-state[data-ready=true] i{background:var(--bt-green,#00865b)}\n.dsma-page button{min-height:36px;border:1px solid var(--dsma-line);border-radius:9px;padding:7px 12px;font:inherit;font-size:13px;color:var(--dsma-ink);background:var(--dsma-bg);cursor:pointer;touch-action:manipulation}.dsma-page button:hover{background:var(--dsma-surface)}.dsma-page button:disabled{opacity:.5;cursor:default}.dsma-page button.dsma-primary{background:var(--dsma-ink);color:var(--dsma-bg);border-color:transparent;font-weight:500}.dsma-page button.dsma-primary:hover{opacity:.85}.dsma-page button.dsma-text-button{border-color:transparent;color:var(--dsma-muted);background:transparent}.dsma-page button.dsma-icon-button{display:grid;place-items:center;min-width:32px;min-height:32px;padding:5px;border-color:transparent;background:transparent;color:var(--dsma-muted)}.dsma-page button.dsma-danger{color:var(--bt-danger,#b42318)}.dsma-page :focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}.dsma-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}\n.dsma-section-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.dsma-add{padding:0 0 22px}.dsma-section{border-top:1px solid var(--dsma-line);padding:18px 0 6px}.dsma-section>h3{display:flex;align-items:center;gap:7px;margin-bottom:6px}.dsma-count{color:var(--dsma-muted);font-size:12px;font-weight:400}.dsma-device{display:flex;align-items:center;gap:12px;padding:12px 0;min-width:0;flex-wrap:wrap}.dsma-device+.dsma-device{border-top:1px solid var(--dsma-line)}.dsma-device-icon{width:38px;height:42px;display:grid;place-items:center;flex:none;border-radius:10px;background:var(--dsma-surface);color:var(--dsma-muted)}.dsma-device-copy{flex:1;min-width:100px}.dsma-device-copy strong{display:block;font-size:14px;font-weight:550;overflow-wrap:anywhere}.dsma-device-copy small{display:block;font-size:12px;color:var(--dsma-muted);margin-top:3px}.dsma-confirm{flex-basis:100%;padding:10px 12px;background:var(--dsma-surface);border-radius:10px}.dsma-confirm p{margin:0 0 8px}.dsma-page .dsma-empty{margin:10px 0 12px}.dsma-notes{margin-top:12px;font-size:12px;color:var(--dsma-muted)}.dsma-page summary{cursor:pointer;min-height:32px;padding:6px 0}.dsma-notes p{font-size:12px;margin-top:3px}\n.dsma-pairing{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 0 0}.dsma-qr{width:204px;max-width:100%;height:auto;background:#fff;border-radius:8px}.dsma-pairing p{font-size:12px;margin:0}.dsma-pairing details{width:100%;color:var(--dsma-muted);font-size:12px}.dsma-page textarea{display:block;width:100%;min-height:100px;padding:10px;border:1px solid var(--dsma-line);border-radius:8px;background:var(--dsma-surface);color:var(--dsma-ink);font:12px/1.5 ui-monospace,monospace;resize:vertical;overflow-wrap:anywhere}.dsma-page .dsma-error{margin:0 0 14px;padding:10px 12px;border-radius:8px;background:var(--dsma-surface);color:var(--bt-danger,#b42318)}.dsma-setup{padding:4px 0 16px}.dsma-setup a{display:inline-block;margin-top:12px;color:inherit;text-underline-offset:3px}\n@media(max-width:540px){.dsma-page button{min-height:44px}.dsma-page button.dsma-icon-button{min-width:44px;min-height:44px}.dsma-section-head{align-items:flex-start;flex-wrap:wrap;gap:8px}.dsma-page textarea{font-size:16px}}\n.dsma-remote{padding:16px;margin:0 0 22px;border:1px solid var(--dsma-line);border-radius:12px;background:var(--dsma-bg)}.dsma-remote form{margin-top:14px}.dsma-remote h4{font-size:13px;margin:0 0 8px}.dsma-field{display:flex;flex-direction:column;gap:6px;margin:10px 0 12px;font-size:13px;font-weight:500}.dsma-field input,.dsma-field select{width:100%;min-width:0;min-height:40px;border:1px solid var(--dsma-line);border-radius:8px;padding:8px 10px;background:var(--dsma-bg);color:var(--dsma-ink);font:inherit}.dsma-remote form>.dsma-actions{margin-top:12px}.dsma-remote .dsma-address{overflow-wrap:anywhere}.dsma-remote code{font:12px/1.6 ui-monospace,SFMono-Regular,monospace;background:var(--dsma-surface);padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}.dsma-remote-guide,.dsma-quick{margin-top:16px;padding-top:14px;border-top:1px solid var(--dsma-line)}.dsma-remote ol{margin:8px 0;padding-left:20px;color:var(--dsma-muted);font-size:13px}.dsma-remote li+li{margin-top:7px}.dsma-links{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px}.dsma-links a{font-size:13px;color:var(--bt-accent,#3d5bd9);text-underline-offset:3px;overflow-wrap:anywhere}.dsma-consent{display:flex;align-items:flex-start;gap:9px;margin:14px 0 12px;font-size:13px}.dsma-consent input{flex:none;width:17px;height:17px;margin:3px 0 0;accent-color:var(--bt-accent,#4d6bfe)}.dsma-remote .dsma-small{font-size:12px;margin-top:12px}.dsma-stop{margin-top:14px}.dsma-remote .dsma-remote-warning{padding:10px 12px;border-radius:8px;background:var(--dsma-surface);margin-top:16px;font-size:12px}.dsma-remote .dsma-error{margin-top:10px}.dsma-remote-status{font-weight:500}\n@media(max-width:540px){.dsma-remote{padding:12px}.dsma-field input,.dsma-field select{min-height:44px;font-size:16px}.dsma-links{gap:12px}.dsma-links a{padding:4px 0}}\n.dsma-agent{display:flex;align-items:center;gap:2px}.dsma-page .dsma-agent button.dsma-text-button{min-height:28px;padding:2px 6px}\n.dsma-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}.dsma-mode{display:flex;gap:9px;align-items:flex-start;padding:12px;border:1px solid var(--dsma-line);border-radius:12px;cursor:pointer}.dsma-mode[data-selected=true]{border-color:var(--dsma-ink)}.dsma-mode input{flex:none;margin:3px 0 0;accent-color:var(--bt-accent,#4d6bfe)}.dsma-mode strong{display:block;font-size:13px}.dsma-mode small{display:block;color:var(--dsma-muted);font-size:12px}\n@media(max-width:540px){.dsma-modes{grid-template-columns:1fr}}\n.dsma-remote .dsma-ok{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:var(--dsma-surface);color:var(--bt-success,#067647);font-size:13px}\n';
+var style_default = '.dsma-page{--dsma-ink:var(--bt-ink,#171717);--dsma-muted:var(--bt-ink-2,#666);--dsma-line:var(--bt-line,#e8e8e8);--dsma-bg:var(--bt-main,#fff);--dsma-surface:var(--bt-bubble,#f2f2f2);width:100%;min-width:0;color:var(--dsma-ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}\n.dsma-page *{box-sizing:border-box}.dsma-page h3{font-size:14px;line-height:22px;margin:0;font-weight:600}.dsma-page p{margin:6px 0 0;color:var(--dsma-muted);font-size:13px}.dsma-state-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px}.dsma-state{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dsma-muted)}.dsma-state i{width:7px;height:7px;border-radius:50%;background:currentColor}.dsma-state[data-ready=true] i{background:var(--bt-green,#00865b)}\n.dsma-page button{min-height:36px;border:1px solid var(--dsma-line);border-radius:9px;padding:7px 12px;font:inherit;font-size:13px;color:var(--dsma-ink);background:var(--dsma-bg);cursor:pointer;touch-action:manipulation}.dsma-page button:hover{background:var(--dsma-surface)}.dsma-page button:disabled{opacity:.5;cursor:default}.dsma-page button.dsma-primary{background:var(--dsma-ink);color:var(--dsma-bg);border-color:transparent;font-weight:500}.dsma-page button.dsma-primary:hover{opacity:.85}.dsma-page button.dsma-text-button{border-color:transparent;color:var(--dsma-muted);background:transparent}.dsma-page button.dsma-icon-button{display:grid;place-items:center;min-width:32px;min-height:32px;padding:5px;border-color:transparent;background:transparent;color:var(--dsma-muted)}.dsma-page button.dsma-danger{color:var(--bt-danger,#b42318)}.dsma-page :focus-visible{outline:2px solid var(--bt-accent,#4d6bfe);outline-offset:3px}.dsma-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}\n.dsma-section-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.dsma-add{padding:0 0 22px}.dsma-section{border-top:1px solid var(--dsma-line);padding:18px 0 6px}.dsma-section>h3{display:flex;align-items:center;gap:7px;margin-bottom:6px}.dsma-count{color:var(--dsma-muted);font-size:12px;font-weight:400}.dsma-device{display:flex;align-items:center;gap:12px;padding:12px 0;min-width:0;flex-wrap:wrap}.dsma-device+.dsma-device{border-top:1px solid var(--dsma-line)}.dsma-device-icon{width:38px;height:42px;display:grid;place-items:center;flex:none;border-radius:10px;background:var(--dsma-surface);color:var(--dsma-muted)}.dsma-device-copy{flex:1;min-width:100px}.dsma-device-copy strong{display:block;font-size:14px;font-weight:550;overflow-wrap:anywhere}.dsma-device-copy small{display:block;font-size:12px;color:var(--dsma-muted);margin-top:3px}.dsma-confirm{flex-basis:100%;padding:10px 12px;background:var(--dsma-surface);border-radius:10px}.dsma-confirm p{margin:0 0 8px}.dsma-page .dsma-empty{margin:10px 0 12px}.dsma-notes{margin-top:12px;font-size:12px;color:var(--dsma-muted)}.dsma-page summary{cursor:pointer;min-height:32px;padding:6px 0}.dsma-notes p{font-size:12px;margin-top:3px}\n.dsma-pairing{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 0 0}.dsma-qr{width:204px;max-width:100%;height:auto;background:#fff;border-radius:8px}.dsma-pairing p{font-size:12px;margin:0}.dsma-pairing details{width:100%;color:var(--dsma-muted);font-size:12px}.dsma-page textarea{display:block;width:100%;min-height:100px;padding:10px;border:1px solid var(--dsma-line);border-radius:8px;background:var(--dsma-surface);color:var(--dsma-ink);font:12px/1.5 ui-monospace,monospace;resize:vertical;overflow-wrap:anywhere}.dsma-page .dsma-error{margin:0 0 14px;padding:10px 12px;border-radius:8px;background:var(--dsma-surface);color:var(--bt-danger,#b42318)}.dsma-setup{padding:4px 0 16px}.dsma-setup a{display:inline-block;margin-top:12px;color:inherit;text-underline-offset:3px}\n@media(max-width:540px){.dsma-page button{min-height:44px}.dsma-page button.dsma-icon-button{min-width:44px;min-height:44px}.dsma-section-head{align-items:flex-start;flex-wrap:wrap;gap:8px}.dsma-page textarea{font-size:16px}}\n.dsma-remote{padding:16px;margin:0 0 22px;border:1px solid var(--dsma-line);border-radius:12px;background:var(--dsma-bg)}.dsma-remote form{margin-top:14px}.dsma-remote h4{font-size:13px;margin:0 0 8px}.dsma-field{display:flex;flex-direction:column;gap:6px;margin:10px 0 12px;font-size:13px;font-weight:500}.dsma-field input,.dsma-field select{width:100%;min-width:0;min-height:40px;border:1px solid var(--dsma-line);border-radius:8px;padding:8px 10px;background:var(--dsma-bg);color:var(--dsma-ink);font:inherit}.dsma-remote form>.dsma-actions{margin-top:12px}.dsma-remote .dsma-address{overflow-wrap:anywhere}.dsma-remote code{font:12px/1.6 ui-monospace,SFMono-Regular,monospace;background:var(--dsma-surface);padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}.dsma-remote-guide,.dsma-quick{margin-top:16px;padding-top:14px;border-top:1px solid var(--dsma-line)}.dsma-remote ol{margin:8px 0;padding-left:20px;color:var(--dsma-muted);font-size:13px}.dsma-remote li+li{margin-top:7px}.dsma-links{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px}.dsma-links a{font-size:13px;color:var(--bt-accent,#3d5bd9);text-underline-offset:3px;overflow-wrap:anywhere}.dsma-consent{display:flex;align-items:flex-start;gap:9px;margin:14px 0 12px;font-size:13px}.dsma-consent input{flex:none;width:17px;height:17px;margin:3px 0 0;accent-color:var(--bt-accent,#4d6bfe)}.dsma-remote .dsma-small{font-size:12px;margin-top:12px}.dsma-stop{margin-top:14px}.dsma-remote .dsma-remote-warning{padding:10px 12px;border-radius:8px;background:var(--dsma-surface);margin-top:16px;font-size:12px}.dsma-remote .dsma-error{margin-top:10px}.dsma-remote-status{font-weight:500}\n@media(max-width:540px){.dsma-remote{padding:12px}.dsma-field input,.dsma-field select{min-height:44px;font-size:16px}.dsma-links{gap:12px}.dsma-links a{padding:4px 0}}\n.dsma-agent{display:flex;align-items:center;gap:2px}.dsma-page .dsma-agent button.dsma-text-button{min-height:28px;padding:2px 6px}\n.dsma-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}.dsma-mode{display:flex;gap:9px;align-items:flex-start;padding:12px;border:1px solid var(--dsma-line);border-radius:12px;cursor:pointer}.dsma-mode[data-selected=true]{border-color:var(--dsma-ink)}.dsma-mode input{flex:none;margin:3px 0 0;accent-color:var(--bt-accent,#4d6bfe)}.dsma-mode strong{display:block;font-size:13px}.dsma-mode small{display:block;color:var(--dsma-muted);font-size:12px}\n@media(max-width:540px){.dsma-modes{grid-template-columns:1fr}}\n.dsma-remote .dsma-ok{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:var(--dsma-surface);color:var(--bt-success,#067647);font-size:13px}\n\n.dsma-official{padding:8px 4px 22px}.dsma-official>.dsma-primary{margin-top:16px}.dsma-official .dsma-remote-status{margin-top:14px;color:var(--dsma-ink)}.dsma-official .dsma-small{font-size:12px;margin-top:14px}.dsma-tunnel-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}.dsma-page .dsma-tunnel-option{text-align:left;padding:12px}.dsma-tunnel-option strong,.dsma-tunnel-option small{display:block}.dsma-tunnel-option small{font-size:12px;color:var(--dsma-muted);margin-top:4px}.dsma-page .dsma-tunnel-option[aria-pressed=true]{border-color:var(--dsma-ink);background:var(--dsma-surface)}.dsma-tunnel .dsma-quick{border-top:0;padding-top:0}.dsma-tunnel{padding:16px}.dsma-official h3{font-size:16px}@media(max-width:540px){.dsma-tunnel-options{grid-template-columns:1fr}}\n';
 
 // src/mobile-access-registry.mjs
 var REGISTRY_KEY = /* @__PURE__ */ Symbol.for("ds-bot.mobile-access.v1");
@@ -2694,224 +2743,174 @@ function MobileAccessHost({ access }) {
 
 // src/remote-panel.mjs
 var import_react2 = require("react");
-var labels = { existing: "已有 HTTPS 入口", fixed: "自有隧道和固定域名", quick: "临时 Cloudflare", named: "Cloudflare 隧道（填 Token，插件托管）" };
 var states = {
   stopped: "隧道已停止",
   starting: "正在连接隧道…",
-  running: "隧道已连接，尚未验证手机端可达",
-  stopping: "正在停止，配对地址已停用…",
-  error: "隧道发生错误",
-  configured: "已保存 HTTPS 入口，尚未验证可达性",
-  unconfigured: "尚未配置远程入口"
+  running: "隧道已连接，可以生成二维码",
+  stopping: "正在停止，旧二维码已失效…",
+  error: "连接失败，请按提示重试",
+  configured: "入口已保存，可以生成二维码",
+  unconfigured: "选择一种隧道开始连接"
 };
 var link = (href, label) => (0, import_react2.createElement)("a", { href, target: "_blank", rel: "noopener noreferrer" }, label);
 var savedUrl = (remote, mode) => remote?.configuredUrls?.[mode] ?? (remote?.mode === mode ? remote.configuredUrl : "") ?? "";
 function BridgeSetupNotice({ status }) {
-  if (status?.reason === "BRIDGE_PORT_IN_USE") return (0, import_react2.createElement)(
+  const code = status?.reason;
+  if (code === "BRIDGE_PORT_IN_USE" || code === "REMOTE_CLEANUP_REQUIRED") return (0, import_react2.createElement)(
     "div",
     { className: "dsma-setup" },
-    (0, import_react2.createElement)("h3", null, "请选择未占用的 Bridge 端口"),
-    (0, import_react2.createElement)("p", { className: "dsma-error", role: "alert" }, remoteErrorMessage("BRIDGE_PORT_IN_USE"))
-  );
-  if (status?.reason === "REMOTE_CLEANUP_REQUIRED") return (0, import_react2.createElement)(
-    "div",
-    { className: "dsma-setup" },
-    (0, import_react2.createElement)("h3", null, "请先确认旧临时隧道已停止"),
-    (0, import_react2.createElement)("p", { className: "dsma-error", role: "alert" }, remoteErrorMessage("REMOTE_CLEANUP_REQUIRED")),
-    (0, import_react2.createElement)("p", null, "此保护状态下不会重新启动连接服务。不要在旧进程仍运行时移除标记；插件不会自动删除标记或终止身份不明的进程。")
+    (0, import_react2.createElement)("h3", null, code === "BRIDGE_PORT_IN_USE" ? "请选择未占用的 Bridge 端口" : "请先确认旧临时隧道已停止"),
+    (0, import_react2.createElement)("p", { className: "dsma-error", role: "alert" }, remoteErrorMessage(code))
   );
   return (0, import_react2.createElement)(
     "div",
     { className: "dsma-setup" },
-    (0, import_react2.createElement)("h3", null, "准备 App 连接"),
-    (0, import_react2.createElement)("p", null, "先启用 Dabots Bridge，配置独立的绝对存储目录和 loopback 监听；随后可选择服务器中转或自己直连。"),
+    (0, import_react2.createElement)("h3", null, "连接服务暂时不可用"),
+    (0, import_react2.createElement)("p", null, "请确认已安装并启用 Dabots Bridge，然后重试。"),
     link("https://github.com/0215eleven/Dabots/blob/main/plugin/docs/connection.md", "查看设置指南")
+  );
+}
+function RelayPanel({ state, controller }) {
+  const relay = state.status?.relay;
+  const official = relay?.official === true;
+  const ready = official && relay.ready === true;
+  const connecting = official && relay.state === "connecting" || state.operation === "relay.official";
+  return (0, import_react2.createElement)(
+    "section",
+    { className: "dsma-official", "aria-label": "官方登录" },
+    (0, import_react2.createElement)("h3", null, "让手机接着聊"),
+    state.status?.reason && state.status.reason !== "OFFICIAL_AVAILABLE" && !state.status.enabled ? (0, import_react2.createElement)("p", { className: "dsma-error", role: "alert" }, remoteErrorMessage(state.status.reason)) : null,
+    (0, import_react2.createElement)("p", null, "电脑保持在线，连接就绪后用 Dabots 手机端扫码即可。"),
+    (0, import_react2.createElement)("p", { className: "dsma-remote-status", role: "status", "aria-live": "polite" }, ready ? "连接已就绪，可以扫码" : connecting ? "正在连接官方服务…" : official && relay.state === "limited" ? "官方服务当前额度已满，将在一分钟后重试；也可以切换隧道连接。" : official && relay.state === "denied" ? "官方服务拒绝了本次连接，请稍后重试或切换隧道连接。" : official && relay.state === "offline" ? "暂时无法连接，正在自动重连" : "无需填写地址、密钥或注册表单"),
+    !ready ? (0, import_react2.createElement)("button", { type: "button", className: "dsma-primary", disabled: state.busy, onClick: () => controller.useOfficial() }, connecting ? "正在连接…" : official ? "重试连接" : "官方登录并连接") : null,
+    (0, import_react2.createElement)("p", { className: "dsma-small" }, "官方服务只转发手机与电脑之间的加密数据。")
   );
 }
 function RemoteConnectionPanel({ state, controller }) {
   const remote = state.status?.remote;
-  const [mode, setMode] = (0, import_react2.useState)(remote?.mode ?? "existing");
-  const [url, setUrl] = (0, import_react2.useState)(savedUrl(remote, remote?.mode ?? "existing"));
-  const [confirmed, setConfirmed] = (0, import_react2.useState)(false);
-  const [notice, setNotice] = (0, import_react2.useState)(null);
+  const savedMode = remote?.state === "unconfigured" ? "quick" : remote?.mode ?? "quick";
+  const [kind, setKind] = (0, import_react2.useState)(savedMode === "quick" ? "quick" : "own");
+  const [mode, setMode] = (0, import_react2.useState)(savedMode === "quick" ? "named" : savedMode);
+  const [url, setUrl] = (0, import_react2.useState)(savedUrl(remote, savedMode));
   const [token, setToken] = (0, import_react2.useState)("");
+  const [confirmed, setConfirmed] = (0, import_react2.useState)(false);
+  const [notice, setNotice] = (0, import_react2.useState)("");
   (0, import_react2.useEffect)(() => {
-    setMode(remote?.mode ?? "existing");
-    setUrl(savedUrl(remote, remote?.mode ?? "existing"));
-  }, [remote?.mode, remote?.configuredUrl, remote?.configuredUrls?.existing, remote?.configuredUrls?.fixed]);
-  (0, import_react2.useEffect)(() => setConfirmed(false), [remote?.mode, remote?.state, remote?.revision]);
-  if (!remote) return (0, import_react2.createElement)("div", { className: "dsma-remote dsma-notes" }, (0, import_react2.createElement)("h3", null, "远程连接"), (0, import_react2.createElement)("p", null, "正在使用 Bridge 原有连接配置。升级支持远程连接设置的 Bridge 后，可在此选择连接方式。"));
-  const quickSaved = remote.mode === "quick";
-  const namedSaved = remote.mode === "named";
-  const managed = quickSaved || namedSaved;
-  const stopping = state.operation === "remote.stop" || remote.state === "stopping";
-  const active = ["starting", "running", "stopping"].includes(remote.state) || state.operation === "remote.start";
-  const choose = (event) => {
-    const next = event.target.value;
-    setMode(next);
-    setUrl(savedUrl(remote, next));
-    setConfirmed(false);
-    setNotice(null);
+    setKind(savedMode === "quick" ? "quick" : "own");
+    if (savedMode !== "quick") setMode(savedMode);
+    setUrl(savedUrl(remote, savedMode));
     setToken("");
+    setConfirmed(false);
+  }, [savedMode, remote?.configuredUrl, remote?.configuredUrls?.fixed, remote?.configuredUrls?.existing]);
+  (0, import_react2.useEffect)(() => setConfirmed(false), [remote?.state, remote?.revision]);
+  if (!remote) return (0, import_react2.createElement)("p", { className: "dsma-remote" }, "请先连接官方服务以初始化电脑，再选择隧道。");
+  const active = ["starting", "running", "stopping"].includes(remote.state);
+  const stopping = remote.state === "stopping" || state.operation === "remote.stop";
+  const choose = (next) => {
+    controller.clearPairing();
+    setKind(next);
+    setToken("");
+    setConfirmed(false);
+    setNotice("");
+    if (next === "own") setUrl(savedUrl(remote, mode));
+  };
+  const option = (value, label, detail) => (0, import_react2.createElement)("button", { type: "button", className: "dsma-tunnel-option", "aria-pressed": kind === value, disabled: state.busy, onClick: () => choose(value) }, (0, import_react2.createElement)("strong", null, label), (0, import_react2.createElement)("small", null, detail));
+  const startQuick = async () => {
+    const consent = confirmed;
+    setConfirmed(false);
+    setNotice("");
+    if (!consent) return;
+    if (remote.mode !== "quick") await controller.configureRemote("quick");
+    if (!controller.snapshot().error) await controller.startRemote(true);
+  };
+  const saveOwn = async (event) => {
+    event.preventDefault();
+    setNotice("");
+    await controller.configureRemote(mode, url, mode === "named" ? token : "");
+    if (controller.snapshot().error) return;
+    setToken("");
+    if (mode === "named") await controller.startRemote(true);
+    if (!controller.snapshot().error) setNotice(mode === "named" ? "隧道正在连接；就绪后即可生成二维码。" : "入口已保存，生成二维码后即可扫码。");
   };
   return (0, import_react2.createElement)(
     "section",
-    { className: "dsma-remote", "aria-label": "远程连接设置" },
-    (0, import_react2.createElement)("h3", null, "远程连接"),
-    (0, import_react2.createElement)("p", { className: "dsma-remote-status", role: "status", "aria-live": "polite" }, `${labels[remote.mode] ?? "远程连接"} · ${states[remote.state] ?? "请刷新状态"}`),
-    remote.url ? (0, import_react2.createElement)("p", { className: "dsma-address" }, "当前配对地址：", (0, import_react2.createElement)("code", null, remote.url)) : null,
-    remote.error ? (0, import_react2.createElement)("p", { className: "dsma-error", role: "alert" }, remoteErrorMessage(remote.error)) : null,
+    { className: "dsma-remote dsma-tunnel", "aria-label": "隧道连接设置" },
     (0, import_react2.createElement)(
-      "form",
-      { "aria-label": "配置远程入口", onSubmit: async (event) => {
-        event.preventDefault();
-        setConfirmed(false);
-        setNotice(null);
-        await controller.configureRemote(mode, url, mode === "named" ? token : "");
-        const current = controller.snapshot();
-        if (current.error) {
-          setNotice({ ok: false, text: current.error });
-          return;
-        }
-        if (mode === "named") {
-          setToken("");
-          setNotice({ ok: true, text: "已保存 Token，正在启动 Cloudflare 隧道…" });
-          await controller.startRemote(true);
-          const started = controller.snapshot();
-          if (started.error) {
-            setNotice({ ok: false, text: started.error });
-            return;
-          }
-          const up = started.status?.remote?.state === "running";
-          setNotice({ ok: up, text: up ? `隧道已连接：${url}。重新生成二维码后，手机端就会用这个地址。` : "Token 已保存，隧道仍在连接；请稍后刷新状态。" });
-          return;
-        }
-        const saved = current.status?.remote?.configuredUrl ?? url;
-        setNotice({ ok: true, text: `已保存并生效：${saved}。重新生成二维码后，手机端就会用这个地址。` });
-      } },
-      (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "连接方式"), (0, import_react2.createElement)("select", { "aria-label": "远程连接方式", value: mode, disabled: state.busy, onChange: choose }, ...Object.entries(labels).map(([value, label]) => (0, import_react2.createElement)("option", { value, key: value }, label)))),
-      mode !== "quick" ? (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "完整 HTTPS 地址"), (0, import_react2.createElement)("input", { "aria-label": "HTTPS 入口地址", type: "url", required: true, autoComplete: "off", spellCheck: false, placeholder: "https://phone.example.com", value: url, disabled: state.busy, onChange: (event) => {
-        setUrl(event.target.value);
-        setNotice(null);
-      }, maxLength: 2048 })) : null,
-      mode === "named" ? (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "隧道 Token"), (0, import_react2.createElement)("input", { "aria-label": "Cloudflare 隧道 Token", type: "password", autoComplete: "new-password", spellCheck: false, placeholder: remote.tokenSet ? "已保存，留空则不修改" : "从 Cloudflare 后台复制整段隧道 Token", value: token, disabled: state.busy, onChange: (event) => {
-        setToken(event.target.value);
-        setNotice(null);
-      }, maxLength: 4096 })) : null,
-      mode === "named" ? (0, import_react2.createElement)("p", { className: "dsma-small" }, "Token 会以未加密的明文保存到本机 Bridge 目录的 remote-connection.json。POSIX 下使用 0600 权限；Windows 下请通过目录 ACL 限制其他用户访问。已保存的 Token 不会由 Bridge 接口返回。") : null,
-      mode === "quick" ? (0, import_react2.createElement)("p", null, "无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。") : mode === "named" ? (0, import_react2.createElement)("p", null, "由插件自己运行并守护 cloudflared：保存后立即启动，进程断开会自动重连；DSH 重启后 Bridge 会自己把隧道拉起，不需要另装 Windows 服务。") : (0, import_react2.createElement)("p", null, "保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。"),
-      (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", disabled: state.busy || mode === "named" && remote.namedAvailable === false, className: "dsma-primary" }, state.busy ? "正在保存…" : mode === "named" ? "保存 Token 并启动隧道" : mode === "quick" ? "保存连接方式" : "验证格式并保存入口")),
-      notice ? (0, import_react2.createElement)("p", { className: notice.ok ? "dsma-ok" : "dsma-error", role: notice.ok ? "status" : "alert" }, notice.text) : null
+      "div",
+      { className: "dsma-tunnel-options", role: "group", "aria-label": "隧道类型" },
+      option("quick", "临时隧道", "无需域名，适合临时使用"),
+      option("own", "自有域名隧道", "使用自己的固定 HTTPS 地址")
     ),
-    mode === "fixed" ? (0, import_react2.createElement)(
-      "div",
-      { className: "dsma-remote-guide" },
-      (0, import_react2.createElement)("h4", null, "配置自己的隧道和域名"),
-      (0, import_react2.createElement)("p", null, "固定域名请先给 Bridge 设置固定端口，避免重启后服务地址变化。"),
-      (0, import_react2.createElement)(
-        "ol",
-        null,
-        (0, import_react2.createElement)("li", null, "打开 Cloudflare 后台，在 Networking → Tunnels 创建或选择隧道。"),
-        (0, import_react2.createElement)("li", null, "添加 Published application route，选择自己的子域与域名。"),
-        (0, import_react2.createElement)("li", null, "Service URL 只填写 Bridge 服务：", remote.loopbackUrl ? (0, import_react2.createElement)("code", null, remote.loopbackUrl) : "请先将 Bridge 配置为专用 HTTP loopback 监听。", "不要使用 DSH 管理端口。"),
-        (0, import_react2.createElement)("li", null, "按官方步骤自行运行 connector，然后将对应 HTTPS 地址填入上方并保存。")
-      ),
-      (0, import_react2.createElement)("p", null, "插件不读取或保存 Cloudflare 主密码、API token、证书或隧道凭据。"),
-      (0, import_react2.createElement)("div", { className: "dsma-links" }, link("https://dash.cloudflare.com/", "打开 Cloudflare 后台"), link("https://developers.cloudflare.com/tunnel/get-started/", "查看隧道配置步骤"))
-    ) : null,
-    mode === "named" ? (0, import_react2.createElement)(
-      "div",
-      { className: "dsma-remote-guide" },
-      (0, import_react2.createElement)("h4", null, "插件托管的 Cloudflare 隧道"),
-      (0, import_react2.createElement)("p", { ...remote.namedAvailable === false && remote.error !== "NAMED_FIXED_PORT_REQUIRED" ? { className: "dsma-error", role: "alert" } : {} }, "先在 Bridge 插件配置中选择未占用的固定非零端口，重新启用 Bridge。插件不会自动抢占端口，也不会在端口冲突时改用随机端口。"),
-      (0, import_react2.createElement)("p", null, "在 Cloudflare 后台 Networking → Tunnels 创建隧道，Public Hostname 指向 Bridge：", remote.loopbackUrl ? (0, import_react2.createElement)("code", null, remote.loopbackUrl) : "请先将 Bridge 配置为专用 HTTP loopback 监听。"),
-      (0, import_react2.createElement)("p", null, "然后把该隧道的 Token 和对应 HTTPS 地址填到上面。"),
-      (0, import_react2.createElement)("p", null, "如果已经用 cloudflared Windows 服务跑同一条隧道，请先停掉它，避免两条连接同时占用同一入口。"),
-      (0, import_react2.createElement)("div", { className: "dsma-links" }, link("https://dash.cloudflare.com/", "打开 Cloudflare 后台"), link("https://developers.cloudflare.com/tunnel/get-started/", "查看隧道配置步骤"))
-    ) : null,
-    mode === "existing" ? (0, import_react2.createElement)("p", { className: "dsma-remote-guide" }, "兼容现有 HTTPS 反向代理或隧道。原 publicUrl 配置保留，切换回来可继续使用已保存的入口。") : null,
-    mode === "quick" ? (0, import_react2.createElement)(
+    (0, import_react2.createElement)("p", { className: "dsma-remote-status", role: "status", "aria-live": "polite" }, states[remote.state] ?? "请刷新连接状态"),
+    remote.error ? (0, import_react2.createElement)("p", { className: "dsma-error", role: "alert" }, remoteErrorMessage(remote.error)) : null,
+    kind === "quick" ? (0, import_react2.createElement)(
       "div",
       { className: "dsma-quick" },
-      (0, import_react2.createElement)("p", null, "只代理本插件的 Bridge loopback 服务，仍要求设备配对和电脑所有者批准。停止后临时地址失效，电脑需要保持运行。"),
-      remote.loopbackUrl ? (0, import_react2.createElement)("p", { className: "dsma-address" }, "代理目标：", (0, import_react2.createElement)("code", null, remote.loopbackUrl)) : null,
-      remote.quickAvailable === false ? (0, import_react2.createElement)("p", { className: "dsma-error" }, "当前监听不支持临时隧道。请将 Bridge 配置为独立的 HTTP loopback 服务。") : null,
-      quickSaved ? (0, import_react2.createElement)(
-        "div",
-        null,
-        (0, import_react2.createElement)("label", { className: "dsma-consent" }, (0, import_react2.createElement)("input", { type: "checkbox", "aria-label": "确认临时外网访问", checked: confirmed, disabled: state.busy || active || remote.quickAvailable === false, onChange: (event) => setConfirmed(event.target.checked) }), (0, import_react2.createElement)("span", null, "我确认将 Bridge 服务通过临时地址开放到外网，并理解地址变化后需要重新配对。")),
-        (0, import_react2.createElement)("button", { type: "button", className: "dsma-primary", disabled: !confirmed || state.busy || active || remote.quickAvailable === false, onClick: () => {
-          const consent = confirmed;
-          setConfirmed(false);
-          void controller.startRemote(consent);
-        } }, "启动临时连接")
-      ) : (0, import_react2.createElement)("p", null, "请先保存“临时 Cloudflare”方式，再确认并启动。"),
-      (0, import_react2.createElement)("div", { className: "dsma-links" }, link("https://developers.cloudflare.com/tunnel/downloads/", "安装 cloudflared（官方指南）"), link("https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/", "查看临时隧道限制")),
-      (0, import_react2.createElement)("p", { className: "dsma-small" }, "仅适合测试与开发，无在线保证；最多 200 个同时处理的请求，不支持 SSE。Bridge 使用 HTTP 与 WebSocket。此处连接状态不等于手机端到端验证。")
-    ) : null,
-    managed && (active || remote.state === "error") ? (0, import_react2.createElement)("div", { className: "dsma-actions dsma-stop" }, (0, import_react2.createElement)("button", { type: "button", className: "dsma-danger", disabled: stopping, onClick: () => {
-      setConfirmed(false);
-      void controller.stopRemote();
-    } }, stopping ? "正在停止…" : namedSaved ? "停止隧道" : "停止临时连接")) : null,
-    (0, import_react2.createElement)("p", { className: "dsma-remote-warning" }, "地址变化后，旧二维码和待批准请求失效。请在手机“添加电脑／重新配对”中扫描当前二维码，再在电脑批准；不会把已有手机凭据自动发送到新地址。")
-  );
-}
-var relayStates = { disabled: "未启用", connecting: "正在连接中转服务…", ready: "已连接中转服务，可以扫码", offline: "中转服务暂时不可达，正在自动重连" };
-function RelayPanel({ state, controller }) {
-  const relay = state.status?.relay;
-  const [address, setAddress] = (0, import_react2.useState)(relay?.relay ?? "");
-  const [secret, setSecret] = (0, import_react2.useState)("");
-  (0, import_react2.useEffect)(() => {
-    setAddress(relay?.relay ?? "");
-  }, [relay?.relay]);
-  const active = relay?.mode === "relay";
-  const keep = relay?.secretSet && relay.relay === address.trim().replace(/\/$/, "");
-  return (0, import_react2.createElement)(
-    "section",
-    { className: "dsma-remote", "aria-label": "服务器中转设置" },
-    (0, import_react2.createElement)("h3", null, "服务器中转"),
-    active ? (0, import_react2.createElement)("p", { className: "dsma-remote-status", role: "status", "aria-live": "polite" }, relayStates[relay.state] ?? "请刷新状态") : null,
-    active && state.status?.pairing?.mode === "direct" && state.status.pairing.available ? (0, import_react2.createElement)("p", { className: "dsma-remote-status", role: "status" }, "中转尚未连接，当前二维码使用已配置的 HTTPS 直连入口。中转恢复后请重新生成二维码。") : null,
-    active && relay.computerId ? (0, import_react2.createElement)("p", { className: "dsma-address" }, "电脑标识：", (0, import_react2.createElement)("code", null, relay.computerId.slice(0, 8))) : null,
-    (0, import_react2.createElement)(
+      (0, import_react2.createElement)("p", null, "启动后生成临时外网地址。停止或地址变化后需要重新扫码；电脑需保持在线。"),
+      (0, import_react2.createElement)("label", { className: "dsma-consent" }, (0, import_react2.createElement)("input", { type: "checkbox", "aria-label": "确认临时外网访问", checked: confirmed, disabled: state.busy || active || remote.quickAvailable === false, onChange: (event) => setConfirmed(event.target.checked) }), (0, import_react2.createElement)("span", null, "我确认通过临时地址开放手机连接。")),
+      (0, import_react2.createElement)("button", { type: "button", className: "dsma-primary", disabled: !confirmed || state.busy || active || remote.quickAvailable === false, onClick: startQuick }, remote.state === "error" ? "重试临时隧道" : "启动临时隧道"),
+      remote.quickAvailable === false ? (0, import_react2.createElement)("p", { className: "dsma-error" }, "请先检查 Bridge 的独立 HTTP loopback 监听配置。") : null,
+      (0, import_react2.createElement)(
+        "details",
+        { className: "dsma-notes" },
+        (0, import_react2.createElement)("summary", null, "安装与使用说明"),
+        (0, import_react2.createElement)("p", null, "首次使用需安装 cloudflared。临时隧道由 Cloudflare 提供，无在线保证，插件不会自动重启临时隧道。"),
+        link("https://developers.cloudflare.com/tunnel/downloads/", "安装 cloudflared（官方指南）")
+      )
+    ) : (0, import_react2.createElement)(
       "form",
-      { "aria-label": "配置中转服务", onSubmit: (event) => {
-        event.preventDefault();
-        const value = secret;
-        setSecret("");
-        void controller.useRelay(address.trim(), value);
-      } },
-      (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "中转服务地址"), (0, import_react2.createElement)("input", { "aria-label": "中转服务地址", type: "url", required: true, autoComplete: "off", spellCheck: false, placeholder: "wss://relay.example.com", value: address, disabled: state.busy, maxLength: 2048, onChange: (event) => setAddress(event.target.value) })),
-      (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "注册密钥（可选）"), (0, import_react2.createElement)("input", { "aria-label": "中转注册密钥", type: "password", autoComplete: "new-password", spellCheck: false, placeholder: keep ? "已保存，留空则不修改" : "中转服务器要求时才填写", value: secret, disabled: state.busy, maxLength: 512, onChange: (event) => setSecret(event.target.value) })),
-      (0, import_react2.createElement)("p", null, "请向中转服务管理员获取地址，并按服务器要求填写注册密钥；仅已开放登记的服务允许留空。填写的密钥只保存在本机 Bridge 专用目录，页面和手机都看不到。"),
-      (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", className: "dsma-primary", disabled: state.busy }, active ? "保存中转设置" : "保存并使用服务器中转"))
+      { "aria-label": "配置自有域名隧道", onSubmit: saveOwn },
+      (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "完整 HTTPS 地址"), (0, import_react2.createElement)("input", { "aria-label": "HTTPS 入口地址", type: "url", required: true, autoComplete: "off", spellCheck: false, placeholder: "https://phone.example.com", value: url, disabled: state.busy, maxLength: 2048, onChange: (event) => {
+        setUrl(event.target.value);
+        setNotice("");
+      } })),
+      (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "隧道运行方式"), (0, import_react2.createElement)(
+        "select",
+        { "aria-label": "自有域名隧道运行方式", value: mode === "existing" ? "fixed" : mode, disabled: state.busy, onChange: (event) => {
+          controller.clearPairing();
+          setMode(event.target.value);
+          setUrl(savedUrl(remote, event.target.value));
+          setToken("");
+          setNotice("");
+        } },
+        (0, import_react2.createElement)("option", { value: "named" }, "由插件运行 Cloudflare 隧道"),
+        (0, import_react2.createElement)("option", { value: "fixed" }, "我已运行隧道或 HTTPS 入口")
+      )),
+      mode === "named" ? (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "Cloudflare 隧道 Token"), (0, import_react2.createElement)("input", { "aria-label": "Cloudflare 隧道 Token", type: "password", autoComplete: "new-password", spellCheck: false, placeholder: remote.tokenSet ? "已保存，留空则不修改" : "从 Cloudflare 后台复制隧道 Token", value: token, disabled: state.busy, maxLength: 4096, onChange: (event) => setToken(event.target.value) })) : null,
+      (0, import_react2.createElement)("button", { type: "submit", className: "dsma-primary", disabled: state.busy || mode === "named" && remote.namedAvailable === false }, state.busy ? "正在连接…" : mode === "named" ? "保存并连接隧道" : "保存入口"),
+      notice ? (0, import_react2.createElement)("p", { className: "dsma-ok", role: "status" }, notice) : null,
+      (0, import_react2.createElement)(
+        "details",
+        { className: "dsma-notes" },
+        (0, import_react2.createElement)("summary", null, "配置与存储说明"),
+        (0, import_react2.createElement)("p", null, "Cloudflare 后台的 Service URL 指向本插件 Bridge：", remote.loopbackUrl ? (0, import_react2.createElement)("code", null, remote.loopbackUrl) : "请先初始化 Bridge。"),
+        mode === "named" ? (0, import_react2.createElement)("p", null, "插件托管隧道需要固定非零端口。Token 以明文保存在本机 Bridge 目录，POSIX 文件权限为 0600；请限制其他用户访问。") : (0, import_react2.createElement)("p", null, "请先自行运行隧道或反向代理。保存只检查地址格式，不会验证外网可达性。"),
+        mode === "named" && remote.namedAvailable === false ? (0, import_react2.createElement)("p", null, remoteErrorMessage("NAMED_FIXED_PORT_REQUIRED")) : null,
+        link("https://dash.cloudflare.com/", "打开 Cloudflare 后台")
+      )
     ),
-    (0, import_react2.createElement)(
-      "div",
-      { className: "dsma-remote-guide" },
-      (0, import_react2.createElement)("p", null, "电脑主动连到中转服务器，手机扫码后经它访问本机；不需要域名证书、端口映射或隧道。中转服务只转发加密数据，不保存聊天内容。"),
-      (0, import_react2.createElement)("p", { className: "dsma-small" }, "手机与电脑之间的加密改编自 Happy（MIT）开源实现，未经独立安全审计，也不提供前向保密。不会连接 Happy 的公共服务。")
-    ),
-    (0, import_react2.createElement)("p", { className: "dsma-remote-warning" }, "切换连接方式后旧二维码失效；已配对的手机不会被撤销。")
+    ["quick", "named"].includes(remote.mode) && (active || remote.state === "error") ? (0, import_react2.createElement)("div", { className: "dsma-actions dsma-stop" }, (0, import_react2.createElement)("button", { type: "button", className: "dsma-danger", disabled: stopping, onClick: () => controller.stopRemote() }, stopping ? "正在停止…" : "停止隧道")) : null,
+    (0, import_react2.createElement)("p", { className: "dsma-small" }, "切换方式会让本次二维码失效；已配对手机的授权会保留。")
   );
 }
 function ConnectionModePanel({ state, controller }) {
   const relay = state.status?.relay;
-  const [choice, setChoice] = (0, import_react2.useState)(relay?.mode ?? "direct");
+  const [choice, setChoice] = (0, import_react2.useState)(relay?.mode === "direct" ? "direct" : "official");
   (0, import_react2.useEffect)(() => {
-    setChoice(relay?.mode ?? "direct");
-  }, [relay?.mode]);
-  if (!relay) return (0, import_react2.createElement)(RemoteConnectionPanel, { state, controller });
-  const choose = (mode) => {
-    setChoice(mode);
-    if (mode === "direct" && relay.mode === "relay") void controller.selectMode("direct");
-    if (mode === "relay" && relay.mode !== "relay" && relay.relay) void controller.selectMode("relay");
+    if (relay?.mode) setChoice(relay.mode === "direct" ? "direct" : "official");
+  }, [relay?.mode, relay?.official]);
+  const choose = (next) => {
+    if (next === choice) return;
+    setChoice(next);
+    controller.clearPairing();
+    if (next === "official") void controller.useOfficial();
+    else void controller.selectMode("direct");
   };
-  const option = (mode, title, detail) => (0, import_react2.createElement)(
+  const option = (mode, label, detail) => (0, import_react2.createElement)(
     "label",
     { className: "dsma-mode", "data-selected": choice === mode },
     (0, import_react2.createElement)("input", { type: "radio", name: "dsma-connection-mode", value: mode, checked: choice === mode, disabled: state.busy, onChange: () => choose(mode) }),
-    (0, import_react2.createElement)("span", null, (0, import_react2.createElement)("strong", null, title), (0, import_react2.createElement)("small", null, detail))
+    (0, import_react2.createElement)("span", null, (0, import_react2.createElement)("strong", null, label), (0, import_react2.createElement)("small", null, detail))
   );
   return (0, import_react2.createElement)(
     "div",
@@ -2919,10 +2918,10 @@ function ConnectionModePanel({ state, controller }) {
     (0, import_react2.createElement)(
       "div",
       { className: "dsma-modes", role: "radiogroup", "aria-label": "手机连接方式" },
-      option("relay", "服务器中转", "管理员提供地址，按服务要求填写密钥"),
-      option("direct", "自己直连", "自己的 HTTPS 或 Cloudflare 隧道")
+      option("official", "官方登录", "连接就绪后直接扫码"),
+      option("direct", "隧道连接", "临时隧道或自己的域名")
     ),
-    choice === "relay" ? (0, import_react2.createElement)(RelayPanel, { state, controller }) : (0, import_react2.createElement)(RemoteConnectionPanel, { state, controller })
+    choice === "official" ? (0, import_react2.createElement)(RelayPanel, { state, controller }) : (0, import_react2.createElement)(RemoteConnectionPanel, { state, controller })
   );
 }
 
@@ -2966,31 +2965,37 @@ function DevicesPage({ controller }) {
       controller.clearPairing();
     };
   }, [controller]);
+  (0, import_react3.useEffect)(() => {
+    if (!state.busy) void controller.autoPair();
+  }, [controller, state.status, state.busy]);
   const status = state.status, enabled = status?.enabled === true;
   const devices = (status?.devices ?? []).filter((item) => !item.revokedAt), pending = status?.pending ?? [];
   return (0, import_react3.createElement)(
     "section",
     { className: "dsma-page", "aria-label": "App 连接与设备管理" },
-    (0, import_react3.createElement)("div", { className: "dsma-state-row" }, (0, import_react3.createElement)("span", { className: "dsma-state", "data-ready": enabled, role: "status" }, (0, import_react3.createElement)("i", { "aria-hidden": true }), enabled ? "Bridge 已启用" : state.error ? "暂时无法连接" : status ? "等待配置" : "正在检查连接…"), (0, import_react3.createElement)("button", { type: "button", className: "dsma-icon-button", disabled: state.busy, onClick: controller.refresh, "aria-label": "刷新设备状态" }, (0, import_react3.createElement)(DeviceIcon, { refresh: true }))),
+    (0, import_react3.createElement)("div", { className: "dsma-state-row" }, (0, import_react3.createElement)("span", { className: "dsma-state", "data-ready": enabled, role: "status" }, (0, import_react3.createElement)("i", { "aria-hidden": true }), enabled ? "电脑连接已准备" : state.error ? "暂时无法连接" : status ? "请选择连接方式" : "正在检查连接…"), (0, import_react3.createElement)("button", { type: "button", className: "dsma-icon-button", disabled: state.busy, onClick: controller.refresh, "aria-label": "刷新设备状态" }, (0, import_react3.createElement)(DeviceIcon, { refresh: true }))),
     state.error ? (0, import_react3.createElement)("p", { className: "dsma-error", role: "alert" }, state.error) : null,
-    !enabled ? (0, import_react3.createElement)(BridgeSetupNotice, { status }) : (0, import_react3.createElement)(
+    status && !enabled && ["BRIDGE_PORT_IN_USE", "REMOTE_CLEANUP_REQUIRED"].includes(status.reason) ? (0, import_react3.createElement)(BridgeSetupNotice, { status }) : (0, import_react3.createElement)(ConnectionModePanel, { state, controller }),
+    enabled ? (0, import_react3.createElement)(
       "div",
       null,
-      (0, import_react3.createElement)(ConnectionModePanel, { state, controller }),
       (0, import_react3.createElement)(
         "div",
         { className: "dsma-add" },
         (0, import_react3.createElement)("div", { className: "dsma-section-head" }, (0, import_react3.createElement)("h3", null, "连接 Dabots"), !state.pairing ? (0, import_react3.createElement)("button", { type: "button", className: "dsma-primary", disabled: state.busy || !canPair(status), onClick: controller.create }, state.busy ? "正在生成…" : "生成配对二维码") : null),
-        (0, import_react3.createElement)("p", null, "用 Dabots 手机端扫码，再在电脑上批准连接。"),
-        state.pairing ? (0, import_react3.createElement)("div", { className: "dsma-pairing" }, (0, import_react3.createElement)(PairingQR, { data: state.pairing }), (0, import_react3.createElement)("p", null, "配对码两分钟内有效"), (0, import_react3.createElement)("div", { className: "dsma-actions" }, (0, import_react3.createElement)("button", { type: "button", onClick: () => controller.copy(navigator.clipboard) }, state.copied ? "已复制配对资料" : "复制配对资料"), (0, import_react3.createElement)("button", { type: "button", className: "dsma-text-button", onClick: () => {
+        (0, import_react3.createElement)("p", null, state.pairingResult === "paired" ? "手机已连接。你可以在下方管理访问权限。" : state.pairingResult === "claimed" ? "手机正在完成连接…" : state.pairingResult === "expired" ? "本次二维码已过期，请重新生成。" : "用 Dabots 手机端扫码即可连接。本次二维码仅可使用一次。"),
+        state.pairing ? (0, import_react3.createElement)("div", { className: "dsma-pairing" }, (0, import_react3.createElement)(PairingQR, { data: state.pairing }), (0, import_react3.createElement)("p", null, "两分钟内有效 · 仅限自己的手机扫码"), (0, import_react3.createElement)("div", { className: "dsma-actions" }, (0, import_react3.createElement)("button", { type: "button", onClick: () => controller.copy(navigator.clipboard) }, state.copied ? "已复制配对资料" : "复制配对资料"), (0, import_react3.createElement)("button", { type: "button", disabled: state.busy, onClick: () => {
+          setShowManual(false);
+          void controller.create();
+        } }, "重新生成"), (0, import_react3.createElement)("button", { type: "button", className: "dsma-text-button", onClick: () => {
           controller.clearPairing();
           setShowManual(false);
-        } }, "收起")), (0, import_react3.createElement)("details", { open: showManual, onToggle: (event) => setShowManual(event.currentTarget.open) }, (0, import_react3.createElement)("summary", null, "手动配对"), showManual ? (0, import_react3.createElement)("textarea", { readOnly: true, "aria-label": "手动配对 JSON", value: JSON.stringify(state.pairing) }) : null)) : null
+        } }, "关闭二维码")), (0, import_react3.createElement)("details", { open: showManual, onToggle: (event) => setShowManual(event.currentTarget.open) }, (0, import_react3.createElement)("summary", null, "手动配对"), showManual ? (0, import_react3.createElement)("textarea", { readOnly: true, "aria-label": "手动配对 JSON", value: JSON.stringify(state.pairing) }) : null)) : null
       ),
       pending.length ? (0, import_react3.createElement)("div", { className: "dsma-section" }, (0, import_react3.createElement)("h3", null, "待批准请求"), ...pending.map((item) => (0, import_react3.createElement)("div", { className: "dsma-device", key: item.requestId }, (0, import_react3.createElement)("span", { className: "dsma-device-icon" }, (0, import_react3.createElement)(DeviceIcon)), (0, import_react3.createElement)("div", { className: "dsma-device-copy" }, (0, import_react3.createElement)("strong", null, item.deviceName), (0, import_react3.createElement)("small", null, "核对设备名称后批准")), (0, import_react3.createElement)("div", { className: "dsma-actions" }, (0, import_react3.createElement)("button", { type: "button", className: "dsma-primary", disabled: state.busy, onClick: () => controller.decide(item.requestId, true) }, "批准"), (0, import_react3.createElement)("button", { type: "button", disabled: state.busy, onClick: () => controller.decide(item.requestId, false) }, "拒绝"))))) : null,
       (0, import_react3.createElement)("div", { className: "dsma-section" }, (0, import_react3.createElement)("h3", null, "已授权设备", (0, import_react3.createElement)("span", { className: "dsma-count" }, devices.length)), ...devices.map((item) => (0, import_react3.createElement)("div", { className: "dsma-device", key: item.id }, (0, import_react3.createElement)("span", { className: "dsma-device-icon" }, (0, import_react3.createElement)(DeviceIcon)), (0, import_react3.createElement)("div", { className: "dsma-device-copy" }, (0, import_react3.createElement)("strong", null, item.name), (0, import_react3.createElement)("small", null, item.lastSeenAt ? "最近连接 " + new Date(item.lastSeenAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "等待首次连接"), (0, import_react3.createElement)(AgentAccess, { item, state, controller })), state.confirmRevoke === item.id ? (0, import_react3.createElement)("div", { className: "dsma-confirm", role: "group", "aria-label": "确认撤销设备" }, (0, import_react3.createElement)("p", null, "此设备将需要重新配对。"), (0, import_react3.createElement)("div", { className: "dsma-actions" }, (0, import_react3.createElement)("button", { type: "button", className: "dsma-danger", disabled: state.busy, onClick: () => controller.revoke(item.id) }, "确认撤销"), (0, import_react3.createElement)("button", { type: "button", onClick: controller.cancelRevoke }, "取消"))) : (0, import_react3.createElement)("button", { type: "button", className: "dsma-text-button", disabled: state.busy, onClick: () => controller.confirmRevoke(item.id), "aria-label": "撤销 " + item.name + " 的访问" }, "撤销"))), !devices.length ? (0, import_react3.createElement)("p", { className: "dsma-empty" }, "还没有已连接的手机。") : null),
-      (0, import_react3.createElement)("details", { className: "dsma-notes" }, (0, import_react3.createElement)("summary", null, "配对说明"), (0, import_react3.createElement)("p", null, "App 配对码与 Web 登录码用途不同。仅向自己的设备提供配对资料，扫码后仍需电脑批准。收起二维码不会撤销已复制的资料；新码会替换未使用的旧码。"))
-    )
+      (0, import_react3.createElement)("details", { className: "dsma-notes" }, (0, import_react3.createElement)("summary", null, "配对说明"), (0, import_react3.createElement)("p", null, "仅向自己的手机提供本次二维码。扫码会自动授权一次手机连接，不包含 DSH Agent 权限。二维码两分钟后过期；关闭、重新生成或切换连接方式会立即让旧码失效。"))
+    ) : null
   );
 }
 function AgentAccess({ item, state, controller }) {

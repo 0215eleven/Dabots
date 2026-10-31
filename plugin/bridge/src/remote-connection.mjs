@@ -25,7 +25,7 @@ const validRemoteToken = value => typeof value === 'string' && value.length >= 4
 
 // This file holds owner-selected public routing and the owner-entered
 // Cloudflare tunnel token. The token is never returned by the Bridge API.
-export async function createRemoteConnection({ home, config = {}, server, createTunnel = async options => {
+export async function createRemoteConnection({ home, config = {}, server, resumeNamed = true, createTunnel = async options => {
   const { createQuickTunnel } = await import('./quick-tunnel.mjs')
   return createQuickTunnel(options)
 }, createNamed = async options => {
@@ -132,7 +132,7 @@ export async function createRemoteConnection({ home, config = {}, server, create
   }
   // A supervised named tunnel belongs to the Bridge, so it comes back on every
   // start instead of depending on a separately installed cloudflared service.
-  if (settings.mode === 'named' && loopbackUrl && settings.namedUrl && settings.namedToken) {
+  if (resumeNamed && settings.mode === 'named' && loopbackUrl && settings.namedUrl && settings.namedToken) {
     if (namedAvailable) void startNamed().catch(() => {})
     else named = { state: 'error', url: null, error: 'NAMED_FIXED_PORT_REQUIRED' }
   }

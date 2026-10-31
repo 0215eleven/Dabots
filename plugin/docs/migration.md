@@ -12,6 +12,8 @@ npm run plugin:migrate -- deselect --dsh-home <DSH_HOME> --profile <PROFILE> --b
 
 预检会报告旧包名覆盖、重复 Bridge 行和缺失目录。按行 ID 覆盖配置；旧配置的 `name: ds-bot-mobile-bridge` 与单包的 `ds-bot/bridge` 不匹配时，先由所有者修正。
 
+Bridge 首次使用自动建立的目录 `<DSH_HOME>/data/ds-bot-mobile-bridge` 也会被预检和备份识别，无需填写 `home`。已有明确的 `home` 配置仍优先使用，脚本不会合并两个目录。预检只读；备份包含该专用目录中的设备状态、独立身份密钥和已保存的连接选择。
+
 随后启动 DSH，通过插件管理器安装新的单包 TGZ，并验证：
 
 ```sh

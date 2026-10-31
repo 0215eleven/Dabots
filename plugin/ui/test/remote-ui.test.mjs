@@ -15,6 +15,9 @@ function harness(initialRemote, initialBusy = false) {
     snapshot: () => state,
     startRemote: (...args) => calls.push(['start', ...args]),
     stopRemote: () => calls.push(['stop']),
+    clearPairing: () => calls.push(['cancel']),
+    useOfficial: () => calls.push(['official']),
+    selectMode: mode => calls.push(['select', mode]),
   }
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children: children.flat() } }),
@@ -40,50 +43,51 @@ function harness(initialRemote, initialBusy = false) {
   }
   const renderDevices = () => { index = 0; return exports.DevicesPage({ controller }) }
   const renderRelay = () => { index = 0; return exports.RelayPanel({ state, controller }) }
-  return { render, renderSetup, renderDevices, renderRelay, find, nodes, text, calls, state }
+  const renderMode = () => { index = 0; const tree = exports.ConnectionModePanel({ state, controller }); const pending = effects; effects = []; pending.forEach(effect => effect()); return tree }
+  return { render, renderSetup, renderDevices, renderRelay, renderMode, find, nodes, text, calls, state, isConnectionPanel: node => node.type === exports.ConnectionModePanel }
 }
 const quick = { mode: 'quick', state: 'stopped', url: null, configuredUrl: '', configuredUrls: { existing: 'https://old.example', fixed: 'https://fixed.example' }, loopbackUrl: 'http://127.0.0.1:8123', quickAvailable: true, revision: 0, error: null }
 
-test('remote settings mount without starting and require a fresh checkbox confirmation', () => {
+test('temporary tunnel starts only after fresh owner confirmation and never on mount', async () => {
   const ui = harness(quick)
   ui.render()
   assert.deepEqual(ui.calls, [])
-  assert.equal(ui.find('button', '启动临时连接').props.disabled, true)
+  assert.equal(ui.find('button', '启动临时隧道').props.disabled, true)
   ui.find('input', '确认临时外网访问').props.onChange({ target: { checked: true } })
-  const start = ui.find('button', '启动临时连接')
+  const start = ui.find('button', '启动临时隧道')
   assert.equal(start.props.disabled, false)
-  start.props.onClick()
+  await start.props.onClick()
   assert.deepEqual(ui.calls, [['start', true]])
   assert.equal(ui.find('input', '确认临时外网访问').props.checked, false)
 })
 
-test('the startup UI always offers stop and does not auto restart on error', () => {
+test('startup always offers stop and a failed temporary tunnel waits for owner retry', () => {
   const ui = harness({ ...quick, state: 'starting' }, true)
-  const stop = ui.find('button', '停止临时连接')
+  const stop = ui.find('button', '停止隧道')
   assert.equal(stop.props.disabled, false)
   stop.props.onClick()
-  assert.deepEqual(ui.calls, [['stop']])
   ui.state.status.remote = { ...quick, state: 'error', error: 'MISSING_CLOUDFLARED' }
   ui.state.busy = false; ui.state.operation = null
-  const tree = ui.render()
-  assert.ok(ui.text(tree).includes('未找到 cloudflared'))
+  assert.ok(ui.text(ui.render()).includes('未找到 cloudflared'))
   assert.deepEqual(ui.calls, [['stop']])
   assert.equal(ui.find('a', '安装 cloudflared（官方指南）').props.href, 'https://developers.cloudflare.com/tunnel/downloads/')
 })
 
-test('mode selection restores its saved URL and fixed-mode saving reports success without starting a tunnel', async () => {
+test('own domain groups managed and existing transport beneath a single tunnel choice', async () => {
   const ui = harness(quick)
   ui.render()
-  ui.find('select', '远程连接方式').props.onChange({ target: { value: 'fixed' } })
-  assert.deepEqual(ui.calls, [])
+  const options = ui.nodes(ui.render(), node => node.props.className === 'dsma-tunnel-option')
+  assert.equal(options.length, 2)
+  assert.ok(ui.text(options[0]).includes('临时隧道'))
+  assert.ok(ui.text(options[1]).includes('自有域名隧道'))
+  options[1].props.onClick()
+  ui.find('select', '自有域名隧道运行方式').props.onChange({ target: { value: 'fixed' } })
   assert.equal(ui.find('input', 'HTTPS 入口地址').props.value, 'https://fixed.example')
   ui.find('input', 'HTTPS 入口地址').props.onChange({ target: { value: 'https://new.example' } })
-  await ui.find('form', '配置远程入口').props.onSubmit({ preventDefault() {} })
-  assert.deepEqual(ui.calls, [['configure', 'fixed', 'https://new.example', '']])
-  assert.ok(ui.text(ui.render()).includes('已保存并生效：https://new.example'))
+  await ui.find('form', '配置自有域名隧道').props.onSubmit({ preventDefault() {} })
+  assert.deepEqual(ui.calls, [['cancel'], ['cancel'], ['configure', 'fixed', 'https://new.example', '']])
+  assert.ok(ui.text(ui.render()).includes('入口已保存'))
   assert.ok(ui.text(ui.render()).includes('只检查地址格式'))
-  assert.equal(ui.find('a', '打开 Cloudflare 后台').props.href, 'https://dash.cloudflare.com/')
-  assert.equal(ui.find('a', '查看隧道配置步骤').props.href, 'https://developers.cloudflare.com/tunnel/get-started/')
   assert.ok(ui.text(ui.render()).includes('http://127.0.0.1:8123'))
 })
 
@@ -106,16 +110,17 @@ for (const [error, guidance] of [
   })
 }
 
-test('switching mode or refreshing the current remote state clears exposure confirmation', () => {
+test('changing tunnel choices or state clears temporary exposure consent', () => {
   const ui = harness(quick)
   ui.render()
   ui.find('input', '确认临时外网访问').props.onChange({ target: { checked: true } })
-  ui.find('select', '远程连接方式').props.onChange({ target: { value: 'existing' } })
-  ui.find('select', '远程连接方式').props.onChange({ target: { value: 'quick' } })
+  let options = ui.nodes(ui.render(), node => node.props.className === 'dsma-tunnel-option')
+  options[1].props.onClick()
+  options = ui.nodes(ui.render(), node => node.props.className === 'dsma-tunnel-option')
+  options[0].props.onClick()
   assert.equal(ui.find('input', '确认临时外网访问').props.checked, false)
   ui.find('input', '确认临时外网访问').props.onChange({ target: { checked: true } })
-  ui.state.status.remote = { ...quick, revision: 1 }
-  ui.render()
+  ui.state.status.remote = { ...quick, revision: 1 }; ui.render()
   assert.equal(ui.find('input', '确认临时外网访问').props.checked, false)
 })
 
@@ -131,7 +136,7 @@ test('a cleanup-blocked Bridge shows manual recovery without echoing unknown ser
   assert.deepEqual(ui.calls, [])
   ui.state.status = { enabled: false, reason: 'UNKNOWN_PRIVATE_REASON', message: 'untrusted server diagnostic' }
   const fallback = ui.text(ui.renderSetup())
-  assert.ok(fallback.includes('启用 Dabots Bridge'))
+  assert.ok(fallback.includes('安装并启用 Dabots Bridge'))
   assert.equal(fallback.includes('remote-cleanup-required.json'), false)
   assert.equal(fallback.includes('untrusted server diagnostic'), false)
 })
@@ -139,7 +144,7 @@ test('a cleanup-blocked Bridge shows manual recovery without echoing unknown ser
 test('named mode explains and blocks random-port startup without choosing or occupying a port', () => {
   const ui = harness({ ...quick, mode: 'named', namedAvailable: false, state: 'error', error: 'NAMED_FIXED_PORT_REQUIRED', tokenSet: true })
   const tree = ui.render()
-  assert.equal(ui.find('button', '保存 Token 并启动隧道').props.disabled, true)
+  assert.equal(ui.find('button', '保存并连接隧道').props.disabled, true)
   const message = ui.text(tree)
   assert.ok(message.includes('固定非零端口') && message.includes('重新启用 Bridge') && message.includes('Service URL'))
   assert.equal(ui.nodes(tree, node => node.props.role === 'alert').length, 1)
@@ -157,17 +162,51 @@ test('a port conflict shows a safe setup recovery message without exposing serve
   assert.deepEqual(ui.calls, [])
 })
 
-test('the shipped pairing button and relay notice follow the effective direct fallback', () => {
-  const ui = harness({ ...quick, mode: 'existing', state: 'configured', url: 'https://direct.example' })
-  ui.state.status.url = 'https://direct.example'
-  ui.state.status.relay = { mode: 'relay', state: 'offline', ready: false, relay: 'wss://relay.example' }
-  ui.state.status.pairing = { mode: 'direct', available: true }
-  const generate = ui.nodes(ui.renderDevices(), node => node.type === 'button' && ui.text(node) === '生成配对二维码')[0]
-  assert.equal(generate.props.disabled, false)
-  const notice = ui.text(ui.renderRelay())
-  assert.ok(notice.includes('当前二维码使用已配置的 HTTPS 直连入口'))
-  assert.ok(notice.includes('按服务器要求填写注册密钥'))
-  ui.state.status.pairing = { mode: 'relay', available: false }
-  const unavailable = ui.nodes(ui.renderDevices(), node => node.type === 'button' && ui.text(node) === '生成配对二维码')[0]
-  assert.equal(unavailable.props.disabled, true)
+test('official entry contains no address, secret or account registration form', () => {
+  const ui = harness(quick)
+  ui.state.status = { enabled: false, reason: 'OFFICIAL_AVAILABLE' }
+  const tree = ui.renderRelay()
+  assert.equal(ui.nodes(tree, node => node.type === 'input' || node.type === 'form').length, 0)
+  assert.ok(ui.text(tree).includes('无需填写地址、密钥或注册表单'))
+  const start = ui.nodes(tree, node => node.type === 'button')[0]
+  start.props.onClick()
+  assert.deepEqual(ui.calls, [['official']])
 })
+
+test('exactly two top-level connection choices are exposed and official is the default', () => {
+  const ui = harness(quick)
+  ui.state.status = { enabled: false, reason: 'OFFICIAL_AVAILABLE' }
+  const tree = ui.renderMode()
+  const radios = ui.nodes(tree, node => node.type === 'input' && node.props.type === 'radio')
+  assert.equal(radios.length, 2)
+  assert.deepEqual(radios.map(node => node.props.value), ['official', 'direct'])
+  assert.equal(radios[0].props.checked, true)
+  radios[1].props.onChange()
+  assert.deepEqual(ui.calls, [['cancel'], ['select', 'direct']])
+})
+
+for (const [connectionState, guidance] of [['limited', '额度已满'], ['denied', '拒绝了本次连接']]) {
+  test(`official ${connectionState} shows recovery and keeps the page free of registration fields`, () => {
+    const ui = harness(quick)
+    ui.state.status.relay = { mode: 'relay', official: true, ready: false, state: connectionState }
+    const tree = ui.renderRelay()
+    assert.ok(ui.text(tree).includes(guidance))
+    assert.equal(ui.nodes(tree, node => node.type === 'input').length, 0)
+    const retry = ui.nodes(tree, node => node.type === 'button' && ui.text(node) === '重试连接')[0]
+    retry.props.onClick()
+    assert.deepEqual(ui.calls, [['official']])
+  })
+}
+
+for (const reason of ['BRIDGE_START_FAILED', 'TEAM_UNAVAILABLE']) {
+  test(`${reason} keeps the official and tunnel choices and a safe retry action`, () => {
+    const ui = harness(quick)
+    ui.state.status = { enabled: false, reason, message: 'private startup diagnostic' }
+    assert.equal(ui.nodes(ui.renderDevices(), ui.isConnectionPanel).length, 1)
+    const tree = ui.renderRelay()
+    assert.equal(ui.text(tree).includes('private startup diagnostic'), false)
+    const retry = ui.nodes(tree, node => node.type === 'button')[0]
+    retry.props.onClick()
+    assert.deepEqual(ui.calls, [['official']])
+  })
+}

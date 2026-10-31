@@ -211,8 +211,8 @@ test('route unload fails closed and Peer resources dispose once', async t => {
   const adapter = createAdapter({ connection: { createPeer: () => peer, createSharedFetchHandler: () => ({ fetch: async (_request, actual) => { assert.equal(actual, peer); return Response.json({ ok: true, value: {} }) } }) }, sessionController: {} })
   await adapter.dispose(); await adapter.dispose(); assert.equal(disposed, 1)
 })
-test('production entry requires a separate explicit state home', async () => {
-  await assert.rejects(startBridge({}, {}), /dedicated bridge home/)
+test('production entry rejects a relative or shared state home', async () => {
+  await assert.rejects(startBridge({}, { home: 'relative' }), /must be absolute/)
   const old = process.env.DSH_HOME
   process.env.DSH_HOME = `${root}/fixture/.dsh-test-home`
   try { await assert.rejects(startBridge({}, { home: process.env.DSH_HOME }), /separate from DSH_HOME/) } finally { if (old === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = old }

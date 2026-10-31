@@ -1,153 +1,120 @@
 import { createElement as h, useEffect, useState } from 'react'
 import { remoteErrorMessage } from './remote-model.mjs'
 
-const labels = { existing: '已有 HTTPS 入口', fixed: '自有隧道和固定域名', quick: '临时 Cloudflare', named: 'Cloudflare 隧道（填 Token，插件托管）' }
 const states = {
-  stopped: '隧道已停止', starting: '正在连接隧道…', running: '隧道已连接，尚未验证手机端可达',
-  stopping: '正在停止，配对地址已停用…', error: '隧道发生错误', configured: '已保存 HTTPS 入口，尚未验证可达性', unconfigured: '尚未配置远程入口',
+  stopped: '隧道已停止', starting: '正在连接隧道…', running: '隧道已连接，可以生成二维码',
+  stopping: '正在停止，旧二维码已失效…', error: '连接失败，请按提示重试', configured: '入口已保存，可以生成二维码', unconfigured: '选择一种隧道开始连接',
 }
 const link = (href, label) => h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, label)
 const savedUrl = (remote, mode) => remote?.configuredUrls?.[mode] ?? (remote?.mode === mode ? remote.configuredUrl : '') ?? ''
 
 export function BridgeSetupNotice({ status }) {
-  if (status?.reason === 'BRIDGE_PORT_IN_USE') return h('div', { className: 'dsma-setup' },
-    h('h3', null, '请选择未占用的 Bridge 端口'),
-    h('p', { className: 'dsma-error', role: 'alert' }, remoteErrorMessage('BRIDGE_PORT_IN_USE')))
-  if (status?.reason === 'REMOTE_CLEANUP_REQUIRED') return h('div', { className: 'dsma-setup' },
-    h('h3', null, '请先确认旧临时隧道已停止'),
-    h('p', { className: 'dsma-error', role: 'alert' }, remoteErrorMessage('REMOTE_CLEANUP_REQUIRED')),
-    h('p', null, '此保护状态下不会重新启动连接服务。不要在旧进程仍运行时移除标记；插件不会自动删除标记或终止身份不明的进程。'))
-  return h('div', { className: 'dsma-setup' },
-    h('h3', null, '准备 App 连接'),
-    h('p', null, '先启用 Dabots Bridge，配置独立的绝对存储目录和 loopback 监听；随后可选择服务器中转或自己直连。'),
+  const code = status?.reason
+  if (code === 'BRIDGE_PORT_IN_USE' || code === 'REMOTE_CLEANUP_REQUIRED') return h('div', { className: 'dsma-setup' },
+    h('h3', null, code === 'BRIDGE_PORT_IN_USE' ? '请选择未占用的 Bridge 端口' : '请先确认旧临时隧道已停止'),
+    h('p', { className: 'dsma-error', role: 'alert' }, remoteErrorMessage(code)))
+  return h('div', { className: 'dsma-setup' }, h('h3', null, '连接服务暂时不可用'),
+    h('p', null, '请确认已安装并启用 Dabots Bridge，然后重试。'),
     link('https://github.com/0215eleven/Dabots/blob/main/plugin/docs/connection.md', '查看设置指南'))
+}
+
+// Kept as an export for existing plugin bundles. The public entry is 官方登录.
+export function RelayPanel({ state, controller }) {
+  const relay = state.status?.relay
+  const official = relay?.official === true
+  const ready = official && relay.ready === true
+  const connecting = official && relay.state === 'connecting' || state.operation === 'relay.official'
+  return h('section', { className: 'dsma-official', 'aria-label': '官方登录' },
+    h('h3', null, '让手机接着聊'),
+    state.status?.reason && state.status.reason !== 'OFFICIAL_AVAILABLE' && !state.status.enabled ? h('p', { className: 'dsma-error', role: 'alert' }, remoteErrorMessage(state.status.reason)) : null,
+    h('p', null, '电脑保持在线，连接就绪后用 Dabots 手机端扫码即可。'),
+    h('p', { className: 'dsma-remote-status', role: 'status', 'aria-live': 'polite' }, ready ? '连接已就绪，可以扫码' : connecting ? '正在连接官方服务…' : official && relay.state === 'limited' ? '官方服务当前额度已满，将在一分钟后重试；也可以切换隧道连接。' : official && relay.state === 'denied' ? '官方服务拒绝了本次连接，请稍后重试或切换隧道连接。' : official && relay.state === 'offline' ? '暂时无法连接，正在自动重连' : '无需填写地址、密钥或注册表单'),
+    !ready ? h('button', { type: 'button', className: 'dsma-primary', disabled: state.busy, onClick: () => controller.useOfficial() }, connecting ? '正在连接…' : official ? '重试连接' : '官方登录并连接') : null,
+    h('p', { className: 'dsma-small' }, '官方服务只转发手机与电脑之间的加密数据。'))
 }
 
 export function RemoteConnectionPanel({ state, controller }) {
   const remote = state.status?.remote
-  const [mode, setMode] = useState(remote?.mode ?? 'existing')
-  const [url, setUrl] = useState(savedUrl(remote, remote?.mode ?? 'existing'))
-  const [confirmed, setConfirmed] = useState(false)
-  const [notice, setNotice] = useState(null)
+  const savedMode = remote?.state === 'unconfigured' ? 'quick' : remote?.mode ?? 'quick'
+  const [kind, setKind] = useState(savedMode === 'quick' ? 'quick' : 'own')
+  const [mode, setMode] = useState(savedMode === 'quick' ? 'named' : savedMode)
+  const [url, setUrl] = useState(savedUrl(remote, savedMode))
   const [token, setToken] = useState('')
+  const [confirmed, setConfirmed] = useState(false)
+  const [notice, setNotice] = useState('')
   useEffect(() => {
-    setMode(remote?.mode ?? 'existing')
-    setUrl(savedUrl(remote, remote?.mode ?? 'existing'))
-  }, [remote?.mode, remote?.configuredUrl, remote?.configuredUrls?.existing, remote?.configuredUrls?.fixed])
-  useEffect(() => setConfirmed(false), [remote?.mode, remote?.state, remote?.revision])
-  if (!remote) return h('div', { className: 'dsma-remote dsma-notes' }, h('h3', null, '远程连接'), h('p', null, '正在使用 Bridge 原有连接配置。升级支持远程连接设置的 Bridge 后，可在此选择连接方式。'))
-  const quickSaved = remote.mode === 'quick'
-  const namedSaved = remote.mode === 'named'
-  const managed = quickSaved || namedSaved
-  const stopping = state.operation === 'remote.stop' || remote.state === 'stopping'
-  const active = ['starting', 'running', 'stopping'].includes(remote.state) || state.operation === 'remote.start'
-  const choose = event => { const next = event.target.value; setMode(next); setUrl(savedUrl(remote, next)); setConfirmed(false); setNotice(null); setToken('') }
-  return h('section', { className: 'dsma-remote', 'aria-label': '远程连接设置' },
-    h('h3', null, '远程连接'),
-    h('p', { className: 'dsma-remote-status', role: 'status', 'aria-live': 'polite' }, `${labels[remote.mode] ?? '远程连接'} · ${states[remote.state] ?? '请刷新状态'}`),
-    remote.url ? h('p', { className: 'dsma-address' }, '当前配对地址：', h('code', null, remote.url)) : null,
+    setKind(savedMode === 'quick' ? 'quick' : 'own')
+    if (savedMode !== 'quick') setMode(savedMode)
+    setUrl(savedUrl(remote, savedMode)); setToken(''); setConfirmed(false)
+  }, [savedMode, remote?.configuredUrl, remote?.configuredUrls?.fixed, remote?.configuredUrls?.existing])
+  useEffect(() => setConfirmed(false), [remote?.state, remote?.revision])
+  if (!remote) return h('p', { className: 'dsma-remote' }, '请先连接官方服务以初始化电脑，再选择隧道。')
+  const active = ['starting', 'running', 'stopping'].includes(remote.state)
+  const stopping = remote.state === 'stopping' || state.operation === 'remote.stop'
+  const choose = next => {
+    controller.clearPairing(); setKind(next); setToken(''); setConfirmed(false); setNotice('')
+    if (next === 'own') setUrl(savedUrl(remote, mode))
+  }
+  const option = (value, label, detail) => h('button', { type: 'button', className: 'dsma-tunnel-option', 'aria-pressed': kind === value, disabled: state.busy, onClick: () => choose(value) }, h('strong', null, label), h('small', null, detail))
+  const startQuick = async () => {
+    const consent = confirmed; setConfirmed(false); setNotice('')
+    if (!consent) return
+    if (remote.mode !== 'quick') await controller.configureRemote('quick')
+    if (!controller.snapshot().error) await controller.startRemote(true)
+  }
+  const saveOwn = async event => {
+    event.preventDefault(); setNotice('')
+    await controller.configureRemote(mode, url, mode === 'named' ? token : '')
+    if (controller.snapshot().error) return
+    setToken('')
+    if (mode === 'named') await controller.startRemote(true)
+    if (!controller.snapshot().error) setNotice(mode === 'named' ? '隧道正在连接；就绪后即可生成二维码。' : '入口已保存，生成二维码后即可扫码。')
+  }
+  return h('section', { className: 'dsma-remote dsma-tunnel', 'aria-label': '隧道连接设置' },
+    h('div', { className: 'dsma-tunnel-options', role: 'group', 'aria-label': '隧道类型' },
+      option('quick', '临时隧道', '无需域名，适合临时使用'), option('own', '自有域名隧道', '使用自己的固定 HTTPS 地址')),
+    h('p', { className: 'dsma-remote-status', role: 'status', 'aria-live': 'polite' }, states[remote.state] ?? '请刷新连接状态'),
     remote.error ? h('p', { className: 'dsma-error', role: 'alert' }, remoteErrorMessage(remote.error)) : null,
-    h('form', { 'aria-label': '配置远程入口', onSubmit: async event => {
-      event.preventDefault(); setConfirmed(false); setNotice(null)
-      await controller.configureRemote(mode, url, mode === 'named' ? token : '')
-      const current = controller.snapshot()
-      if (current.error) { setNotice({ ok: false, text: current.error }); return }
-      if (mode === 'named') {
-        setToken('')
-        setNotice({ ok: true, text: '已保存 Token，正在启动 Cloudflare 隧道…' })
-        await controller.startRemote(true)
-        const started = controller.snapshot()
-        if (started.error) { setNotice({ ok: false, text: started.error }); return }
-        const up = started.status?.remote?.state === 'running'
-        setNotice({ ok: up, text: up ? `隧道已连接：${url}。重新生成二维码后，手机端就会用这个地址。` : 'Token 已保存，隧道仍在连接；请稍后刷新状态。' })
-        return
-      }
-      const saved = current.status?.remote?.configuredUrl ?? url
-      setNotice({ ok: true, text: `已保存并生效：${saved}。重新生成二维码后，手机端就会用这个地址。` })
-    } },
-      h('label', { className: 'dsma-field' }, h('span', null, '连接方式'), h('select', { 'aria-label': '远程连接方式', value: mode, disabled: state.busy, onChange: choose }, ...Object.entries(labels).map(([value, label]) => h('option', { value, key: value }, label)))),
-      mode !== 'quick' ? h('label', { className: 'dsma-field' }, h('span', null, '完整 HTTPS 地址'), h('input', { 'aria-label': 'HTTPS 入口地址', type: 'url', required: true, autoComplete: 'off', spellCheck: false, placeholder: 'https://phone.example.com', value: url, disabled: state.busy, onChange: event => { setUrl(event.target.value); setNotice(null) }, maxLength: 2048 })) : null,
-      mode === 'named' ? h('label', { className: 'dsma-field' }, h('span', null, '隧道 Token'), h('input', { 'aria-label': 'Cloudflare 隧道 Token', type: 'password', autoComplete: 'new-password', spellCheck: false, placeholder: remote.tokenSet ? '已保存，留空则不修改' : '从 Cloudflare 后台复制整段隧道 Token', value: token, disabled: state.busy, onChange: event => { setToken(event.target.value); setNotice(null) }, maxLength: 4096 })) : null,
-      mode === 'named' ? h('p', { className: 'dsma-small' }, 'Token 会以未加密的明文保存到本机 Bridge 目录的 remote-connection.json。POSIX 下使用 0600 权限；Windows 下请通过目录 ACL 限制其他用户访问。已保存的 Token 不会由 Bridge 接口返回。') : null,
-      mode === 'quick' ? h('p', null, '无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。')
-        : mode === 'named' ? h('p', null, '由插件自己运行并守护 cloudflared：保存后立即启动，进程断开会自动重连；DSH 重启后 Bridge 会自己把隧道拉起，不需要另装 Windows 服务。')
-          : h('p', null, '保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。'),
-      h('div', { className: 'dsma-actions' }, h('button', { type: 'submit', disabled: state.busy || mode === 'named' && remote.namedAvailable === false, className: 'dsma-primary' }, state.busy ? '正在保存…' : mode === 'named' ? '保存 Token 并启动隧道' : mode === 'quick' ? '保存连接方式' : '验证格式并保存入口')),
-      notice ? h('p', { className: notice.ok ? 'dsma-ok' : 'dsma-error', role: notice.ok ? 'status' : 'alert' }, notice.text) : null),
-    mode === 'fixed' ? h('div', { className: 'dsma-remote-guide' },
-      h('h4', null, '配置自己的隧道和域名'),
-      h('p', null, '固定域名请先给 Bridge 设置固定端口，避免重启后服务地址变化。'),
-      h('ol', null,
-        h('li', null, '打开 Cloudflare 后台，在 Networking → Tunnels 创建或选择隧道。'),
-        h('li', null, '添加 Published application route，选择自己的子域与域名。'),
-        h('li', null, 'Service URL 只填写 Bridge 服务：', remote.loopbackUrl ? h('code', null, remote.loopbackUrl) : '请先将 Bridge 配置为专用 HTTP loopback 监听。', '不要使用 DSH 管理端口。'),
-        h('li', null, '按官方步骤自行运行 connector，然后将对应 HTTPS 地址填入上方并保存。')),
-      h('p', null, '插件不读取或保存 Cloudflare 主密码、API token、证书或隧道凭据。'),
-      h('div', { className: 'dsma-links' }, link('https://dash.cloudflare.com/', '打开 Cloudflare 后台'), link('https://developers.cloudflare.com/tunnel/get-started/', '查看隧道配置步骤'))) : null,
-    mode === 'named' ? h('div', { className: 'dsma-remote-guide' },
-      h('h4', null, '插件托管的 Cloudflare 隧道'),
-      h('p', { ...(remote.namedAvailable === false && remote.error !== 'NAMED_FIXED_PORT_REQUIRED' ? { className: 'dsma-error', role: 'alert' } : {}) }, '先在 Bridge 插件配置中选择未占用的固定非零端口，重新启用 Bridge。插件不会自动抢占端口，也不会在端口冲突时改用随机端口。'),
-      h('p', null, '在 Cloudflare 后台 Networking → Tunnels 创建隧道，Public Hostname 指向 Bridge：', remote.loopbackUrl ? h('code', null, remote.loopbackUrl) : '请先将 Bridge 配置为专用 HTTP loopback 监听。'),
-      h('p', null, '然后把该隧道的 Token 和对应 HTTPS 地址填到上面。'),
-      h('p', null, '如果已经用 cloudflared Windows 服务跑同一条隧道，请先停掉它，避免两条连接同时占用同一入口。'),
-      h('div', { className: 'dsma-links' }, link('https://dash.cloudflare.com/', '打开 Cloudflare 后台'), link('https://developers.cloudflare.com/tunnel/get-started/', '查看隧道配置步骤'))) : null,
-    mode === 'existing' ? h('p', { className: 'dsma-remote-guide' }, '兼容现有 HTTPS 反向代理或隧道。原 publicUrl 配置保留，切换回来可继续使用已保存的入口。') : null,
-    mode === 'quick' ? h('div', { className: 'dsma-quick' },
-      h('p', null, '只代理本插件的 Bridge loopback 服务，仍要求设备配对和电脑所有者批准。停止后临时地址失效，电脑需要保持运行。'),
-      remote.loopbackUrl ? h('p', { className: 'dsma-address' }, '代理目标：', h('code', null, remote.loopbackUrl)) : null,
-      remote.quickAvailable === false ? h('p', { className: 'dsma-error' }, '当前监听不支持临时隧道。请将 Bridge 配置为独立的 HTTP loopback 服务。') : null,
-      quickSaved ? h('div', null,
-        h('label', { className: 'dsma-consent' }, h('input', { type: 'checkbox', 'aria-label': '确认临时外网访问', checked: confirmed, disabled: state.busy || active || remote.quickAvailable === false, onChange: event => setConfirmed(event.target.checked) }), h('span', null, '我确认将 Bridge 服务通过临时地址开放到外网，并理解地址变化后需要重新配对。')),
-        h('button', { type: 'button', className: 'dsma-primary', disabled: !confirmed || state.busy || active || remote.quickAvailable === false, onClick: () => { const consent = confirmed; setConfirmed(false); void controller.startRemote(consent) } }, '启动临时连接')) : h('p', null, '请先保存“临时 Cloudflare”方式，再确认并启动。'),
-      h('div', { className: 'dsma-links' }, link('https://developers.cloudflare.com/tunnel/downloads/', '安装 cloudflared（官方指南）'), link('https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/', '查看临时隧道限制')),
-      h('p', { className: 'dsma-small' }, '仅适合测试与开发，无在线保证；最多 200 个同时处理的请求，不支持 SSE。Bridge 使用 HTTP 与 WebSocket。此处连接状态不等于手机端到端验证。')) : null,
-    managed && (active || remote.state === 'error') ? h('div', { className: 'dsma-actions dsma-stop' }, h('button', { type: 'button', className: 'dsma-danger', disabled: stopping, onClick: () => { setConfirmed(false); void controller.stopRemote() } }, stopping ? '正在停止…' : namedSaved ? '停止隧道' : '停止临时连接')) : null,
-    h('p', { className: 'dsma-remote-warning' }, '地址变化后，旧二维码和待批准请求失效。请在手机“添加电脑／重新配对”中扫描当前二维码，再在电脑批准；不会把已有手机凭据自动发送到新地址。'))
-}
-
-const relayStates = { disabled: '未启用', connecting: '正在连接中转服务…', ready: '已连接中转服务，可以扫码', offline: '中转服务暂时不可达，正在自动重连' }
-
-// The relay server. The optional registration secret is write-only here.
-export function RelayPanel({ state, controller }) {
-  const relay = state.status?.relay
-  const [address, setAddress] = useState(relay?.relay ?? '')
-  const [secret, setSecret] = useState('')
-  useEffect(() => { setAddress(relay?.relay ?? '') }, [relay?.relay])
-  const active = relay?.mode === 'relay'
-  const keep = relay?.secretSet && relay.relay === address.trim().replace(/\/$/, '')
-  return h('section', { className: 'dsma-remote', 'aria-label': '服务器中转设置' },
-    h('h3', null, '服务器中转'),
-    active ? h('p', { className: 'dsma-remote-status', role: 'status', 'aria-live': 'polite' }, relayStates[relay.state] ?? '请刷新状态') : null,
-    active && state.status?.pairing?.mode === 'direct' && state.status.pairing.available ? h('p', { className: 'dsma-remote-status', role: 'status' }, '中转尚未连接，当前二维码使用已配置的 HTTPS 直连入口。中转恢复后请重新生成二维码。') : null,
-    active && relay.computerId ? h('p', { className: 'dsma-address' }, '电脑标识：', h('code', null, relay.computerId.slice(0, 8))) : null,
-    h('form', { 'aria-label': '配置中转服务', onSubmit: event => { event.preventDefault(); const value = secret; setSecret(''); void controller.useRelay(address.trim(), value) } },
-      h('label', { className: 'dsma-field' }, h('span', null, '中转服务地址'), h('input', { 'aria-label': '中转服务地址', type: 'url', required: true, autoComplete: 'off', spellCheck: false, placeholder: 'wss://relay.example.com', value: address, disabled: state.busy, maxLength: 2048, onChange: event => setAddress(event.target.value) })),
-      h('label', { className: 'dsma-field' }, h('span', null, '注册密钥（可选）'), h('input', { 'aria-label': '中转注册密钥', type: 'password', autoComplete: 'new-password', spellCheck: false, placeholder: keep ? '已保存，留空则不修改' : '中转服务器要求时才填写', value: secret, disabled: state.busy, maxLength: 512, onChange: event => setSecret(event.target.value) })),
-      h('p', null, '请向中转服务管理员获取地址，并按服务器要求填写注册密钥；仅已开放登记的服务允许留空。填写的密钥只保存在本机 Bridge 专用目录，页面和手机都看不到。'),
-      h('div', { className: 'dsma-actions' }, h('button', { type: 'submit', className: 'dsma-primary', disabled: state.busy }, active ? '保存中转设置' : '保存并使用服务器中转'))),
-    h('div', { className: 'dsma-remote-guide' },
-      h('p', null, '电脑主动连到中转服务器，手机扫码后经它访问本机；不需要域名证书、端口映射或隧道。中转服务只转发加密数据，不保存聊天内容。'),
-      h('p', { className: 'dsma-small' }, '手机与电脑之间的加密改编自 Happy（MIT）开源实现，未经独立安全审计，也不提供前向保密。不会连接 Happy 的公共服务。')),
-    h('p', { className: 'dsma-remote-warning' }, '切换连接方式后旧二维码失效；已配对的手机不会被撤销。'))
+    kind === 'quick' ? h('div', { className: 'dsma-quick' },
+      h('p', null, '启动后生成临时外网地址。停止或地址变化后需要重新扫码；电脑需保持在线。'),
+      h('label', { className: 'dsma-consent' }, h('input', { type: 'checkbox', 'aria-label': '确认临时外网访问', checked: confirmed, disabled: state.busy || active || remote.quickAvailable === false, onChange: event => setConfirmed(event.target.checked) }), h('span', null, '我确认通过临时地址开放手机连接。')),
+      h('button', { type: 'button', className: 'dsma-primary', disabled: !confirmed || state.busy || active || remote.quickAvailable === false, onClick: startQuick }, remote.state === 'error' ? '重试临时隧道' : '启动临时隧道'),
+      remote.quickAvailable === false ? h('p', { className: 'dsma-error' }, '请先检查 Bridge 的独立 HTTP loopback 监听配置。') : null,
+      h('details', { className: 'dsma-notes' }, h('summary', null, '安装与使用说明'),
+        h('p', null, '首次使用需安装 cloudflared。临时隧道由 Cloudflare 提供，无在线保证，插件不会自动重启临时隧道。'),
+        link('https://developers.cloudflare.com/tunnel/downloads/', '安装 cloudflared（官方指南）'))) :
+      h('form', { 'aria-label': '配置自有域名隧道', onSubmit: saveOwn },
+        h('label', { className: 'dsma-field' }, h('span', null, '完整 HTTPS 地址'), h('input', { 'aria-label': 'HTTPS 入口地址', type: 'url', required: true, autoComplete: 'off', spellCheck: false, placeholder: 'https://phone.example.com', value: url, disabled: state.busy, maxLength: 2048, onChange: event => { setUrl(event.target.value); setNotice('') } })),
+        h('label', { className: 'dsma-field' }, h('span', null, '隧道运行方式'), h('select', { 'aria-label': '自有域名隧道运行方式', value: mode === 'existing' ? 'fixed' : mode, disabled: state.busy, onChange: event => { controller.clearPairing(); setMode(event.target.value); setUrl(savedUrl(remote, event.target.value)); setToken(''); setNotice('') } },
+          h('option', { value: 'named' }, '由插件运行 Cloudflare 隧道'), h('option', { value: 'fixed' }, '我已运行隧道或 HTTPS 入口'))),
+        mode === 'named' ? h('label', { className: 'dsma-field' }, h('span', null, 'Cloudflare 隧道 Token'), h('input', { 'aria-label': 'Cloudflare 隧道 Token', type: 'password', autoComplete: 'new-password', spellCheck: false, placeholder: remote.tokenSet ? '已保存，留空则不修改' : '从 Cloudflare 后台复制隧道 Token', value: token, disabled: state.busy, maxLength: 4096, onChange: event => setToken(event.target.value) })) : null,
+        h('button', { type: 'submit', className: 'dsma-primary', disabled: state.busy || mode === 'named' && remote.namedAvailable === false }, state.busy ? '正在连接…' : mode === 'named' ? '保存并连接隧道' : '保存入口'),
+        notice ? h('p', { className: 'dsma-ok', role: 'status' }, notice) : null,
+        h('details', { className: 'dsma-notes' }, h('summary', null, '配置与存储说明'),
+          h('p', null, 'Cloudflare 后台的 Service URL 指向本插件 Bridge：', remote.loopbackUrl ? h('code', null, remote.loopbackUrl) : '请先初始化 Bridge。'),
+          mode === 'named' ? h('p', null, '插件托管隧道需要固定非零端口。Token 以明文保存在本机 Bridge 目录，POSIX 文件权限为 0600；请限制其他用户访问。') : h('p', null, '请先自行运行隧道或反向代理。保存只检查地址格式，不会验证外网可达性。'),
+          mode === 'named' && remote.namedAvailable === false ? h('p', null, remoteErrorMessage('NAMED_FIXED_PORT_REQUIRED')) : null,
+          link('https://dash.cloudflare.com/', '打开 Cloudflare 后台'))),
+    ['quick', 'named'].includes(remote.mode) && (active || remote.state === 'error') ? h('div', { className: 'dsma-actions dsma-stop' }, h('button', { type: 'button', className: 'dsma-danger', disabled: stopping, onClick: () => controller.stopRemote() }, stopping ? '正在停止…' : '停止隧道')) : null,
+    h('p', { className: 'dsma-small' }, '切换方式会让本次二维码失效；已配对手机的授权会保留。'))
 }
 
 export function ConnectionModePanel({ state, controller }) {
   const relay = state.status?.relay
-  const [choice, setChoice] = useState(relay?.mode ?? 'direct')
-  useEffect(() => { setChoice(relay?.mode ?? 'direct') }, [relay?.mode])
-  if (!relay) return h(RemoteConnectionPanel, { state, controller })
-  const choose = mode => {
-    setChoice(mode)
-    // Relay needs its address first; the panel below saves and switches in one step.
-    if (mode === 'direct' && relay.mode === 'relay') void controller.selectMode('direct')
-    if (mode === 'relay' && relay.mode !== 'relay' && relay.relay) void controller.selectMode('relay')
+  const [choice, setChoice] = useState(relay?.mode === 'direct' ? 'direct' : 'official')
+  useEffect(() => { if (relay?.mode) setChoice(relay.mode === 'direct' ? 'direct' : 'official') }, [relay?.mode, relay?.official])
+  const choose = next => {
+    if (next === choice) return
+    setChoice(next)
+    controller.clearPairing()
+    if (next === 'official') void controller.useOfficial()
+    else void controller.selectMode('direct')
   }
-  const option = (mode, title, detail) => h('label', { className: 'dsma-mode', 'data-selected': choice === mode },
+  const option = (mode, label, detail) => h('label', { className: 'dsma-mode', 'data-selected': choice === mode },
     h('input', { type: 'radio', name: 'dsma-connection-mode', value: mode, checked: choice === mode, disabled: state.busy, onChange: () => choose(mode) }),
-    h('span', null, h('strong', null, title), h('small', null, detail)))
+    h('span', null, h('strong', null, label), h('small', null, detail)))
   return h('div', null,
     h('div', { className: 'dsma-modes', role: 'radiogroup', 'aria-label': '手机连接方式' },
-      option('relay', '服务器中转', '管理员提供地址，按服务要求填写密钥'),
-      option('direct', '自己直连', '自己的 HTTPS 或 Cloudflare 隧道')),
-    choice === 'relay' ? h(RelayPanel, { state, controller }) : h(RemoteConnectionPanel, { state, controller }))
+      option('official', '官方登录', '连接就绪后直接扫码'), option('direct', '隧道连接', '临时隧道或自己的域名')),
+    choice === 'official' ? h(RelayPanel, { state, controller }) : h(RemoteConnectionPanel, { state, controller }))
 }

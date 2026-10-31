@@ -55,6 +55,7 @@
     "test:prepare": "node test/prepare.mjs"
   },
   "dependencies": {
+    "@deepseek-ai/dsh-home-paths": "0.2.1-rc.2",
     "ws": "8.22.0"
   },
   "peerDependencies": {

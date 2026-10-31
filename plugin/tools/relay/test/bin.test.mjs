@@ -56,3 +56,25 @@ test('invalid explicit proxy environment fails before listening',async t=>{
   const [code]=await once(child,'exit');assert.equal(code,1);assert.equal(output.includes('listening'),false)
   assert.match(output,/trustedProxyIp must be one IP literal/)
 })
+
+test('public service environment rejects invalid quotas and ban lists before listening',async()=>{
+  for(const extra of [{RELAY_LIMITS_JSON:'not-json'},{RELAY_LIMITS_JSON:'{"maxConnections":0}'},{RELAY_BLOCKED_IPS:'198.51.100.0/24'},{RELAY_BLOCKED_COMPUTERS:'invalid'}]){
+    const child=spawn(process.execPath,[fileURLToPath(new URL('../bin.mjs',import.meta.url))],{env:{PATH:process.env.PATH,RELAY_ORIGIN:'wss://relay.example',RELAY_OPEN_REGISTRATION:'1',...extra},stdio:['ignore','pipe','pipe']})
+    let output='';child.stdout.on('data',b=>{output+=b});child.stderr.on('data',b=>{output+=b})
+    const [code]=await once(child,'exit');assert.notEqual(code,0);assert.equal(output.includes('listening'),false)
+  }
+})
+
+test('public service reads its finite quota overrides from environment without a shared secret',async t=>{
+  const port=await freePort()
+  const child=spawn(process.execPath,[fileURLToPath(new URL('../bin.mjs',import.meta.url))],{env:{PATH:process.env.PATH,RELAY_ORIGIN:'wss://relay.example',RELAY_OPEN_REGISTRATION:'1',RELAY_PORT:String(port),RELAY_TRUSTED_PROXY_IP:'127.0.0.1',RELAY_LIMITS_JSON:'{"connectionsPerMinute":1}'},stdio:['ignore','pipe','pipe']})
+  t.after(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill()})
+  let output='';child.stdout.on('data',c=>{output+=c});child.stderr.on('data',c=>{output+=c})
+  for(let i=0;i<100&&!output.includes('listening');i++)await new Promise(r=>setTimeout(r,50))
+  assert.equal(output.includes('with open registration'),true)
+  for(const [i,expected] of [409,429].entries()){
+    const ws=new WebSocket(`ws://127.0.0.1:${port}/v1/phone?computer=missing`,{headers:{'x-real-ip':`198.51.100.${i+1}`}});ws.on('error',()=>{})
+    const [,response]=await once(ws,'unexpected-response');response.resume();ws.terminate();assert.equal(response.statusCode,expected)
+  }
+  child.kill('SIGTERM');await once(child,'exit')
+})

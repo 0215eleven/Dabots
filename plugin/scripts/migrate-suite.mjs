@@ -68,7 +68,9 @@ export async function inspect({dshHome,profile}){
   const layers=[{file:join(dir,'cordis.patch.yml')},{file:join(dshHome,'cordis.patch.yml')}]
   for(const layer of layers)layer.overrides=bridgeOverrides(await readOptional(layer.file))
   const overrides=layers.flatMap(layer=>layer.overrides.map(item=>({...item,file:layer.file})))
-  const home=overrides.map(item=>item.home).filter(Boolean).at(-1)
+  // The current Bridge provisions this dedicated location on owner first use.
+  // Preserve the old explicit-home precedence; inspection never creates either.
+  const home=overrides.map(item=>item.home).filter(Boolean).at(-1)??join(dshHome,'data',BRIDGE_ROW)
   const engine=await installed(dir,'ds-bot')
   const problems=[]
   for(const item of overrides)if(item.name&&item.name!=='ds-bot/bridge')problems.push(`${item.file}:${item.line} names the Bridge row "${item.name}"; DSH skips that override for the single package ("name mismatch"). Remove the name line yourself before switching.`)
@@ -120,7 +122,7 @@ export async function verify({dshHome,profile,backup:dir}){
   if(!report.engine?.suite||!report.engine.bridgeExport)failures.push('node_modules/ds-bot is not the single package')
   if(report.selectedOld.length)failures.push(`${report.selectedOld.join(', ')} still selected`)
   if(record.bridge){
-    if(!report.bridge.available)failures.push('Bridge home not found from the owner override')
+    if(!report.bridge.available)failures.push('Bridge home not found in the owner override or automatic storage location')
     else{
       if(report.bridge.serverId!==record.bridge.serverId)failures.push('Bridge server identity changed; paired phones would need to pair again')
       if(report.bridge.devices<record.bridge.devices)failures.push(`Paired devices dropped from ${record.bridge.devices} to ${report.bridge.devices}`)

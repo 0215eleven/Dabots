@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "properties": {
     "enabled": { "type": "boolean", "default": false },
-    "home": { "type": "string", "minLength": 1, "description": "Dedicated absolute bridge directory, separate from DSH_HOME. No default." },
+    "home": { "type": "string", "minLength": 1, "description": "Optional dedicated absolute bridge directory. Existing homes are preserved; first use otherwise initializes data/ds-bot-mobile-bridge under the public DSH home path." },
     "host": { "type": "string", "minLength": 1, "default": "127.0.0.1" },
     "port": { "type": "integer", "minimum": 0, "maximum": 65535, "default": 0 },
     "publicUrl": { "type": "string", "format": "uri", "description": "Existing HTTPS origin without credentials, path or query. Owner may configure remote access in the companion; loopback waits without pairing until an address is selected." },
@@ -18,7 +18,6 @@
     "name": { "type": "string", "minLength": 1, "default": "Dabots" }
   },
   "allOf": [
-    { "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] }, "then": { "required": ["home"] } },
     { "if": { "required": ["certPath"] }, "then": { "required": ["keyPath"] } },
     { "if": { "required": ["keyPath"] }, "then": { "required": ["certPath"] } }
   ]
