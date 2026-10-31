@@ -74,7 +74,8 @@ export function createRelayConnector({relay,secret,identity,serverId,endpoint,So
     entry.rpc.receive(value)
    }).catch(()=>endStream(id)).finally(()=>{entry.bytes-=data.length;queued-=data.length})
   })
-  ws.on('close',code=>{clearTimeout(timeout);if(socket!==ws)return;for(const id of streams.keys())endStream(id,false);socket=null;if(stopped)return;const failure=code===4429?'limited':code===4403?'denied':refusal??'offline';publish(failure);if(failure==='denied')return;reconnect=setTimeout(connect,failure==='limited'?60000:Math.min(30000,500*2**Math.min(attempts++,6)));reconnect.unref()})
+  ws.on('close',code=>{clearTimeout(timeout);if(socket!==ws)return;for(const id of streams.keys())endStream(id,false);socket=null;if(stopped)return;const failure=code===4429?'limited':code===4403?'denied':refusal??'offline';publish(failure);// A refusal or a newer registration of this computer elsewhere (4409) waits a minute before trying again.
+  reconnect=setTimeout(connect,failure==='limited'||failure==='denied'||code===4409?60000:Math.min(30000,500*2**Math.min(attempts++,6)));reconnect.unref()})
  }
  const idle=setInterval(()=>{for(const [id,entry] of streams)if(Date.now()-entry.last>300000)endStream(id)},10000);idle.unref()
  connect()

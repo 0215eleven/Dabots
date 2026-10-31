@@ -182,16 +182,20 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
       if(!owner&&!openRegistration&&!(typeof m.secret==='string'&&expected&&timingSafeEqual(hash(m.secret),expected)))throw Error('invalid');
       phase='identity';
       const ed=raw(m.edPublicKey,32);raw(m.computerKey,32);const id=hash(ed).subarray(0,16).toString('base64url');
-      if(id!==m.computerId||computers.has(id)||deniedComputers.has(id))throw Error('invalid');
+      if(id!==m.computerId||deniedComputers.has(id))throw Error('invalid');
       const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),ed]),format:'der',type:'spki'});
       const signed=JSON.stringify(['ds-bot-computer-v2',origin,nonce,id,m.edPublicKey,m.computerKey]);
       phase='signature';
       if(!verify(null,Buffer.from(signed),key,raw(m.signature,64)))throw Error('invalid');
       if(!registrationAllowed(ip)){diagnostic.event(trace,'registration_denied',{closeCode:4429,phase:'quota'});return ws.close(4429,'REGISTRATION_LIMIT');}
-      if(computers.size>=limits.maxComputers){diagnostic.event(trace,'registration_denied',{closeCode:4429,phase:'capacity'});return ws.close(4429,'CAPACITY_LIMIT');}
+      if(computers.size>=limits.maxComputers&&!computers.has(id)){diagnostic.event(trace,'registration_denied',{closeCode:4429,phase:'capacity'});return ws.close(4429,'CAPACITY_LIMIT');}
       const accept=()=>{
-       if(ws.readyState!==WebSocket.OPEN||computers.has(id))return ws.close(4403,'REGISTRATION_OR_FRAME_DENIED');
-       if(computers.size>=limits.maxComputers)return ws.close(4429,'CAPACITY_LIMIT');
+       if(ws.readyState!==WebSocket.OPEN)return;
+       // A computer that reconnects before the heartbeat has noticed its dead socket signed this
+       // nonce with its own key, so it replaces the stale registration instead of being refused.
+       const previous=computers.get(id);
+       if(!previous&&computers.size>=limits.maxComputers)return ws.close(4429,'CAPACITY_LIMIT');
+       if(previous){computers.delete(id);diagnostic.event(trace,'computer_replaced');previous.ws.close(4409,'REPLACED');}
        registered={ws,streams:new Map(),id};computers.set(id,registered);clearTimeout(timer);control(ws,{type:'registered',computerId:id,...(owner?{account:owner.account.username}:{})});
        diagnostic.event(trace,'computer_registered');
       };
