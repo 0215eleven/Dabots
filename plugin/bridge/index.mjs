@@ -28,7 +28,7 @@ export async function startBridge(ctx, config) {
     let closing
     return { ...server, get url() { return server.url }, adapter,
       async operator(endpoint, payload = {}) {
-        if (endpoint === 'status') return { ...await server.operator(endpoint), remote: remote.snapshot(), relay: relay.snapshot() }
+        if (endpoint === 'status') return { ...await server.operator(endpoint), remote: remote.snapshot(), relay: relay.snapshot(), pairing: relay.pairingStatus() }
         if (endpoint === 'pairing.create') return relay.pairing() ?? server.operator(endpoint, payload)
         if (endpoint === 'relay.configure') return relay.configure(payload)
         if (endpoint === 'relay.select') return relay.select(payload)
@@ -42,7 +42,11 @@ export async function startBridge(ctx, config) {
         return closing
       },
     }
-  } catch (error) { if (server) await server.close(); else await adapter.dispose(); throw error }
+  } catch (error) {
+    if (server) await server.close(); else await adapter.dispose()
+    if (error.code === 'EADDRINUSE') throw new BridgeError(409, 'BRIDGE_PORT_IN_USE', 'Bridge 端口已被占用。请检查现有服务或在插件配置中选择未占用的固定端口，然后重新启用 Bridge；使用自有隧道时同时更新 Service URL。')
+    throw error
+  }
 }
 export function apply(ctx, config = {}) {
   validateConfig(config)
@@ -69,7 +73,7 @@ export function apply(ctx, config = {}) {
       unregister = register()
     }).catch(async error => {
       await bridge?.close()
-      if (!stopped && error instanceof BridgeError && error.code === 'REMOTE_CLEANUP_REQUIRED') {
+      if (!stopped && error instanceof BridgeError && ['REMOTE_CLEANUP_REQUIRED', 'BRIDGE_PORT_IN_USE'].includes(error.code)) {
         startupFailure = error
         unregister = register()
       }

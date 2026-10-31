@@ -1,10 +1,10 @@
 # 中转服务部署说明（阿里云交接）
 
-本文给负责服务器的人使用。代码位于本仓库 `plugin/tools/relay/`，属于桌面插件的可选部署工具。中转服务未在任何服务器上运行或验收过，以下内容是部署步骤，不是已完成的部署记录。
+本文给负责服务器的人使用。代码位于本仓库 `plugin/tools/relay/`，属于桌面插件的可选部署工具。本文描述候选代码的安装和更新方法，不代表本版本已在生产部署或完成真机验收。现有服务器使用 Docker Compose 时，应走下面的独立 Relay 更新路径。
 
 ## 它是什么、占多少资源
 
-- 一个 Node.js 进程：电脑端插件主动连上来登记，手机扫码后经它找到电脑。它只转发加密后的数据，没有账号、没有数据库、不写磁盘，重启后电脑会自动重新登记。
+- 一个 Node.js 进程：电脑端插件主动连上来登记，手机扫码后经它找到电脑。默认只转发加密后的数据，不启用账号存储，重启后电脑会自动重新登记。可选账号功能另有持久数据，更新时必须保留。
 - 资源：空闲时内存约几十 MB，CPU 几乎为零；流量等于手机与电脑之间的实际聊天和附件流量。单条帧最大 1 MiB，每台电脑最多 32 条手机连接。
 - 对外只需要 443（复用现有 Nginx/HTTPS）；服务本身只监听本机 `127.0.0.1:8790`（端口可改）。
 - 不连接 Happy 或其他任何公共服务。
@@ -63,8 +63,8 @@ df -h /opt /etc
 sudo useradd --system --home /opt/ds-bot-relay --shell /usr/sbin/nologin ds-bot-relay
 sudo mkdir -p /opt/ds-bot-relay /etc/ds-bot-relay
 
-# 2. 放入代码：仓库 plugin/tools/relay/ 下的 bin.mjs、server.mjs、package.json、package-lock.json
-sudo cp bin.mjs server.mjs package.json package-lock.json /opt/ds-bot-relay/
+# 2. 放入代码：仓库 plugin/tools/relay/ 下的 bin.mjs、server.mjs、accounts.mjs、package.json、package-lock.json
+sudo cp bin.mjs server.mjs accounts.mjs package.json package-lock.json /opt/ds-bot-relay/
 cd /opt/ds-bot-relay && sudo npm ci --omit=dev --ignore-scripts
 sudo chown -R root:root /opt/ds-bot-relay
 
@@ -162,9 +162,10 @@ curl -s -i -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Ve
 ## 四、运维
 
 - 日志：`journalctl -u ds-bot-relay`。日志不含 IP、密钥、电脑标识或数据内容。
-- 更新：替换 `/opt/ds-bot-relay` 下的文件，`npm ci --omit=dev --ignore-scripts`，`systemctl restart ds-bot-relay`。电脑会在数秒到半分钟内自动重连。
+- 更新：使用下文的事务更新脚本。先做只读预检，再由所有者批准执行；不要直接覆盖正在运行的安装目录。电脑会在服务恢复后重新登记。
 - 换密钥：改 `/etc/ds-bot-relay/secret` 并重启服务，再在插件设置里填写新密钥。已配对手机不受影响。
-- 回滚 / 移除：`systemctl disable --now ds-bot-relay`，删除新增的 Nginx 站点文件并 `nginx -t && systemctl reload nginx`。插件切回“自己直连”即可继续使用原有方式。
+- 回滚：更新脚本失败时仅恢复本次更改的代码/依赖或 Compose 挂载入口，不把账号、配置或其他运行数据恢复成旧快照。保留的旧代码和配置备份可供人工核对。
+- 移除（需另行确认）：停止 Relay，移除本次专用代理规则；不要操作其他站点或共享代理容器。插件切回“自己直连”后仍可使用原有入口。
 
 ## 五、安全边界（请如实告知使用者）
 
@@ -178,38 +179,57 @@ curl -s -i -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Ve
 
 本分支 Relay `0.1.0-codex.4`、Bridge `0.0.9-codex.6` 固定 `ws@8.22.0`，覆盖上述分片耗尽与TypedArray关闭原因公告。不要用旧8.18.3归档替代本候选；生产部署仍须独立确认、校验归档与版本，保留资源限制及原站点回滚。升级通过本地测试不表示已部署或已完成真机验收。
 
-## 六、扫码即用：开放登记（Relay 0.2.0）
+## 六、兼容现有部署的更新
 
-和公共中转服务一样，电脑不需要注册密钥就能登记：插件默认使用中转（插件配置 `relay`，默认 `wss://dsbot.ziyuegege.com`），装好插件直接出二维码，手机一扫即连，不需要端口、证书、隧道或账号。
+手机安装包、桌面插件和 Relay 服务器是三项独立交付。修好或重新打包手机，不会更新 Relay，也不会改变服务器的鉴权。
 
-- 开启方式：服务环境变量 `RELAY_OPEN_REGISTRATION=1`（下面的脚本会写入）。原有注册密钥仍然有效，已配置密钥的电脑不受影响。
-- 安全边界不变：手机到电脑端到端加密，加密公钥来自二维码；手机第一次连电脑仍需电脑批准；中转看不到聊天内容。开放后只是任何电脑都能登记到这台中转（占用流量）。中转仍按 IP 限流，最多同时登记 10000 台电脑。
-- `RELAY_ORIGIN` 必须与插件里的中转地址完全一致（`wss://` + 域名）。
+插件不默认连接无密钥公共 Relay；已有保存的直连/中转选择继续生效。使用现有密钥登记服务时，在电脑插件中明确选择“服务器中转”，填写实际地址和现有密钥。只有管理员已另行批准并启用开放登记的服务器才允许留空。不得把注册密钥写入仓库、命令行参数或聊天。
 
-### 更新步骤（在有 SSH 密钥的电脑上，Windows PowerShell）
+### 更新脚本
 
-```powershell
-# 1. 在仓库目录拉取最新 main
-cd <仓库目录>
-git pull origin main
-# 2. 上传 relay 目录到服务器临时目录
-$key = "<SSH 私钥路径>"; $server = "root@<服务器 IP>"
-ssh -i $key $server "rm -rf /tmp/ds-bot-relay-update"
-scp -i $key -r plugin\tools\relay ${server}:/tmp/ds-bot-relay-update
-# 3. 运行更新脚本
-ssh -t -i $key $server "rm -rf /tmp/ds-bot-relay-update/node_modules /tmp/ds-bot-relay-update/test; bash /tmp/ds-bot-relay-update/deploy/update.sh"
-```
-
-脚本 `deploy/update.sh` 会：检查 systemd 服务和 Node 版本 → 备份当前安装目录 → 安装新文件并 `npm ci` → 首次运行时写入 `/etc/systemd/system/ds-bot-relay.service.d/open-registration.conf` 开启开放登记 → 重启并检查 `/healthz`，失败自动回滚。脚本不打印密钥。若中转跑在 Docker 里，脚本会停下并列出容器，不会擅自修改。
-
-### 验证
+完整上传 `plugin/tools/relay/`，保留 `deploy/update.sh` 和 `deploy/update.py`。脚本需要 Python 3；systemd 路径还需要 Node.js 22.12+ 和 npm，Compose 路径使用当前已运行 Relay 的原有镜像。先在临时环境验证，再由所有者批准生产执行。
 
 ```bash
-curl -s https://<中转域名>/healthz   # {"ok":true}
-journalctl -u ds-bot-relay -n 5 --no-pager   # 应包含 "with open registration"
+# 已有 Docker Compose 安装：只读预检，无服务重启或文件写入
+python3 /tmp/ds-bot-relay-update/deploy/update.py --mode compose \
+  --compose /opt/ds-bot-relay/compose.json --check
+
+# 经单独批准后，只更新已识别的 Relay 服务
+sudo bash /tmp/ds-bot-relay-update/deploy/update.sh --mode compose \
+  --compose /opt/ds-bot-relay/compose.json
+
+# 已有 systemd 安装（示例健康端口，按实际监听填写）
+python3 /tmp/ds-bot-relay-update/deploy/update.py --mode systemd \
+  --service ds-bot-relay --health-url http://127.0.0.1:8790/healthz --check
+sudo bash /tmp/ds-bot-relay-update/deploy/update.sh --mode systemd \
+  --service ds-bot-relay --health-url http://127.0.0.1:8790/healthz
 ```
 
-然后在电脑上更新插件，打开 DS Bot 设置 → 手机连接方式，默认即为“服务器中转”，状态显示“已连接中转服务，可以扫码”后用手机扫码并在电脑上批准。之前已保存过“自己直连”的电脑会保持原选择：选一次“服务器中转”，地址填 `wss://dsbot.ziyuegege.com`、密钥留空，保存即可。
+未指定模式时，存在 `/opt/ds-bot-relay/compose.json` 则选 Compose，否则检查 systemd。多个服务符合条件时必须用 `--service <Compose 服务名>` 明确选择；这里不是容器名称。预检结果只表示当时识别成功，正式更新会在取得非阻塞独占锁后重新验证；并发更新会无修改退出。
+
+systemd 保留原脚本的 `RELAY_SERVICE` 环境变量入口，显式 `--service` 优先。Compose 不把该变量猜成服务名；如已设置，必须显式传入 `--service`，否则无修改退出。
+
+Compose 支持现有 JSON 文件、`releases/<版本>` 绑定到 `/app`、工作目录 `/app/relay` 的布局，兼容短/长 bind mount 写法。脚本会：
+
+1. 验证目标 Relay 正在运行、未暂停，实际挂载和工作目录与配置一致；当前镜像 SHA 必须与本地配置镜像一致。不会拉取或构建新镜像。
+2. 在干净临时目录中，用当前镜像安装精确锁定的依赖、验证运行模块可导入。该构建容器不挂载原有密钥或数据。失败时原服务不动。
+3. 保留完整原 release，创建候选 release，仅替换 Relay 代码和依赖；备份原 Compose 的字节和权限，再只切换目标服务的 `/app` source。镜像、环境、端口、网络、其他挂载与服务配置保留。
+4. 仅执行目标服务的 `up -d --no-deps --force-recreate --no-build --pull never`，核对实际新挂载、工作目录和镜像 SHA，再在容器内验证 `/healthz`。不会执行整组 `down/up`，不会重建 Caddy、Tetris 或启动暂停的 HOT。
+5. 切换后的任何失败恢复原 Compose 字节/权限并重建该 Relay 服务，再验证原 release；若恢复或验证仍失败，明确报告“未确认恢复”，不会宣称已回滚成功。
+
+已知的 `/opt/ds-bot-relay/start-relay.sh`、`rollback.py` 不会被覆盖或调用：其接口未被本仓库假定。实际部署前仍需核对它们的内容和外部运维约定。未知布局、配置与实际状态不一致，或可选账号数据解析后位于 `/app` 内时，脚本会拒绝更新；请先把运行数据置于 `/app` 外的独立持久挂载。相对数据路径和现有符号链接祖先会先解析，未被持久挂载覆盖的数据路径也拒绝。`/app` 下的嵌套数据挂载保守拒绝；配置、镜像声明或实际容器中遮蔽 `/app/relay` 代码/依赖的嵌套挂载以及 `volumes_from` 同样拒绝，避免父挂载已变而实际仍跑旧代码。
+
+systemd 路径在干净目录完成依赖/导入验证后，只备份并替换五个运行文件与 `node_modules`。重启、健康检查或中途复制失败时精确恢复这些代码项；不会删除整个安装目录，不覆盖运行数据，不修改 unit、drop-in、服务用户或任何鉴权环境。健康检查只允许显式 loopback HTTP `/healthz` 地址。准备阶段失败时无需重启原服务。
+
+脚本保留 `.relay-update-*` 备份目录并输出位置。生产操作需自行保管这些目录；其中原 Compose 可能包含敏感配置，脚本不会打印其内容。确认更新稳定前不要删除旧 release/备份。脚本只验收本地服务与代码入口，公网代理、真实手机连接和其他站点健康仍须另行验收。
+
+已开始切换代码后，可捕获的 INT/TERM/HUP 会记录中断请求，在正在执行的命令结束后进入同一回滚路径。子命令使用独立进程组，重启命令不会被脚本中途强杀，避免 Docker daemon 仍在切换时并发回滚。回滚过程中忽略重复的这三种信号以尽力完成恢复；回滚或验证失败会明确报告未确认恢复。SIGKILL、主机断电和磁盘故障无法保证自动恢复，需保留原配置、代码备份及单独的人工恢复方案，不能把本脚本当作高可用或灾难恢复保证。
+
+### 开放登记是另外一项管理员决定
+
+Relay 0.2.0 支持 `RELAY_OPEN_REGISTRATION=1`，但更新脚本**不会设置、删除或更改此开关**，也不会自动启用账号。保留原有注册密钥的服务可直接使用新代码。
+
+开放登记允许任何电脑占用这台中转的连接和流量资源，改变了登记准入边界；即使端到端加密、手机配对批准和 Agent 授权仍在，也不能称“安全边界不变”。是否启用、容量和滥用防护需管理员另行确认，不能把它当作手机打包的隐含步骤。
 
 ## 七、账号（可选，默认未开启）
 

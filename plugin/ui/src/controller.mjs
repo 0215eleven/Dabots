@@ -1,4 +1,4 @@
-import { canPair, httpsOrigin, pairingContext, relayMode, relayOrigin, remoteErrorMessage } from './remote-model.mjs'
+import { canPair, httpsOrigin, pairingContext, pairingMode, relayMode, relayOrigin, remoteErrorMessage } from './remote-model.mjs'
 
 const RELAY_ID = /^[A-Za-z0-9_-]{22}$/, RELAY_KEY = /^[A-Za-z0-9_-]{43}$/
 
@@ -46,13 +46,13 @@ export function createDeviceController({ call, now = Date.now }) {
         // Relay pairing carries the computer's relay identity instead of an address.
         const relay = relayOrigin(value.relay), relayStatus = state.status?.relay
         if (!RELAY_ID.test(value.computerId ?? '') || !RELAY_KEY.test(value.computerKey ?? '') || !value.code || !value.serverId || !(value.expiresAt > now())) throw Error('Bridge 返回的配对资料无效，请刷新后重试。')
-        if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && relayMode(state.status)) && (!relayStatus || relayStatus.relay === relay && relayStatus.computerId === value.computerId) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
+        if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && pairingMode(state.status) === 'relay') && (!relayStatus || relayStatus.relay === relay && relayStatus.computerId === value.computerId) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
           emit({ pairing: { v: 2, relay, computerId: value.computerId, computerKey: value.computerKey, serverId: value.serverId, code: value.code, expiresAt: value.expiresAt } })
         }
       } else if (method === 'pairing.create') {
         const url = httpsOrigin(value.url)
         if (!value.code || !value.serverId || !(value.expiresAt > now())) throw Error('Bridge 返回的配对资料无效，请刷新后重试。')
-        if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status)) && (!state.status?.url || state.status.url === url) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
+        if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && pairingMode(state.status) === 'direct') && (!state.status?.url || state.status.url === url) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
           emit({ pairing: { url, code: value.code, serverId: value.serverId, expiresAt: value.expiresAt } })
         }
       }

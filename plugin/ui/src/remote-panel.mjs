@@ -10,6 +10,9 @@ const link = (href, label) => h('a', { href, target: '_blank', rel: 'noopener no
 const savedUrl = (remote, mode) => remote?.configuredUrls?.[mode] ?? (remote?.mode === mode ? remote.configuredUrl : '') ?? ''
 
 export function BridgeSetupNotice({ status }) {
+  if (status?.reason === 'BRIDGE_PORT_IN_USE') return h('div', { className: 'dsma-setup' },
+    h('h3', null, '请选择未占用的 Bridge 端口'),
+    h('p', { className: 'dsma-error', role: 'alert' }, remoteErrorMessage('BRIDGE_PORT_IN_USE')))
   if (status?.reason === 'REMOTE_CLEANUP_REQUIRED') return h('div', { className: 'dsma-setup' },
     h('h3', null, '请先确认旧临时隧道已停止'),
     h('p', { className: 'dsma-error', role: 'alert' }, remoteErrorMessage('REMOTE_CLEANUP_REQUIRED')),
@@ -17,7 +20,7 @@ export function BridgeSetupNotice({ status }) {
   return h('div', { className: 'dsma-setup' },
     h('h3', null, '准备 App 连接'),
     h('p', null, '先启用 DeepSeek Bot Pro Bridge，配置独立的绝对存储目录和 loopback 监听；随后可选择服务器中转或自己直连。'),
-    link('https://github.com/0215eleven/ds-bot-mobile-app/blob/main/docs/installation.md', '查看设置指南'))
+    link('https://github.com/0215eleven/ds-bot-mobile/blob/main/plugin/docs/connection.md', '查看设置指南'))
 }
 
 export function RemoteConnectionPanel({ state, controller }) {
@@ -69,7 +72,7 @@ export function RemoteConnectionPanel({ state, controller }) {
       mode === 'quick' ? h('p', null, '无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。')
         : mode === 'named' ? h('p', null, '由插件自己运行并守护 cloudflared：保存后立即启动，进程断开会自动重连；DSH 重启后 Bridge 会自己把隧道拉起，不需要另装 Windows 服务。')
           : h('p', null, '保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。'),
-      h('div', { className: 'dsma-actions' }, h('button', { type: 'submit', disabled: state.busy, className: 'dsma-primary' }, state.busy ? '正在保存…' : mode === 'named' ? '保存 Token 并启动隧道' : mode === 'quick' ? '保存连接方式' : '验证格式并保存入口')),
+      h('div', { className: 'dsma-actions' }, h('button', { type: 'submit', disabled: state.busy || mode === 'named' && remote.namedAvailable === false, className: 'dsma-primary' }, state.busy ? '正在保存…' : mode === 'named' ? '保存 Token 并启动隧道' : mode === 'quick' ? '保存连接方式' : '验证格式并保存入口')),
       notice ? h('p', { className: notice.ok ? 'dsma-ok' : 'dsma-error', role: notice.ok ? 'status' : 'alert' }, notice.text) : null),
     mode === 'fixed' ? h('div', { className: 'dsma-remote-guide' },
       h('h4', null, '配置自己的隧道和域名'),
@@ -83,6 +86,7 @@ export function RemoteConnectionPanel({ state, controller }) {
       h('div', { className: 'dsma-links' }, link('https://dash.cloudflare.com/', '打开 Cloudflare 后台'), link('https://developers.cloudflare.com/tunnel/get-started/', '查看隧道配置步骤'))) : null,
     mode === 'named' ? h('div', { className: 'dsma-remote-guide' },
       h('h4', null, '插件托管的 Cloudflare 隧道'),
+      h('p', { ...(remote.namedAvailable === false && remote.error !== 'NAMED_FIXED_PORT_REQUIRED' ? { className: 'dsma-error', role: 'alert' } : {}) }, '先在 Bridge 插件配置中选择未占用的固定非零端口，重新启用 Bridge。插件不会自动抢占端口，也不会在端口冲突时改用随机端口。'),
       h('p', null, '在 Cloudflare 后台 Networking → Tunnels 创建隧道，Public Hostname 指向 Bridge：', remote.loopbackUrl ? h('code', null, remote.loopbackUrl) : '请先将 Bridge 配置为专用 HTTP loopback 监听。'),
       h('p', null, '然后把该隧道的 Token 和对应 HTTPS 地址填到上面。'),
       h('p', null, '如果已经用 cloudflared Windows 服务跑同一条隧道，请先停掉它，避免两条连接同时占用同一入口。'),
@@ -114,11 +118,12 @@ export function RelayPanel({ state, controller }) {
   return h('section', { className: 'dsma-remote', 'aria-label': '服务器中转设置' },
     h('h3', null, '服务器中转'),
     active ? h('p', { className: 'dsma-remote-status', role: 'status', 'aria-live': 'polite' }, relayStates[relay.state] ?? '请刷新状态') : null,
+    active && state.status?.pairing?.mode === 'direct' && state.status.pairing.available ? h('p', { className: 'dsma-remote-status', role: 'status' }, '中转尚未连接，当前二维码使用已配置的 HTTPS 直连入口。中转恢复后请重新生成二维码。') : null,
     active && relay.computerId ? h('p', { className: 'dsma-address' }, '电脑标识：', h('code', null, relay.computerId.slice(0, 8))) : null,
     h('form', { 'aria-label': '配置中转服务', onSubmit: event => { event.preventDefault(); const value = secret; setSecret(''); void controller.useRelay(address.trim(), value) } },
       h('label', { className: 'dsma-field' }, h('span', null, '中转服务地址'), h('input', { 'aria-label': '中转服务地址', type: 'url', required: true, autoComplete: 'off', spellCheck: false, placeholder: 'wss://relay.example.com', value: address, disabled: state.busy, maxLength: 2048, onChange: event => setAddress(event.target.value) })),
       h('label', { className: 'dsma-field' }, h('span', null, '注册密钥（可选）'), h('input', { 'aria-label': '中转注册密钥', type: 'password', autoComplete: 'new-password', spellCheck: false, placeholder: keep ? '已保存，留空则不修改' : '中转服务器要求时才填写', value: secret, disabled: state.busy, maxLength: 512, onChange: event => setSecret(event.target.value) })),
-      h('p', null, '默认中转无需密钥。填写的密钥只保存在本机 Bridge 专用目录，页面和手机都看不到。'),
+      h('p', null, '请向中转服务管理员获取地址，并按服务器要求填写注册密钥；仅已开放登记的服务允许留空。填写的密钥只保存在本机 Bridge 专用目录，页面和手机都看不到。'),
       h('div', { className: 'dsma-actions' }, h('button', { type: 'submit', className: 'dsma-primary', disabled: state.busy }, active ? '保存中转设置' : '保存并使用服务器中转'))),
     h('div', { className: 'dsma-remote-guide' },
       h('p', null, '电脑主动连到中转服务器，手机扫码后经它访问本机；不需要域名证书、端口映射或隧道。中转服务只转发加密数据，不保存聊天内容。'),
@@ -142,7 +147,7 @@ export function ConnectionModePanel({ state, controller }) {
     h('span', null, h('strong', null, title), h('small', null, detail)))
   return h('div', null,
     h('div', { className: 'dsma-modes', role: 'radiogroup', 'aria-label': '手机连接方式' },
-      option('relay', '服务器中转', '扫码即用，无需配置'),
+      option('relay', '服务器中转', '管理员提供地址，按服务要求填写密钥'),
       option('direct', '自己直连', '自己的 HTTPS 或 Cloudflare 隧道')),
     choice === 'relay' ? h(RelayPanel, { state, controller }) : h(RemoteConnectionPanel, { state, controller }))
 }

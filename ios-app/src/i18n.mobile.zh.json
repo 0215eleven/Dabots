@@ -1,4 +1,6 @@
 {
+  "A computer change is already in progress. Try again.": "正在切换电脑，请稍后重试。",
+  "The computer change was cancelled. Try again.": "切换电脑已取消，请重试。",
   "Paste pairing info": "粘贴配对信息",
   "The clipboard is empty.": "剪贴板为空，请先从电脑复制配对信息。",
   "Could not read the clipboard. Paste into the field instead.": "无法读取剪贴板，请在输入框中长按粘贴。",

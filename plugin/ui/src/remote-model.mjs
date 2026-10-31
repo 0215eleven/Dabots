@@ -15,6 +15,8 @@ const messages = {
   QUICK_UNAVAILABLE: '当前 Bridge 不是可代理的 HTTP loopback 服务。请检查 Bridge 监听配置。',
   QUICK_LOOPBACK_REQUIRED: '当前 Bridge 不是可代理的 HTTP loopback 服务。请检查 Bridge 监听配置。',
   QUICK_MODE_REQUIRED: '请先保存临时 Cloudflare 连接方式，再确认并启动。',
+  NAMED_FIXED_PORT_REQUIRED: '请先在 Bridge 插件配置中设置未占用的固定非零端口，重新启用 Bridge，再同步 Cloudflare 的 Service URL。',
+  BRIDGE_PORT_IN_USE: 'Bridge 端口已被占用。请检查现有服务或在插件配置中选择未占用的固定端口，然后重新启用 Bridge；使用自有隧道时同时更新 Service URL。',
   INVALID_PUBLIC_URL: '请输入完整 HTTPS 入口，不含账号、密码、路径、查询参数或片段。',
   INVALID_REMOTE_URL: '请输入完整 HTTPS 入口，不含账号、密码、路径、查询参数或片段。',
   REMOTE_URL_REQUIRED: '请填写已配置好的 HTTPS 入口地址。',
@@ -61,15 +63,19 @@ export function relayOrigin(value) {
 }
 
 export const relayMode = status => status?.relay?.mode === 'relay'
+export const pairingMode = status => status?.pairing?.mode ?? (relayMode(status) ? 'relay' : 'direct')
 
 export function pairingContext(status) {
   if (!status) return null
-  return JSON.stringify([status.enabled, status.serverId, status.url, status.remote?.mode, status.remote?.state, status.remote?.revision, status.relay?.mode, status.relay?.state, status.relay?.computerId, status.relay?.revision])
+  const mode = pairingMode(status)
+  return JSON.stringify([status.enabled, status.serverId, status.url, status.remote?.mode, status.remote?.state, status.remote?.revision,
+    mode, status.pairing?.available, ...(mode === 'relay' ? [status.relay?.relay, status.relay?.state, status.relay?.computerId, status.relay?.revision] : [])])
 }
 
 // The pairing code follows the selected door: the owner's relay, or the direct address.
 export function canPair(status) {
   if (status?.enabled !== true) return false
+  if (status.pairing) return ['direct', 'relay'].includes(status.pairing.mode) && status.pairing.available === true
   if (relayMode(status)) return status.relay.ready === true
   return !status.remote || Boolean(status.url) && (status.remote.state === 'running' || status.remote.state === 'configured')
 }

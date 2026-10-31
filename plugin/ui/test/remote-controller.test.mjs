@@ -122,6 +122,26 @@ test('relay mode pairs only when the relay is ready and shows the relay identity
   controller.dispose()
 })
 
+test('a direct response cannot be shown while status selects the relay transport', async () => {
+  const controller = createDeviceController({ now: () => 10, call: async method => method === 'pairing.create' ? pairing() : { ...relayStatus(), pairing: { mode: 'relay', available: true } } })
+  await controller.refresh(); await controller.create()
+  assert.equal(controller.snapshot().pairing, null)
+  controller.dispose()
+})
+
+test('a delayed fallback response cannot restore a QR after the default relay recovers', async () => {
+  const pending = deferred()
+  let current = { ...relayStatus({ state: 'offline', ready: false }), pairing: { mode: 'direct', available: true } }
+  const controller = createDeviceController({ now: () => 10, call: async method => method === 'pairing.create' ? pending.promise : current })
+  await controller.refresh()
+  const creating = controller.create()
+  current = { ...relayStatus(), pairing: { mode: 'relay', available: true } }
+  await controller.refresh()
+  pending.resolve(pairing()); await creating
+  assert.equal(controller.snapshot().pairing, null)
+  controller.dispose()
+})
+
 test('saving the relay keeps the optional secret out of controller state and switches once', async () => {
   const calls = []
   let current = status({ relay: { mode: 'direct', relay: null, secretSet: false, state: 'disabled', computerId: null, ready: false, revision: 0 } })

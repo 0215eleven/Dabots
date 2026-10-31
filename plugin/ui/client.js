@@ -2149,6 +2149,8 @@ var messages = {
   QUICK_UNAVAILABLE: "当前 Bridge 不是可代理的 HTTP loopback 服务。请检查 Bridge 监听配置。",
   QUICK_LOOPBACK_REQUIRED: "当前 Bridge 不是可代理的 HTTP loopback 服务。请检查 Bridge 监听配置。",
   QUICK_MODE_REQUIRED: "请先保存临时 Cloudflare 连接方式，再确认并启动。",
+  NAMED_FIXED_PORT_REQUIRED: "请先在 Bridge 插件配置中设置未占用的固定非零端口，重新启用 Bridge，再同步 Cloudflare 的 Service URL。",
+  BRIDGE_PORT_IN_USE: "Bridge 端口已被占用。请检查现有服务或在插件配置中选择未占用的固定端口，然后重新启用 Bridge；使用自有隧道时同时更新 Service URL。",
   INVALID_PUBLIC_URL: "请输入完整 HTTPS 入口，不含账号、密码、路径、查询参数或片段。",
   INVALID_REMOTE_URL: "请输入完整 HTTPS 入口，不含账号、密码、路径、查询参数或片段。",
   REMOTE_URL_REQUIRED: "请填写已配置好的 HTTPS 入口地址。",
@@ -2199,12 +2201,25 @@ function relayOrigin(value) {
   return parsed.origin;
 }
 var relayMode = (status) => status?.relay?.mode === "relay";
+var pairingMode = (status) => status?.pairing?.mode ?? (relayMode(status) ? "relay" : "direct");
 function pairingContext(status) {
   if (!status) return null;
-  return JSON.stringify([status.enabled, status.serverId, status.url, status.remote?.mode, status.remote?.state, status.remote?.revision, status.relay?.mode, status.relay?.state, status.relay?.computerId, status.relay?.revision]);
+  const mode = pairingMode(status);
+  return JSON.stringify([
+    status.enabled,
+    status.serverId,
+    status.url,
+    status.remote?.mode,
+    status.remote?.state,
+    status.remote?.revision,
+    mode,
+    status.pairing?.available,
+    ...mode === "relay" ? [status.relay?.relay, status.relay?.state, status.relay?.computerId, status.relay?.revision] : []
+  ]);
 }
 function canPair(status) {
   if (status?.enabled !== true) return false;
+  if (status.pairing) return ["direct", "relay"].includes(status.pairing.mode) && status.pairing.available === true;
   if (relayMode(status)) return status.relay.ready === true;
   return !status.remote || Boolean(status.url) && (status.remote.state === "running" || status.remote.state === "configured");
 }
@@ -2291,13 +2306,13 @@ function createDeviceController({ call, now = Date.now }) {
       if (method === "pairing.create" && value?.v === 2) {
         const relay = relayOrigin(value.relay), relayStatus = state.status?.relay;
         if (!RELAY_ID.test(value.computerId ?? "") || !RELAY_KEY.test(value.computerKey ?? "") || !value.code || !value.serverId || !(value.expiresAt > now())) throw Error("Bridge 返回的配对资料无效，请刷新后重试。");
-        if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && relayMode(state.status)) && (!relayStatus || relayStatus.relay === relay && relayStatus.computerId === value.computerId) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
+        if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && pairingMode(state.status) === "relay") && (!relayStatus || relayStatus.relay === relay && relayStatus.computerId === value.computerId) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
           emit({ pairing: { v: 2, relay, computerId: value.computerId, computerKey: value.computerKey, serverId: value.serverId, code: value.code, expiresAt: value.expiresAt } });
         }
       } else if (method === "pairing.create") {
         const url = httpsOrigin(value.url);
         if (!value.code || !value.serverId || !(value.expiresAt > now())) throw Error("Bridge 返回的配对资料无效，请刷新后重试。");
-        if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status)) && (!state.status?.url || state.status.url === url) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
+        if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && pairingMode(state.status) === "direct") && (!state.status?.url || state.status.url === url) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
           emit({ pairing: { url, code: value.code, serverId: value.serverId, expiresAt: value.expiresAt } });
         }
       }
@@ -2692,6 +2707,12 @@ var states = {
 var link = (href, label) => (0, import_react2.createElement)("a", { href, target: "_blank", rel: "noopener noreferrer" }, label);
 var savedUrl = (remote, mode) => remote?.configuredUrls?.[mode] ?? (remote?.mode === mode ? remote.configuredUrl : "") ?? "";
 function BridgeSetupNotice({ status }) {
+  if (status?.reason === "BRIDGE_PORT_IN_USE") return (0, import_react2.createElement)(
+    "div",
+    { className: "dsma-setup" },
+    (0, import_react2.createElement)("h3", null, "请选择未占用的 Bridge 端口"),
+    (0, import_react2.createElement)("p", { className: "dsma-error", role: "alert" }, remoteErrorMessage("BRIDGE_PORT_IN_USE"))
+  );
   if (status?.reason === "REMOTE_CLEANUP_REQUIRED") return (0, import_react2.createElement)(
     "div",
     { className: "dsma-setup" },
@@ -2704,7 +2725,7 @@ function BridgeSetupNotice({ status }) {
     { className: "dsma-setup" },
     (0, import_react2.createElement)("h3", null, "准备 App 连接"),
     (0, import_react2.createElement)("p", null, "先启用 DeepSeek Bot Pro Bridge，配置独立的绝对存储目录和 loopback 监听；随后可选择服务器中转或自己直连。"),
-    link("https://github.com/0215eleven/ds-bot-mobile-app/blob/main/docs/installation.md", "查看设置指南")
+    link("https://github.com/0215eleven/ds-bot-mobile/blob/main/plugin/docs/connection.md", "查看设置指南")
   );
 }
 function RemoteConnectionPanel({ state, controller }) {
@@ -2779,7 +2800,7 @@ function RemoteConnectionPanel({ state, controller }) {
       }, maxLength: 4096 })) : null,
       mode === "named" ? (0, import_react2.createElement)("p", { className: "dsma-small" }, "Token 会以未加密的明文保存到本机 Bridge 目录的 remote-connection.json。POSIX 下使用 0600 权限；Windows 下请通过目录 ACL 限制其他用户访问。已保存的 Token 不会由 Bridge 接口返回。") : null,
       mode === "quick" ? (0, import_react2.createElement)("p", null, "无需 Cloudflare 账号或域名。保存此方式后，仍需单独确认并点击启动。每次新建地址都会变化；插件不会自动启动或重启隧道。") : mode === "named" ? (0, import_react2.createElement)("p", null, "由插件自己运行并守护 cloudflared：保存后立即启动，进程断开会自动重连；DSH 重启后 Bridge 会自己把隧道拉起，不需要另装 Windows 服务。") : (0, import_react2.createElement)("p", null, "保存时只检查地址格式，不会创建 Cloudflare 隧道、修改 DNS 或验证外网可达性。请先确保该 HTTPS 地址指向此 Bridge。"),
-      (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", disabled: state.busy, className: "dsma-primary" }, state.busy ? "正在保存…" : mode === "named" ? "保存 Token 并启动隧道" : mode === "quick" ? "保存连接方式" : "验证格式并保存入口")),
+      (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", disabled: state.busy || mode === "named" && remote.namedAvailable === false, className: "dsma-primary" }, state.busy ? "正在保存…" : mode === "named" ? "保存 Token 并启动隧道" : mode === "quick" ? "保存连接方式" : "验证格式并保存入口")),
       notice ? (0, import_react2.createElement)("p", { className: notice.ok ? "dsma-ok" : "dsma-error", role: notice.ok ? "status" : "alert" }, notice.text) : null
     ),
     mode === "fixed" ? (0, import_react2.createElement)(
@@ -2802,6 +2823,7 @@ function RemoteConnectionPanel({ state, controller }) {
       "div",
       { className: "dsma-remote-guide" },
       (0, import_react2.createElement)("h4", null, "插件托管的 Cloudflare 隧道"),
+      (0, import_react2.createElement)("p", { ...remote.namedAvailable === false && remote.error !== "NAMED_FIXED_PORT_REQUIRED" ? { className: "dsma-error", role: "alert" } : {} }, "先在 Bridge 插件配置中选择未占用的固定非零端口，重新启用 Bridge。插件不会自动抢占端口，也不会在端口冲突时改用随机端口。"),
       (0, import_react2.createElement)("p", null, "在 Cloudflare 后台 Networking → Tunnels 创建隧道，Public Hostname 指向 Bridge：", remote.loopbackUrl ? (0, import_react2.createElement)("code", null, remote.loopbackUrl) : "请先将 Bridge 配置为专用 HTTP loopback 监听。"),
       (0, import_react2.createElement)("p", null, "然后把该隧道的 Token 和对应 HTTPS 地址填到上面。"),
       (0, import_react2.createElement)("p", null, "如果已经用 cloudflared Windows 服务跑同一条隧道，请先停掉它，避免两条连接同时占用同一入口。"),
@@ -2849,6 +2871,7 @@ function RelayPanel({ state, controller }) {
     { className: "dsma-remote", "aria-label": "服务器中转设置" },
     (0, import_react2.createElement)("h3", null, "服务器中转"),
     active ? (0, import_react2.createElement)("p", { className: "dsma-remote-status", role: "status", "aria-live": "polite" }, relayStates[relay.state] ?? "请刷新状态") : null,
+    active && state.status?.pairing?.mode === "direct" && state.status.pairing.available ? (0, import_react2.createElement)("p", { className: "dsma-remote-status", role: "status" }, "中转尚未连接，当前二维码使用已配置的 HTTPS 直连入口。中转恢复后请重新生成二维码。") : null,
     active && relay.computerId ? (0, import_react2.createElement)("p", { className: "dsma-address" }, "电脑标识：", (0, import_react2.createElement)("code", null, relay.computerId.slice(0, 8))) : null,
     (0, import_react2.createElement)(
       "form",
@@ -2860,7 +2883,7 @@ function RelayPanel({ state, controller }) {
       } },
       (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "中转服务地址"), (0, import_react2.createElement)("input", { "aria-label": "中转服务地址", type: "url", required: true, autoComplete: "off", spellCheck: false, placeholder: "wss://relay.example.com", value: address, disabled: state.busy, maxLength: 2048, onChange: (event) => setAddress(event.target.value) })),
       (0, import_react2.createElement)("label", { className: "dsma-field" }, (0, import_react2.createElement)("span", null, "注册密钥（可选）"), (0, import_react2.createElement)("input", { "aria-label": "中转注册密钥", type: "password", autoComplete: "new-password", spellCheck: false, placeholder: keep ? "已保存，留空则不修改" : "中转服务器要求时才填写", value: secret, disabled: state.busy, maxLength: 512, onChange: (event) => setSecret(event.target.value) })),
-      (0, import_react2.createElement)("p", null, "默认中转无需密钥。填写的密钥只保存在本机 Bridge 专用目录，页面和手机都看不到。"),
+      (0, import_react2.createElement)("p", null, "请向中转服务管理员获取地址，并按服务器要求填写注册密钥；仅已开放登记的服务允许留空。填写的密钥只保存在本机 Bridge 专用目录，页面和手机都看不到。"),
       (0, import_react2.createElement)("div", { className: "dsma-actions" }, (0, import_react2.createElement)("button", { type: "submit", className: "dsma-primary", disabled: state.busy }, active ? "保存中转设置" : "保存并使用服务器中转"))
     ),
     (0, import_react2.createElement)(
@@ -2896,7 +2919,7 @@ function ConnectionModePanel({ state, controller }) {
     (0, import_react2.createElement)(
       "div",
       { className: "dsma-modes", role: "radiogroup", "aria-label": "手机连接方式" },
-      option("relay", "服务器中转", "扫码即用，无需配置"),
+      option("relay", "服务器中转", "管理员提供地址，按服务要求填写密钥"),
       option("direct", "自己直连", "自己的 HTTPS 或 Cloudflare 隧道")
     ),
     choice === "relay" ? (0, import_react2.createElement)(RelayPanel, { state, controller }) : (0, import_react2.createElement)(RemoteConnectionPanel, { state, controller })

@@ -2,11 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createNamedTunnel } from '../src/named-tunnel.mjs'
 import { assertRemoteCleanupSafe, createRemoteConnection } from '../src/remote-connection.mjs'
+import { createMobileServer } from '../src/server.js'
 
 const token = 'test-only-cloudflare-token-not-a-real-account-credential'
 const url = 'https://phone.example'
@@ -31,7 +32,8 @@ async function fixture(t, options = {}) {
     managers.push(manager)
     return manager
   }
-  const remote = await createRemoteConnection({ home, server, createNamed })
+  const config = { port: 34123 }
+  const remote = await createRemoteConnection({ home, server, config, createNamed })
   const remotes = [remote]
   t.after(async () => {
     for (const child of children) child.emit('close')
@@ -40,7 +42,7 @@ async function fixture(t, options = {}) {
     await rm(home, { recursive: true, force: true })
   })
   return { home, server, remote, children, calls, managers,
-    async reload() { await remote.dispose(); const next = await createRemoteConnection({ home, server, createNamed }); remotes.push(next); return next } }
+    async reload() { await remote.dispose(); const next = await createRemoteConnection({ home, server, config, createNamed }); remotes.push(next); return next } }
 }
 
 test('named configuration persists privately, returns no token and keeps a saved token on URL edits', async t => {
@@ -118,4 +120,55 @@ test('failed named disposal persists a reload blocker instead of silently droppi
   await assert.rejects(f.remote.dispose(), { code: 'REMOTE_STOP_FAILED' })
   await assert.rejects(assertRemoteCleanupSafe(f.home), { code: 'REMOTE_CLEANUP_REQUIRED' })
   assert.equal(f.server.url, null)
+})
+
+test('named mode refuses a random port and preserves legacy saved credentials without starting', async t => {
+  const home = await mkdtemp(join(tmpdir(), 'named-random-port-'))
+  const server = await createMobileServer({ home, adapter: { capabilities: () => ({}), dispose: async () => {} }, config: { port: 0 }, managedRemote: true })
+  const createNamed = () => { throw Error('A random port must not start cloudflared') }
+  let remote = await createRemoteConnection({ home, server, config: { port: 0 }, createNamed })
+  t.after(async () => { await remote.dispose(); await server.close(); await rm(home, { recursive: true, force: true }) })
+  await assert.rejects(remote.configure({ mode: 'named', url, token }), { code: 'NAMED_FIXED_PORT_REQUIRED' })
+  await remote.dispose()
+  const saved = { version: 1, mode: 'named', existingUrl: 'https://old.example', fixedUrl: null, namedUrl: url, namedToken: token }
+  await writeFile(join(home, 'remote-connection.json'), JSON.stringify(saved), { mode: 0o600 })
+  remote = await createRemoteConnection({ home, server, config: { port: 0 }, createNamed })
+  assert.equal(remote.snapshot().state, 'error')
+  assert.equal(remote.snapshot().error, 'NAMED_FIXED_PORT_REQUIRED')
+  assert.equal(remote.snapshot().namedAvailable, false)
+  assert.equal(remote.snapshot().url, null)
+  assert.equal(remote.snapshot().tokenSet, true)
+  assert.deepEqual(JSON.parse(await readFile(join(home, 'remote-connection.json'), 'utf8')), saved)
+  assert.equal((await fetch(`http://127.0.0.1:${server.address.port}/mobile/v1/info`)).status, 200)
+  await assert.rejects(remote.start({ confirmed: true }), { code: 'NAMED_FIXED_PORT_REQUIRED' })
+  await remote.configure({ mode: 'existing' })
+  assert.equal(remote.snapshot().url, 'https://old.example')
+})
+
+test('a real fixed loopback listener keeps the named origin reachable after a Bridge restart', async t => {
+  const home = await mkdtemp(join(tmpdir(), 'named-fixed-restart-'))
+  const adapter = () => ({ capabilities: () => ({}), dispose: async () => {} })
+  const probe = await createMobileServer({ home, adapter: adapter(), config: { port: 0 }, managedRemote: true })
+  const port = probe.address.port
+  await probe.close()
+  const config = { port }
+  let server = await createMobileServer({ home, adapter: adapter(), config, managedRemote: true })
+  let launches = 0
+  const createNamed = ({ onChange }) => ({
+    async start() { launches++; onChange({ state: 'running', url, error: null }) },
+    async dispose() {}, async stop() {}, snapshot: () => ({ state: 'stopped', url: null, error: null }),
+  })
+  let remote = await createRemoteConnection({ home, server, config, createNamed })
+  t.after(async () => { await remote.dispose(); await server.close(); await rm(home, { recursive: true, force: true }) })
+  await remote.configure({ mode: 'named', url, token })
+  await remote.start({ confirmed: true })
+  const origin = remote.snapshot().loopbackUrl
+  assert.equal((await fetch(`${origin}/mobile/v1/info`)).status, 200)
+  await remote.dispose(); await server.close()
+  server = await createMobileServer({ home, adapter: adapter(), config, managedRemote: true })
+  remote = await createRemoteConnection({ home, server, config, createNamed })
+  await until(() => launches === 2)
+  assert.equal(remote.snapshot().loopbackUrl, origin)
+  assert.equal(remote.snapshot().state, 'running')
+  assert.equal((await fetch(`${origin}/mobile/v1/info`)).status, 200)
 })

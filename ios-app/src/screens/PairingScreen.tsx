@@ -100,20 +100,25 @@ export function PairingScreen({
         if (attempt.current !== run) return;
         if ("accessToken" in result) {
           clientRef.current = null;
-          await onConnected(
-            {
-              url: data.kind === "relay" ? client.baseUrl : url,
-              tlsPin: client.tlsPin,
-              serverId: info.serverId,
-              name: info.name || "My DSH host",
-              allowInsecure: data.kind === "direct" && __DEV__ && insecure,
-              slot,
-              ...(data.kind === "relay"
-                ? { relay: { relay: data.relay, computerId: data.computerId, computerKey: data.computerKey } }
-                : {}),
-            },
-            client,
-          );
+          try {
+            await onConnected(
+              {
+                url: data.kind === "relay" ? client.baseUrl : url,
+                tlsPin: client.tlsPin,
+                serverId: info.serverId,
+                name: info.name || "My DSH host",
+                allowInsecure: data.kind === "direct" && __DEV__ && insecure,
+                slot,
+                ...(data.kind === "relay"
+                  ? { relay: { relay: data.relay, computerId: data.computerId, computerKey: data.computerKey } }
+                  : {}),
+              },
+              client,
+            );
+          } catch (error) {
+            client.dispose();
+            throw error;
+          }
           return;
         }
         await new Promise((resolve) => setTimeout(resolve, 1500));

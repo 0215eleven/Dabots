@@ -144,3 +144,43 @@ test('production entry offers the relay mode beside direct access and never retu
   await bridge.operator('relay.select', { mode: 'direct' })
   assert.equal((await bridge.operator('pairing.create')).url, 'https://direct.example', 'direct pairing is untouched by the relay settings')
 })
+
+test('production status advertises usable direct fallback while an unchosen default relay is offline', async t => {
+  const home = await mkdtemp(join(tmpdir(), 'bridge-default-fallback-entry-'))
+  const bridge = await startBridge({ connection, sessionController: {} }, { home, publicUrl: 'https://direct.example', relay: 'wss://127.0.0.1:9' })
+  t.after(async () => { await bridge.close(); await rm(home, { recursive: true, force: true }) })
+  const status = await bridge.operator('status')
+  assert.equal(status.relay.mode, 'relay')
+  assert.equal(status.relay.ready, false)
+  assert.deepEqual(status.pairing, { mode: 'direct', available: true })
+  assert.equal((await bridge.operator('pairing.create')).url, 'https://direct.example')
+  await bridge.operator('relay.select', { mode: 'relay' })
+  assert.deepEqual((await bridge.operator('status')).pairing, { mode: 'relay', available: false })
+  await assert.rejects(bridge.operator('pairing.create'), { code: 'RELAY_NOT_READY' })
+})
+
+test('a fixed Bridge port conflict reports safe recovery through the owner status route', async t => {
+  const home = await mkdtemp(join(tmpdir(), 'bridge-port-conflict-'))
+  const occupied = createServer((_request, response) => response.end('existing service'))
+  await new Promise(resolve => occupied.listen(0, '127.0.0.1', resolve))
+  t.after(async () => { await new Promise(resolve => occupied.close(resolve)); await rm(home, { recursive: true, force: true }) })
+  const config = { enabled: true, home, port: occupied.address().port }
+  await assert.rejects(startBridge({ connection, sessionController: {} }, config), { code: 'BRIDGE_PORT_IN_USE' })
+  let handler, cleanup, registered
+  const ready = new Promise(resolve => { registered = resolve })
+  apply({ connection: { ...connection, admit: () => ({ peer: { principal: { kind: 'owner' } } }) }, sessionController: {},
+    webServer: { register(route) { handler = route.handler; registered(); return () => {} } }, effect(fn) { cleanup = fn() }, emit() {} }, config)
+  t.after(() => cleanup())
+  await ready
+  const owner = createServer((request, response) => { void handler(request, response) })
+  await new Promise(resolve => owner.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => owner.close(resolve)))
+  const response = await fetch(`http://127.0.0.1:${owner.address().port}/mobile-operator/status`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ type: 'client-request', rpcId: 'port-conflict', method: 'status', payload: {} }),
+  })
+  const status = (await response.json()).result.value
+  assert.equal(status.enabled, false)
+  assert.equal(status.reason, 'BRIDGE_PORT_IN_USE')
+  assert.equal((await fetch(`http://127.0.0.1:${config.port}`)).status, 200, 'the conflicting service stays untouched')
+})

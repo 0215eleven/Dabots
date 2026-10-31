@@ -14,11 +14,13 @@
 
 home 必须与 DSH_HOME 分离。端口仅为示例，使用前检查占用。固定隧道/反向代理需要稳定的非零端口；端口 0 会在重启后重新分配。
 
+新安装默认保留直连方式（`relay: ''`），不会自动登记到公开中转。已有保存的连接选择和注册密钥优先保留。使用服务器中转时填写管理员提供的地址，并按该服务要求提供注册密钥；只有管理员明确开放登记的中转才允许留空。更新插件或手机 App 不会开放服务器登记，也不要求先升级服务器。
+
 电脑所有者在“手机访问”选择连接方式：
 
 - 已有 HTTPS：保存已配置的外部入口，不创建证书、域名或反向代理。
 - 固定隧道：由用户运行自己的 connector；页面保存入口。
-- Cloudflare 隧道（填 Token，插件托管）：保存后由 Bridge 启动并守护 cloudflared，断开后自动重连，DSH 重启后自动恢复。
+- Cloudflare 隧道（填 Token，插件托管）：先为 Bridge 配置未被其他服务占用的非零 loopback 端口，再在 Cloudflare 填写该稳定目标。保存后由 Bridge 启动并守护 cloudflared，断开后自动重连，DSH 重启后自动恢复。随机端口不能用于此模式；端口冲突时不会报告连接成功。
 - 临时 Cloudflare：用户先安装 cloudflared，每次明确确认后启动。只代理 Bridge loopback，不代理 DSH 管理端口，不自动重启。
 - 服务器中转：使用自己的中转服务。部署材料见 [Relay DEPLOYMENT](../tools/relay/DEPLOYMENT.md) 和 [PROTOCOL](../tools/relay/PROTOCOL.md)。
 

@@ -9,7 +9,7 @@
     "host": { "type": "string", "minLength": 1, "default": "127.0.0.1" },
     "port": { "type": "integer", "minimum": 0, "maximum": 65535, "default": 0 },
     "publicUrl": { "type": "string", "format": "uri", "description": "Existing HTTPS origin without credentials, path or query. Owner may configure remote access in the companion; loopback waits without pairing until an address is selected." },
-    "relay": { "type": "string", "default": "wss://dsbot.ziyuegege.com", "description": "Relay server (wss:// origin) phones reach this computer through after a scan, until the owner picks another connection. Empty turns the default off." },
+    "relay": { "type": "string", "default": "", "description": "Optional administrator-configured default relay (wss:// origin). Empty keeps direct access; saved owner choices take precedence. Secret-required relays must be configured in the owner settings." },
     "remoteMode": { "type": "string", "enum": ["existing", "fixed", "quick"], "default": "existing", "description": "Initial remote mode; persisted owner selection takes precedence. Quick Tunnel never starts automatically." },
     "allowedOrigins": { "type": "array", "items": { "type": "string", "format": "uri" }, "default": [] },
     "certPath": { "type": "string", "minLength": 1 },

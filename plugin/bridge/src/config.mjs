@@ -7,7 +7,7 @@ export const Config = z.object({
   host: z.string().default('127.0.0.1'),
   port: z.natural().max(65535).default(0),
   publicUrl: z.string().description('Existing HTTPS origin; no credentials, path or query. May be configured in the owner remote connection page.'),
-  relay: z.string().default('wss://dsbot.ziyuegege.com').description('Relay server (wss:// origin) phones reach this computer through after a scan, until the owner picks another connection. Empty turns the default off.'),
+  relay: z.string().default('').description('Optional administrator-configured default relay (wss:// origin). Empty keeps direct access; saved owner choices take precedence. Secret-required relays must be configured in the owner settings.'),
   remoteMode: z.union(['existing', 'fixed', 'quick']).default('existing').description('Initial remote mode. Quick Tunnel always requires an explicit owner start; saved owner settings take precedence.'),
   allowedOrigins: z.array(String).default([]),
   certPath: z.string(),

@@ -60,8 +60,14 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
     chosen = true
   }
   let connector = null, generationOwner = null, state = { state: 'disabled', computerId: null, computerKey: null }, disposed = false, busy = false, revision = 0
+  const relayReady = () => state.state === 'ready' && Boolean(state.computerId && state.computerKey)
+  const pairingStatus = () => {
+    const mode = settings.mode === 'relay' && (chosen || relayReady() || !server.url) ? 'relay' : 'direct'
+    return { mode, available: mode === 'relay' ? relayReady() : Boolean(server.url) }
+  }
+  const pairingContext = () => JSON.stringify([pairingStatus(), ...(relayReady() ? [state.computerId, state.computerKey] : [])])
   const snapshot = () => ({ mode: settings.mode, relay: settings.relay, secretSet: Boolean(settings.secret), state: state.state,
-    computerId: state.computerId, ready: settings.mode === 'relay' && state.state === 'ready', revision })
+    computerId: state.computerId, ready: settings.mode === 'relay' && relayReady(), revision })
   async function stop() {
     const current = connector
     connector = null
@@ -76,7 +82,15 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
     const owner = {}
     generationOwner = owner
     const current = connect({ relay: settings.relay, secret: settings.secret, identity, serverId: server.serverId, endpoint: id => server.relayEndpoint(id), ...(Socket ? { Socket } : {}),
-      onStatus: value => { if (generationOwner === owner) { if (value.state !== state.state) revision++; state = { state: value.state, computerId: value.computerId, computerKey: value.computerKey } } } })
+      onStatus: value => {
+        if (generationOwner !== owner) return
+        const before = pairingContext()
+        if (value.state !== state.state || value.computerId !== state.computerId || value.computerKey !== state.computerKey) revision++
+        state = { state: value.state, computerId: value.computerId, computerKey: value.computerKey }
+        // A QR represents one available transport and identity. A default
+        // relay recovering or failing must revoke codes from its previous door.
+        if (before !== pairingContext()) server.invalidatePairings()
+      } })
     connector = current
   }
   async function change(next) {
@@ -98,6 +112,7 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
   if (settings.mode === 'relay' && settings.relay) await start()
   return {
     snapshot,
+    pairingStatus,
     async configure(payload) {
       if (!payload || typeof payload !== 'object' || Object.keys(payload).some(key => !['relay', 'secret'].includes(key))) refuse('INVALID_RELAY_SETTINGS', '请填写中转服务地址。')
       const relay = validateRelayUrl(payload.relay)
@@ -115,8 +130,8 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
     // authenticate this computer through the owner's relay.
     pairing() {
       if (settings.mode !== 'relay') return null
-      if (!chosen && state.state !== 'ready') return null
-      if (state.state !== 'ready' || !state.computerKey) throw new BridgeError(409, 'RELAY_NOT_READY', '中转连接尚未就绪，请检查网络和中转服务地址。')
+      if (pairingStatus().mode === 'direct') return null
+      if (!relayReady()) throw new BridgeError(409, 'RELAY_NOT_READY', '中转连接尚未就绪，请检查网络和中转服务地址。')
       const created = server.createPairing()
       return { v: 2, relay: settings.relay, computerId: state.computerId, computerKey: state.computerKey, serverId: created.serverId, code: created.code, expiresAt: created.expiresAt }
     },

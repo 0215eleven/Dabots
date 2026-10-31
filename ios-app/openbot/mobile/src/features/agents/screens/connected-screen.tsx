@@ -4,7 +4,7 @@ import type { ChannelSummary } from '@openbot/contracts/ipc';
 import { router, Stack } from 'expo-router';
 import { Typography } from 'heroui-native';
 import { memo, useMemo, useState, useLayoutEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import PlusIcon from 'lucide-react-native/icons/plus';
 import { type MenuAction, MenuView } from '@/shared/components/menu-view';
 import EllipsisIcon from 'lucide-react-native/icons/ellipsis';
@@ -126,20 +126,20 @@ const ROW_AVATAR = 48;
 function RowSeparator() {
     return <View className="bg-separator" style={{ height: StyleSheet.hairlineWidth, marginLeft: ROW_LEFT + ROW_AVATAR + 12, marginRight: 0 }}/>;
 }
-function IconButton({ label, status, onPress, children }: { label: string; status?: string; onPress?: () => void; children: React.ReactNode }) {
+function IconButton({ label, status, onPress, disabled, children }: { label: string; status?: string; onPress?: () => void; disabled?: boolean; children: React.ReactNode }) {
     const fallback = useThemeColor('default');
     const liquidGlass = useLiquidGlass();
-    return <ChatGlassButton accessibilityLabel={label} accessibilityValue={status ? {text: status} : undefined} onPress={onPress} fallbackBackground={fallback} liquidGlassAvailable={liquidGlass} width={44} height={44}>{children}</ChatGlassButton>;
+    return <ChatGlassButton accessibilityLabel={label} accessibilityValue={status ? {text: status} : undefined} disabled={disabled} onPress={onPress} fallbackBackground={fallback} liquidGlassAvailable={liquidGlass} width={44} height={44}>{children}</ChatGlassButton>;
 }
 function SectionLabel({ children }: { children: string }) {
     return <Typography.Paragraph className="text-muted" style={{ fontSize: 13, lineHeight: 18, fontWeight: '600', paddingHorizontal: ROW_LEFT + 4, paddingTop: 8, paddingBottom: 2 }}>{children}</Typography.Paragraph>;
 }
 // DS Bot Mobile: one chip per paired computer, however it was added. "All" lists every computer's
 // chats with a computer tag on each row; a computer chip shows that computer alone.
-function ComputerChip({ label, selected, status, onPress }: { label: string; selected: boolean; status?: 'online' | 'offline'; onPress: () => void }) {
+function ComputerChip({ label, selected, status, disabled, onPress }: { label: string; selected: boolean; status?: 'online' | 'offline'; disabled?: boolean; onPress: () => void }) {
     const [foreground, muted, success] = useThemeColor(['foreground', 'muted', 'success']);
     const color = selected ? String(foreground) : String(muted);
-    return <Pressable accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={label} onPress={onPress} className={`flex-row items-center gap-1.5 rounded-full px-3.5 ${selected ? 'bg-control' : ''}`} style={({ pressed }) => ({ height: 34, opacity: pressed ? 0.6 : 1 })}>
+    return <Pressable accessibilityRole="tab" accessibilityState={{ selected, disabled }} accessibilityLabel={label} disabled={disabled} onPress={onPress} className={`flex-row items-center gap-1.5 rounded-full px-3.5 ${selected ? 'bg-control' : ''}`} style={({ pressed }) => ({ height: 34, opacity: disabled ? 0.5 : pressed ? 0.6 : 1 })}>
      {status ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: status === 'online' ? String(success) : String(muted), opacity: status === 'online' ? 1 : 0.6 }}/> : null}
      {status ? <LaptopIcon size={15} color={color} strokeWidth={2}/> : null}
      <Typography.Paragraph numberOfLines={1} style={{ fontSize: 15, lineHeight: 20, fontWeight: '600', color }}>{label}</Typography.Paragraph>
@@ -167,18 +167,23 @@ export function ConnectedScreen() {
     const canAddBot = view?.capabilities.actions.includes('create-bot') ?? false;
     const canAddGroup = view?.capabilities.actions.includes('create-room') ?? false;
     const createActions: MenuAction[] = [...(canAddBot ? [{ id: 'bot', title: tr('Add Bot'), image: 'person.badge.plus' as const }] : []), ...(canAddGroup ? [{ id: 'group', title: tr('New group'), image: 'person.2' as const }] : [])];
-    const create = (id: string) => router.push(id === 'group' ? '/add-channel' : '/add-agent');
+    const create = (id: string) => { if (!computers.switching) router.push(id === 'group' ? '/add-channel' : '/add-agent'); };
     const plus = <PlusIcon size={20} color={foreground} strokeWidth={2}/>;
     const hasPinned = pinnedAgents.length > 0 || pinnedGroups.length > 0;
     const computers = useComputers();
     const names = useComputerNames();
-    const [filter, setFilter] = useState<'all' | string>('all');
+    const [allComputers, setAllComputers] = useState(true);
+    // A single-computer label always belongs to the workspace being displayed,
+    // including while another selection is waiting on credentials or SQLite.
+    const filter = allComputers ? 'all' : computers.host?.serverId ?? 'all';
     const multiple = computers.hosts.length > 1;
     const tags = useMemo(() => multiple && filter === 'all' ? new Map(computers.hosts.map(h => [h.serverId, names.name(h)])) : null, [multiple, filter, computers.hosts, names]);
     const pick = (serverId: string) => {
-        setFilter(serverId);
+        if (computers.switching) return;
         const host = computers.hosts.find(h => h.serverId === serverId);
-        if (host && host.serverId !== computers.host?.serverId) void computers.switchHost(host);
+        if (!host) return;
+        if (host.serverId === computers.host?.serverId) setAllComputers(false);
+        else void computers.switchHost(host).then(ok => { if (ok) setAllComputers(false); });
     };
     // "All" merges the other computers' chats, newest first, with the active computer's unpinned chats.
     const { peers } = usePeerHosts();
@@ -189,6 +194,7 @@ export function ConnectedScreen() {
         : items;
     const status = (serverId: string): 'online' | 'offline' => serverId === computers.host?.serverId ? (online ? 'online' : 'offline') : peers[serverId]?.online ? 'online' : 'offline';
     const openPeer = async (row: PeerRow) => {
+        if (computers.switching) return;
         const host = computers.hosts.find(h => h.serverId === row.serverId);
         if (!host || !(await computers.switchHost(host))) return;
         router.push(row.kind === 'group' ? { pathname: '/channel/[channelId]', params: { channelId: row.id, serverId: row.serverId } } : { pathname: '/chat/[agentId]', params: { agentId: row.id } });
@@ -198,9 +204,11 @@ export function ConnectedScreen() {
   {/* The list pads both safe-area edges itself; UIKit must not add them again. Settings and New float at the bottom corners. */}
   <Animated.FlatList data={listed} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24 + 60, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => item.peer ? <PeerChatRow row={item.peer} online={peers[item.peer.serverId]?.online === true} onOpen={row => void openPeer(row)}/> : <TransitioningChatRow agent={item.agent} channel={item.channel} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
    {multiple ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: ROW_LEFT, paddingTop: 4, paddingBottom: 4 }}>
-    <ComputerChip label={tr('All')} selected={filter === 'all'} onPress={() => setFilter('all')}/>
-    {computers.hosts.map(h => <ComputerChip key={h.slot || h.serverId} label={names.name(h)} selected={filter === h.serverId} status={status(h.serverId)} onPress={() => pick(h.serverId)}/>)}
+    <ComputerChip label={tr('All')} selected={filter === 'all'} disabled={computers.switching} onPress={() => { if (!computers.switching) setAllComputers(true); }}/>
+    {computers.hosts.map(h => <ComputerChip key={h.slot || h.serverId} label={names.name(h)} selected={filter === h.serverId} status={status(h.serverId)} disabled={computers.switching} onPress={() => pick(h.serverId)}/>)}
+    {computers.switching ? <ActivityIndicator accessibilityLabel={tr('Connecting…')} size="small" color={String(muted)} /> : null}
    </ScrollView> : null}
+   {computers.error ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-4 py-2">{tr(computers.error)}</Typography.Paragraph> : null}
    {view?.readOnly ? <View className="mx-4 mb-3 rounded-2xl bg-control px-4 py-3"><Typography.Paragraph className="text-text-secondary" style={{ fontSize: 13, lineHeight: 18 }}>{tr(view.readOnly)}</Typography.Paragraph></View> : null}
    {hasPinned ? <>
     <SectionLabel>{tr('Pinned chats')}</SectionLabel>
@@ -216,8 +224,8 @@ export function ConnectedScreen() {
     <View pointerEvents="none" accessible={false} style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 3.5, backgroundColor: online ? String(success) : String(muted) }}/>
    </IconButton>
    <View pointerEvents="none" className="flex-1" />
-   {createActions.length > 1 ? <MenuView actions={createActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
-       : createActions.length === 1 ? <IconButton label={createActions[0].title} onPress={() => create(createActions[0].id ?? 'bot')}>{plus}</IconButton> : null}
+   {createActions.length > 1 ? computers.switching ? <IconButton label={tr('New chat')} disabled>{plus}</IconButton> : <MenuView actions={createActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
+       : createActions.length === 1 ? <IconButton label={createActions[0].title} disabled={computers.switching} onPress={() => create(createActions[0].id ?? 'bot')}>{plus}</IconButton> : null}
   </View>
  </View></ComputerTagContext.Provider>;
 }

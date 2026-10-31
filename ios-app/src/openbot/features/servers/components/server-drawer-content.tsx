@@ -17,6 +17,7 @@ import { Alert, Pressable, ScrollView, View, type ViewStyle } from "react-native
 import Animated, { cubicBezier } from "react-native-reanimated";
 import { useCSSVariable } from "uniwind";
 import { tr } from "../../../../i18n";
+import { errorText } from "../../../../types";
 import { hostAddress } from "../../../../logic/hosts";
 import type { Route } from "../../../../logic/app-navigation";
 import { useSession } from "../../../../session/SessionProvider";
@@ -62,7 +63,7 @@ export const ServerDrawerContent = memo(function ServerDrawerContent({ muted, op
     void haptics.longPress();
     Alert.alert(tr("Forget {p0}?", { p0: host.name }), undefined, [
       { text: tr("Cancel"), style: "cancel" },
-      { text: tr("Forget"), style: "destructive", onPress: () => void session.forgetHost(host) },
+      { text: tr("Forget"), style: "destructive", onPress: () => void session.forgetHost(host).catch(error => Alert.alert(tr("Forget"), tr(errorText(error)))) },
     ]);
   };
 

@@ -21,6 +21,7 @@ import { errorText } from "../types";
 import { createDurableOutboxStore } from "../outbox/store";
 import { hostClients } from "./shared-host-clients";
 import type { HostLease } from "./host-clients";
+import { createHostTransitions } from "./host-transitions";
 import { enabledFixture, fixtureControl } from "../preview/enabled-fixture";
 import { designPreview, previewClient, previewHosts } from "../preview/preview-session";
 
@@ -31,6 +32,8 @@ export interface Session {
   hosts: Host[];
   host: Host | null;
   client: MobileClient | null;
+  /** A computer selection, pairing or removal is still committing on this phone. */
+  switching: boolean;
   workspace: Workspace;
   outbox: Outbox | null;
   foreground: boolean;
@@ -64,7 +67,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [host, setHost] = useState<Host | null>(null);
   const [client, setClient] = useState<MobileClient | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const transitions = useRef<ReturnType<typeof createHostTransitions> | null>(null);
+  transitions.current ??= createHostTransitions(setSwitching);
+  const selection = transitions.current;
+  const hostsRef = useRef(hosts); hostsRef.current = hosts;
+  const hostRef = useRef(host); hostRef.current = host;
+  const clientRef = useRef(client); clientRef.current = client;
   const [loading, setLoading] = useState(true);
+  const restoring = useRef(true);
   const [error, setError] = useState("");
   const [pairingSlot, setPairingSlot] = useState(newSlot);
   const [foreground, setForeground] = useState(AppState.currentState === "active");
@@ -79,13 +90,27 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   workspaceRef.current = workspace;
   // Leases on the shared per-computer clients this session has shown; released when it stops showing one.
   const leases = useRef(new Map<MobileClient, HostLease[]>());
-  const hold = (lease: HostLease) => { leases.current.set(lease.client, [...(leases.current.get(lease.client) ?? []), lease]); return lease.client; };
+  const managedClients = useRef(new WeakSet<MobileClient>());
+  const hold = (lease: HostLease) => {
+    managedClients.current.add(lease.client);
+    leases.current.set(lease.client, [...(leases.current.get(lease.client) ?? []), lease]);
+    return lease.client;
+  };
   const letGo = (value: MobileClient) => {
     const held = leases.current.get(value);
     const lease = held?.shift();
     if (held && !held.length) leases.current.delete(value);
-    if (lease) lease.release(); else value.dispose();
+    if (lease) lease.release();
+    else if (!managedClients.current.has(value)) value.dispose();
   };
+  const showHost = (value: Host | null, connection: MobileClient | null) => {
+    hostRef.current = value;
+    clientRef.current = connection;
+    setHost(value);
+    setClient(connection);
+  };
+  const rememberHosts = (value: Host[]) => { hostsRef.current = value; setHosts(value); };
+  useEffect(() => { selection.setActive(true); return () => selection.setActive(false); }, [selection]);
 
   useEffect(() => {
     void readCache<ColorMode>("app", "colorMode").then(value => { if (value === "dark" || value === "light") setColorMode(value); }).catch(() => {});
@@ -94,16 +119,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!enabledFixture || !fixtureControl) return;
     fixtureControl.refresh = () => workspaceRef.current.refreshSnapshot({fresh:true});
-    fixtureControl.replaceHost = () => { if(client) conversationStreams.clear(client); setHost(previewHosts[1]); setClient(previewClient('studio')); };
+    fixtureControl.replaceHost = () => { if(client) conversationStreams.clear(client); showHost(previewHosts[1], previewClient('studio')); };
   }, [client]);
 
   // Restore saved computers and open the active one.
   useEffect(() => {
     if (designPreview) {
-      setHosts(previewHosts);
-      setHost(previewHosts[0]);
-      void hostClients.acquire(previewHosts[0]).then(lease => setClient(hold(lease))).finally(() => setLoading(false));
-      return;
+      let mounted = true;
+      rememberHosts(previewHosts);
+      void hostClients.acquire(previewHosts[0]).then(lease => {
+        if (!mounted) return lease.release();
+        showHost(previewHosts[0], hold(lease));
+      }).catch(err => { if (mounted) setError(errorText(err)); })
+        .finally(() => { if (mounted) { restoring.current = false; setLoading(false); } });
+      return () => { mounted = false; };
     }
     let mounted = true;
     void Promise.all([readCache<Host[]>("app", "hosts"), readCache<Host>("app", "host"), readCache<string>("app", "activeHost")])
@@ -111,18 +140,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const list = restoreHosts(saved, legacy);
         if (legacy) { await writeCache("app", "hosts", list); await writeCache("app", "host", null); }
         if (!mounted) return;
-        setHosts(list);
+        rememberHosts(list);
         const target = activeHost(list, active);
         if (!target) return;
         const stored = await tokenStoreFor(target.slot).get();
+        if (!mounted) return;
         if (!stored && list.length === 1) return;
         const lease = await hostClients.acquire(target);
         if (!mounted) return lease.release();
-        setHost(target);
-        setClient(hold(lease));
+        showHost(target, hold(lease));
       })
-      .catch(err => setError(errorText(err)))
-      .finally(() => { if (mounted) setLoading(false); });
+      .catch(err => { if (mounted) setError(errorText(err)); })
+      .finally(() => { if (mounted) { restoring.current = false; setLoading(false); } });
     return () => { mounted = false; };
   }, []);
 
@@ -130,6 +159,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const stop = watchConversationStreamLifecycle(client, AppState, setForeground);
     return () => { stop(); if (client) letGo(client); };
   }, [client]);
+  // A committed client can be held before React renders its [client] effect.
+  // Release those remaining leases too; never directly dispose a shared client
+  // whose other leases belong to the background watchers.
+  useEffect(() => () => {
+    for (const held of leases.current.values()) for (const lease of held) lease.release();
+    leases.current.clear();
+  }, []);
 
   useEffect(() => { setThemePreferences(workspace.team.prefs); }, [workspace.team.prefs]);
 
@@ -206,19 +242,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
   const openRef = useRef(open);
   openRef.current = open;
-  const notificationTarget = useRef<string | null>(null);
+  const notificationTarget = useRef<object | null>(null);
   useNotifications(client, host?.serverId, workspace.online, id => openRef.current(id), undefined, workspace.team.mobileCapabilities);
 
   // A tap on a notification of another saved computer: switch to it, then open the chat.
-  const hostsRef = useRef(hosts); hostsRef.current = hosts;
-  const hostRef = useRef(host); hostRef.current = host;
   useEffect(() => notificationResponses(data => {
     if (typeof data.serverId !== "string" || typeof data.conversationId !== "string") return;
     if (data.serverId === hostRef.current?.serverId) return;
     const target = hostsRef.current.find(item => item.serverId === data.serverId);
     if (!target) return;
-    notificationTarget.current = data.conversationId;
-    void switchHost(target).then(ok => { if (ok && notificationTarget.current) openRef.current(notificationTarget.current); notificationTarget.current = null; });
+    const conversation = data.conversationId, intent = {};
+    notificationTarget.current = intent;
+    void switchHost(target).then(ok => {
+      if (notificationTarget.current !== intent) return;
+      if (ok && hostRef.current?.serverId === target.serverId) openRef.current(conversation);
+      notificationTarget.current = null;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []);
 
@@ -233,68 +272,103 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const previous = (await readCache<Record<string, unknown>>(host.serverId, "mobile-preferences")) || {};
     await writeCache(host.serverId, "mobile-preferences", { ...previous, classic: value });
   }
-  async function connected(value: Host, connection: MobileClient) {
-    const { hosts: next, replaced } = upsertHost(hosts, value);
-    await Promise.allSettled(replaced.map(item => tokenStoreFor(item.slot).clear()));
-    await writeCache("app", "hosts", next);
-    await writeCache("app", "activeHost", hostKey(value));
-    if (client) conversationStreams.clear(client);
-    setHosts(next);
-    setHost(value);
-    setClient(hold(hostClients.adopt(value, connection)));
-    setError("");
-    setPairingSlot(newSlot());
-    resetHostView();
+  function mutateHost(run: (current: () => boolean) => Promise<void>) {
+    if (restoring.current) return Promise.reject(new Error('A computer change is already in progress. Try again.'));
+    return selection.mutate(run);
   }
-  async function switchHost(target: Host) {
-    if (client && host && hostKey(host) === hostKey(target)) return true;
+  async function connected(value: Host, connection: MobileClient) {
+    return mutateHost(async current => {
+      const assertCurrent = () => { if (!current()) throw new Error('The computer change was cancelled. Try again.'); };
+      assertCurrent();
+      const { hosts: next, replaced } = upsertHost(hostsRef.current, value);
+      await Promise.allSettled(replaced.map(item => tokenStoreFor(item.slot).clear()));
+      assertCurrent();
+      await writeCache("app", "hosts", next);
+      assertCurrent();
+      await writeCache("app", "activeHost", hostKey(value));
+      assertCurrent();
+      if (clientRef.current) conversationStreams.clear(clientRef.current);
+      rememberHosts(next);
+      showHost(value, hold(hostClients.adopt(value, connection)));
+      setError("");
+      setPairingSlot(newSlot());
+      resetHostView();
+    });
+  }
+  const sameHost = (left: Host | null, right: Host) => left?.serverId === right.serverId && hostKey(left) === hostKey(right);
+  async function selectHost(target: Host, current: () => boolean) {
+    if (!current() || !hostsRef.current.some(item => sameHost(item, target))) return false;
+    if (clientRef.current && sameHost(hostRef.current, target)) return true;
     setError("");
+    let lease: HostLease | null = null;
     try {
-      const lease = await hostClients.acquire(target);
-      try { await writeCache("app", "activeHost", hostKey(target)); }
-      catch (err) { lease.release(); throw err; }
-      if (client) conversationStreams.clear(client);
-      setHost(target);
-      setClient(hold(lease));
+      lease = await hostClients.acquire(target);
+      if (!current()) return false;
+      await writeCache("app", "activeHost", hostKey(target));
+      if (!current()) return false;
+      if (clientRef.current) conversationStreams.clear(clientRef.current);
+      showHost(target, hold(lease));
+      lease = null;
       resetHostView();
       return true;
     } catch (err) {
-      setError(errorText(err));
+      if (current()) setError(errorText(err));
       return false;
-    }
+    } finally { lease?.release(); }
+  }
+  function switchHost(target: Host) {
+    if (restoring.current) return Promise.resolve(false);
+    return selection.switchTo(JSON.stringify([target.serverId, hostKey(target)]), current => selectHost(target, current));
   }
   async function forgetHost(target: Host) {
-    if (client && host && hostKey(host) === hostKey(target)) return;
-    const rest = removeHost(hosts, target);
-    await tokenStoreFor(target.slot).clear();
-    await clearCache(target.serverId);
-    await writeCache("app", "hosts", rest);
-    setHosts(rest);
+    return mutateHost(async current => {
+      if (!current()) return;
+      if (clientRef.current && sameHost(hostRef.current, target)) return;
+      const rest = removeHost(hostsRef.current, target);
+      await tokenStoreFor(target.slot).clear();
+      if (!current()) return;
+      await clearCache(target.serverId);
+      if (!current()) return;
+      await writeCache("app", "hosts", rest);
+      if (current()) rememberHosts(rest);
+    });
   }
   async function disconnect() {
-    if (client) conversationStreams.clear(client);
-    if (host) { await writeCache(host.serverId, "backgroundOptIn", false); await writeCache(host.serverId, "pushOptIn", false); }
-    const allows = (action: string) => mobileActionAllowed(workspace.team.mobileCapabilities, action);
-    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 3000);
-    try {
-      await Promise.allSettled([
-        stopBackgroundNotifications(allows("notifications-background-unregister") ? client || undefined : undefined),
-        allows("notifications-preferences") ? client?.action("notifications-preferences", { enabled: false, categories: [] }, { signal: controller.signal }) : undefined,
-      ]);
-    } finally { clearTimeout(timer); }
-    if (client) await client.logout(); else if (host) await tokenStoreFor(host.slot).clear();
-    const rest = host ? removeHost(hosts, host) : hosts;
-    await writeCache("app", "hosts", rest);
-    await writeCache("app", "activeHost", null);
-    setHosts(rest);
-    setClient(null);
-    setHost(null);
-    resetHostView();
-    if (rest[0]) await switchHost(rest[0]);
+    return mutateHost(async current => {
+      if (!current()) return;
+      const client = clientRef.current, host = hostRef.current;
+      if (client) conversationStreams.clear(client);
+      if (host) {
+        await writeCache(host.serverId, "backgroundOptIn", false);
+        if (!current()) return;
+        await writeCache(host.serverId, "pushOptIn", false);
+        if (!current()) return;
+      }
+      const allows = (action: string) => mobileActionAllowed(workspace.team.mobileCapabilities, action);
+      const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 3000);
+      try {
+        await Promise.allSettled([
+          stopBackgroundNotifications(allows("notifications-background-unregister") ? client || undefined : undefined),
+          allows("notifications-preferences") ? client?.action("notifications-preferences", { enabled: false, categories: [] }, { signal: controller.signal }) : undefined,
+        ]);
+      } finally { clearTimeout(timer); }
+      if (!current()) return;
+      if (client) await client.logout(); else if (host) await tokenStoreFor(host.slot).clear();
+      if (!current()) return;
+      const rest = host ? removeHost(hostsRef.current, host) : hostsRef.current;
+      await writeCache("app", "hosts", rest);
+      if (!current()) return;
+      await writeCache("app", "activeHost", null);
+      if (!current()) return;
+      rememberHosts(rest);
+      showHost(null, null);
+      resetHostView();
+      if (rest[0]) await selectHost(rest[0], current);
+    });
   }
 
   const value: Session = {
-    loading, error, hosts, host, client, workspace, outbox, foreground, pairingSlot, agentMode, agentsAvailable, setAgentMode,
+    loading, error, hosts, host, client, switching, workspace, outbox, foreground, pairingSlot, agentMode, agentsAvailable, setAgentMode,
     connected, switchHost, forgetHost, disconnect, resume, open,
   };
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

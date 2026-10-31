@@ -367,3 +367,15 @@ container uses the same sheet background token as SettingsContent. The title
 and navigation header remain hidden. No custom pan handler or second inset
 layer was added. Browser checks validate route configuration and content, not
 iOS sheet gesture/animation behavior; those require a device build.
+
+
+## Computer selection consistency
+
+The adapted home derives each single-computer selection from the active DS
+workspace. Switching shows pending controls, blocks duplicate conflicting actions
+and reports failures without relabeling the old computer as the requested one.
+Shared session transitions serialize credential/cache operations across home,
+settings, pairing and notification entry points; no new account or transport is
+added. The upstream original stays preserved, and the adapted home hash is
+refreshed in provenance.json. Regression evidence uses the actual provider and
+screen with synthetic IO; native device interaction remains unverified.

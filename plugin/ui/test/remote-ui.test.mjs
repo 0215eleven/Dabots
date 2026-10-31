@@ -38,7 +38,9 @@ function harness(initialRemote, initialBusy = false) {
     assert.equal(typeof exports.BridgeSetupNotice, 'function', 'disabled Bridge states must render their own recovery guidance')
     return exports.BridgeSetupNotice({ status: state.status })
   }
-  return { render, renderSetup, find, nodes, text, calls, state }
+  const renderDevices = () => { index = 0; return exports.DevicesPage({ controller }) }
+  const renderRelay = () => { index = 0; return exports.RelayPanel({ state, controller }) }
+  return { render, renderSetup, renderDevices, renderRelay, find, nodes, text, calls, state }
 }
 const quick = { mode: 'quick', state: 'stopped', url: null, configuredUrl: '', configuredUrls: { existing: 'https://old.example', fixed: 'https://fixed.example' }, loopbackUrl: 'http://127.0.0.1:8123', quickAvailable: true, revision: 0, error: null }
 
@@ -132,4 +134,40 @@ test('a cleanup-blocked Bridge shows manual recovery without echoing unknown ser
   assert.ok(fallback.includes('启用 DeepSeek Bot Pro Bridge'))
   assert.equal(fallback.includes('remote-cleanup-required.json'), false)
   assert.equal(fallback.includes('untrusted server diagnostic'), false)
+})
+
+test('named mode explains and blocks random-port startup without choosing or occupying a port', () => {
+  const ui = harness({ ...quick, mode: 'named', namedAvailable: false, state: 'error', error: 'NAMED_FIXED_PORT_REQUIRED', tokenSet: true })
+  const tree = ui.render()
+  assert.equal(ui.find('button', '保存 Token 并启动隧道').props.disabled, true)
+  const message = ui.text(tree)
+  assert.ok(message.includes('固定非零端口') && message.includes('重新启用 Bridge') && message.includes('Service URL'))
+  assert.equal(ui.nodes(tree, node => node.props.role === 'alert').length, 1)
+  assert.deepEqual(ui.calls, [])
+})
+
+test('a port conflict shows a safe setup recovery message without exposing server diagnostics', () => {
+  const ui = harness(quick)
+  ui.state.status = { enabled: false, reason: 'BRIDGE_PORT_IN_USE', message: 'private host diagnostic' }
+  const tree = ui.renderSetup()
+  const message = ui.text(tree)
+  assert.ok(message.includes('端口已被占用') && message.includes('未占用的固定端口'))
+  assert.equal(message.includes('private host diagnostic'), false)
+  assert.equal(ui.nodes(tree, node => node.type === 'button').length, 0)
+  assert.deepEqual(ui.calls, [])
+})
+
+test('the shipped pairing button and relay notice follow the effective direct fallback', () => {
+  const ui = harness({ ...quick, mode: 'existing', state: 'configured', url: 'https://direct.example' })
+  ui.state.status.url = 'https://direct.example'
+  ui.state.status.relay = { mode: 'relay', state: 'offline', ready: false, relay: 'wss://relay.example' }
+  ui.state.status.pairing = { mode: 'direct', available: true }
+  const generate = ui.nodes(ui.renderDevices(), node => node.type === 'button' && ui.text(node) === '生成配对二维码')[0]
+  assert.equal(generate.props.disabled, false)
+  const notice = ui.text(ui.renderRelay())
+  assert.ok(notice.includes('当前二维码使用已配置的 HTTPS 直连入口'))
+  assert.ok(notice.includes('按服务器要求填写注册密钥'))
+  ui.state.status.pairing = { mode: 'relay', available: false }
+  const unavailable = ui.nodes(ui.renderDevices(), node => node.type === 'button' && ui.text(node) === '生成配对二维码')[0]
+  assert.equal(unavailable.props.disabled, true)
 })

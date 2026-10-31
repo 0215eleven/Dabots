@@ -48,6 +48,9 @@ export async function createRemoteConnection({ home, config = {}, server, create
   const address = server.address
   const loopbackUrl = !config.certPath && !config.keyPath && ['127.0.0.1', '::1'].includes(address?.address)
     ? `http://${address.address === '::1' ? '[::1]' : address.address}:${address.port}` : null
+  // Cloudflare stores this origin outside the Bridge. A randomly allocated
+  // listener would leave its route pointing at yesterday's port after reload.
+  const namedAvailable = Boolean(loopbackUrl && Number.isInteger(config.port) && config.port > 0 && config.port === address.port)
   let disposed = false, mutation = false, generation = 0, revision = 0, tunnel, creating, disposal, acceptingTunnel = false
   let quick = { state: 'stopped', url: null, error: null }
   let named = { state: 'stopped', url: null, error: null }
@@ -65,7 +68,7 @@ export async function createRemoteConnection({ home, config = {}, server, create
   const snapshot = () => ({ mode: settings.mode, ...ownState(),
     url: server.url, configuredUrl: configuredUrl(),
     configuredUrls: { existing: settings.existingUrl, fixed: settings.fixedUrl, named: settings.namedUrl },
-    tokenSet: Boolean(settings.namedToken), loopbackUrl, quickAvailable: Boolean(loopbackUrl), revision })
+    tokenSet: Boolean(settings.namedToken), loopbackUrl, quickAvailable: Boolean(loopbackUrl), namedAvailable, revision })
   const assertLive = () => { if (disposed) refuse('REMOTE_CLOSED', '插件已停止，请重新打开管理页面。') }
   async function disposeTunnel(target, kind = 'quick') {
     let failed = false
@@ -95,6 +98,7 @@ export async function createRemoteConnection({ home, config = {}, server, create
   async function startNamed() {
     if (mutation) refuse('REMOTE_BUSY', '连接设置正在更新，请稍后重试。')
     if (!loopbackUrl) refuse('QUICK_LOOPBACK_REQUIRED', '插件托管的隧道只支持未配置直接 TLS 的 Bridge loopback 服务。')
+    if (!namedAvailable) refuse('NAMED_FIXED_PORT_REQUIRED', '请先在 Bridge 插件配置中设置未占用的固定非零端口，重新启用 Bridge，再同步 Cloudflare 的 Service URL。')
     if (!settings.namedUrl) refuse('REMOTE_URL_REQUIRED', '请先填写固定 HTTPS 地址。')
     if (!settings.namedToken) refuse('REMOTE_TOKEN_REQUIRED', '请先填写 Cloudflare 隧道 Token。')
     mutation = true
@@ -129,7 +133,8 @@ export async function createRemoteConnection({ home, config = {}, server, create
   // A supervised named tunnel belongs to the Bridge, so it comes back on every
   // start instead of depending on a separately installed cloudflared service.
   if (settings.mode === 'named' && loopbackUrl && settings.namedUrl && settings.namedToken) {
-    void startNamed().catch(() => {})
+    if (namedAvailable) void startNamed().catch(() => {})
+    else named = { state: 'error', url: null, error: 'NAMED_FIXED_PORT_REQUIRED' }
   }
   return {
     snapshot,
@@ -140,6 +145,7 @@ export async function createRemoteConnection({ home, config = {}, server, create
         || (payload.mode === 'quick' && payload.url !== undefined)) refuse('INVALID_REMOTE_MODE', '请选择已有 HTTPS、固定域名或临时隧道。')
       const next = { ...settings, mode: payload.mode }
       if ((payload.mode === 'quick' || payload.mode === 'named') && !loopbackUrl) refuse('QUICK_LOOPBACK_REQUIRED', '插件托管的隧道只支持未配置直接 TLS 的 Bridge loopback 服务。')
+      if (payload.mode === 'named' && !namedAvailable) refuse('NAMED_FIXED_PORT_REQUIRED', '请先在 Bridge 插件配置中设置未占用的固定非零端口，重新启用 Bridge，再同步 Cloudflare 的 Service URL。')
       const urlKey = payload.mode === 'fixed' ? 'fixedUrl' : payload.mode === 'named' ? 'namedUrl' : 'existingUrl'
       if (payload.url !== undefined) next[urlKey] = validateRemoteUrl(payload.url)
       if (payload.mode !== 'quick' && !next[urlKey]) refuse('REMOTE_URL_REQUIRED', '请先填写已有的 HTTPS 地址。')
