@@ -18,10 +18,11 @@ const until = async check => {
  throw Error('Timed out')
 }
 
-test('unchanged phone SDK pairs through official QR without approval click, refreshes, reconnects and revokes', { timeout: 20000 }, async t => {
+test('unchanged phone SDK with iOS default Origin pairs, refreshes, reconnects and revokes', { timeout: 20000 }, async t => {
  const home = await mkdtemp(join(tmpdir(), 'official-phone-sdk-'))
  let relay = await createRelay({ origin: OFFICIAL_RELAY, openRegistration: true })
  class LocalSocket extends WebSocket { constructor(url) { super(String(url).replace(OFFICIAL_RELAY, relay.url.replace('http:', 'ws:'))) } }
+ class NativePhoneSocket extends WebSocket { constructor(url) { super(String(url).replace(OFFICIAL_RELAY, relay.url.replace('http:', 'ws:')), { origin: OFFICIAL_RELAY.replace('wss:', 'https:') }) } }
  const server = await createMobileServer({ home, config: {}, managedRemote: true, adapter: {
   capabilities: () => ({ send: true, stream: true, agents: true }), state: async () => ({ session: 'unchanged-team' }), dispose: async () => {},
  } })
@@ -35,14 +36,14 @@ test('unchanged phone SDK pairs through official QR without approval click, refr
  const { leaseId, ...qr } = ownerQr
  assert.deepEqual(Object.keys(qr).sort(), ['code', 'computerId', 'computerKey', 'expiresAt', 'relay', 'serverId', 'v'])
  assert.equal(server.url, null, 'only loopback transport exists; QR uses relay')
- const connect = () => {
-  const transport = createRelayTransport({ ...qr, randomBytes: n => new Uint8Array(randomBytes(n)), WebSocket: LocalSocket })
+ const connect = (Socket = LocalSocket) => {
+  const transport = createRelayTransport({ ...qr, randomBytes: n => new Uint8Array(randomBytes(n)), WebSocket: Socket })
   const store = new MemoryTokenStore()
   const client = new MobileClient({ baseUrl: transport.baseUrl, fetch: transport.fetch, WebSocket: transport.WebSocket, tokenStore: store, requestTimeoutMs: 5000 })
   transports.push(transport); clients.push(client)
   return { transport, client, store }
  }
- const { client } = connect()
+ const { client } = connect(NativePhoneSocket)
  assert.equal((await client.info()).serverId, qr.serverId)
  const claim = await client.pair(qr.code, 'Existing mobile SDK')
  const session = await client.completePairing(claim.claimToken)

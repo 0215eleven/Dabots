@@ -62,6 +62,10 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
  if(publicUrl.protocol!=='wss:'||publicUrl.username||publicUrl.password||publicUrl.search||publicUrl.hash||publicUrl.pathname!=='/')throw Error('A WSS relay origin is required.');
  const diagnostic=createDiagnostics(diagnostics,diagnosticLog,diagnosticNow),traces=new WeakMap();
  const computers=new Map(),rates=new Map(),ips=new Map(),originSet=new Set(allowedOrigins),requests=new Map();
+ // SocketRocket sends the target's HTTPS origin for native WSS connections.
+ // Only the default phone policy accepts this exact configured origin; an
+ // explicit operator allowlist remains authoritative for every endpoint.
+ const nativePhoneOrigin=originSet.size===0?publicUrl.origin.replace(/^wss:/,'https:'):null;
  const registrationIps=new Map(),trafficIps=new Map(),trafficComputers=new Map(),frameIps=new Map();
  let registrations={count:0,expires:0},traffic={count:0,expires:0,frames:0},upgrades={count:0,expires:0};
  // Quota state is bounded even when an attacker creates a new signed identity
@@ -137,9 +141,10 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
   if(!rates.has(ip)&&rates.size>=4096)return refuse(429,'RATE_LIMITED');
   const rate=rates.get(ip)??{count:0,expires:now+60000};rate.count++;rates.set(ip,rate);
   if(rate.count>60||(ips.get(ip)??0)>=limits.connectionsPerIp||wss.clients.size>=limits.maxConnections)return refuse(429,'RATE_LIMITED');
-  if(req.headers.origin&&!originSet.has(req.headers.origin))return refuse(403,'ORIGIN_DENIED');
   let url;
   try{url=new URL(req.url,'http://relay.invalid');}catch{return refuse(400,'INVALID_TARGET');}
+  const requestOrigin=req.headers.origin;
+  if(requestOrigin!==undefined&&!originSet.has(requestOrigin)&&!(url.pathname==='/v1/phone'&&requestOrigin===nativePhoneOrigin))return refuse(403,'ORIGIN_DENIED');
   if(!['/v1/computer','/v1/phone'].includes(url.pathname))return refuse(404,'NOT_FOUND');
   if(url.pathname==='/v1/computer'&&url.search)return refuse(400,'INVALID_QUERY');
   const computer=url.pathname==='/v1/phone'?computers.get(url.searchParams.get('computer')):null;

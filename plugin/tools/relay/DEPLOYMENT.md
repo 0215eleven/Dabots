@@ -308,3 +308,11 @@ Relay 0.2.0 支持 `RELAY_OPEN_REGISTRATION=1`，但更新脚本**不会设置�
 主要事件：`computer_registered`，`upgrade_rejected`（如 409 `COMPUTER_OFFLINE`、429 `STREAM_LIMIT`），`phone_opened`，`phone_first_frame`，`phone_ciphertext_forwarded`，`phone_closed_by_computer`，`connection_closed`。`phone_ciphertext_forwarded` 只表示首个电脑返回的二进制帧已转发，不表示 E2EE 或配对完成；`phone_first_frame` 同样不表示消息已通过验证。Relay 不解密载荷，不能从这些事件读取手机的配对结果。连接根本未到达 Relay 时也可能没有对应事件，需结合复现时间与手机网络情况判断。
 
 到期后服务继续运行，日志停止。每个新进程会重新开始受限窗口；排查结束后从后续部署配置移除该环境项，避免未来重启重新开启诊断。现有进程会自行停止记录，不需要为停止当前窗口再重启一次。回滚时恢复旧代码和原 Compose，只重建 Relay；不要调用会触及 Caddy/HOT 的旧 rollback.py。
+
+## 原生手机 WebSocket Origin 兼容（候选修复）
+
+iOS React Native 使用 SocketRocket；其 0.7.1 实现会自动把 WSS 目标转换为对应 HTTPS Origin（默认 443 端口省略）。默认手机入口 `/v1/phone` 因此只额外接受与配置 `RELAY_ORIGIN` 对应的确切 HTTPS Origin。判断不依赖请求 Host、User-Agent 或客户端自行声明的原生标识；`null`、空值、HTTP 降级、其他域名、子域、端口、路径和复合 Origin 都不在自动允许范围。无 Origin 的原有客户端继续可用。
+
+该默认兼容只用于手机入口，不放宽电脑登记或账号接口。调用 `createRelay` 显式提供非空 `allowedOrigins` 时，该名单仍完全决定有 Origin 的客户端准入，不自动增加同源例外。Origin 不能证明原生客户端身份：来自 Relay 自身 HTTPS Origin 的浏览器页面也会被允许建立手机流，跨站恶意页面仍被拒绝；E2EE、短效配对、设备令牌和全部配额继续承担身份与资源边界。当前 Relay 只提供健康和协议入口，不提供用户可上传的同源网页。
+
+该修复仅为隔离分支候选，未修改手机、部署配置或生产；部署需要另外确认服务端准入行为变化与一次 Relay 重启。
