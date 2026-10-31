@@ -15,6 +15,7 @@
 //   RELAY_LIMITS_JSON={"maxComputers":100}   optional positive-integer quota overrides (see DEPLOYMENT.md)
 //   RELAY_BLOCKED_IPS=198.51.100.1,2001:db8::1   exact literal IP deny list
 //   RELAY_BLOCKED_COMPUTERS=<computerId>,...   signed-identity deny list
+//   RELAY_DIAGNOSTICS=1   temporary redacted stdout events; 10 minutes / 200 lines maximum
 import {readFileSync} from 'node:fs'
 import {dirname,join} from 'node:path'
 import {createRelay} from './server.mjs'
@@ -31,8 +32,8 @@ const secret=env.RELAY_SECRET_FILE?readFileSync(env.RELAY_SECRET_FILE,'utf8').tr
 const accounts=env.RELAY_DATA_FILE?await createAccounts({file:env.RELAY_DATA_FILE,bootstrapFile:join(dirname(env.RELAY_DATA_FILE),'bootstrap-code'),registration:env.RELAY_REGISTRATION??'invite'}):null
 const port=Number(env.RELAY_PORT??8790)
 if(!Number.isInteger(port)||port<1||port>65535){console.error('RELAY_PORT must be 1-65535.');process.exit(2)}
-const relay=await createRelay({secret,origin:env.RELAY_ORIGIN,host:env.RELAY_HOST??'127.0.0.1',port,trustProxy:env.RELAY_TRUST_PROXY==='1',trustedProxyIp:env.RELAY_TRUSTED_PROXY_IP,accounts,openRegistration,limits,blockedIps,blockedComputers})
-// Logs carry no addresses, keys, stream IDs or payload sizes.
+const relay=await createRelay({secret,origin:env.RELAY_ORIGIN,host:env.RELAY_HOST??'127.0.0.1',port,trustProxy:env.RELAY_TRUST_PROXY==='1',trustedProxyIp:env.RELAY_TRUSTED_PROXY_IP,accounts,openRegistration,limits,blockedIps,blockedComputers,diagnostics:env.RELAY_DIAGNOSTICS==='1'})
+// Temporary diagnostics carry fixed labels and counters, never payloads or identities.
 console.log(`ds-bot-relay listening on ${env.RELAY_HOST??'127.0.0.1'}:${port} for ${new URL(env.RELAY_ORIGIN).origin}${openRegistration?' with open registration':''}${accounts?` with accounts (${accounts.registration} registration)`:''}`)
 let stopping=false
 for(const signal of ['SIGTERM','SIGINT'])process.on(signal,async()=>{if(stopping)return;stopping=true;await relay.close();process.exit(0)})

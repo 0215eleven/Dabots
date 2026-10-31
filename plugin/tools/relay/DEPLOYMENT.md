@@ -298,3 +298,13 @@ Relay 0.2.0 支持 `RELAY_OPEN_REGISTRATION=1`，但更新脚本**不会设置�
 除 `info`、`register`、`login`、`logout` 外均需 `Authorization: Bearer <token>`。带 `Origin` 头的浏览器请求一律拒绝。同一 IP 或同一账号 15 分钟内 10 次登录失败后暂时拒绝；每个 IP 每分钟最多 120 次请求。令牌 90 天有效，每个账号最多 50 个会话。
 
 电脑登记：WebSocket `register` 帧可用 `accountToken`（该账号的会话令牌）代替 `secret`，可附带 `name`、`serverId`。同一台电脑（同一 Ed25519 公钥）只能属于一个账号。插件与手机端的登录界面将在后续版本加入。
+
+## 临时连接诊断（默认关闭）
+
+仅在需要复现连接问题时，为 Relay 增加 `RELAY_DIAGNOSTICS=1` 并只重建 Relay。手机与电脑协议、配额、密钥和健康接口均保持原样。无需新增目录、volume、依赖或 Caddy 配置。
+
+诊断 JSON 写入 Relay 标准输出，可通过既有 Compose 项目的 `logs --since 10m --tail 220 <Relay服务名>` 读取。每个进程从启动起最多记录十分钟或二百条（含开始、停止标记），先达到任一上限即自动停止；每条不超过 512 字节。记录固定事件、HTTP/关闭码、字节及帧计数，并用本进程临时递增编号关联电脑和手机连接。不会记录 IP、完整 URL/查询、请求头、nonce、电脑/流的持久标识、公钥、签名、配对码、令牌或载荷。日志写入失败只关闭诊断，不中断连接。
+
+主要事件：`computer_registered`，`upgrade_rejected`（如 409 `COMPUTER_OFFLINE`、429 `STREAM_LIMIT`），`phone_opened`，`phone_first_frame`，`phone_ciphertext_forwarded`，`phone_closed_by_computer`，`connection_closed`。`phone_ciphertext_forwarded` 只表示首个电脑返回的二进制帧已转发，不表示 E2EE 或配对完成；`phone_first_frame` 同样不表示消息已通过验证。Relay 不解密载荷，不能从这些事件读取手机的配对结果。连接根本未到达 Relay 时也可能没有对应事件，需结合复现时间与手机网络情况判断。
+
+到期后服务继续运行，日志停止。每个新进程会重新开始受限窗口；排查结束后从后续部署配置移除该环境项，避免未来重启重新开启诊断。现有进程会自行停止记录，不需要为停止当前窗口再重启一次。回滚时恢复旧代码和原 Compose，只重建 Relay；不要调用会触及 Caddy/HOT 的旧 rollback.py。

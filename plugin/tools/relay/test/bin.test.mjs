@@ -78,3 +78,18 @@ test('public service reads its finite quota overrides from environment without a
   }
   child.kill('SIGTERM');await once(child,'exit')
 })
+
+test('temporary diagnostic environment reaches the actual service without credentials',async t=>{
+  const port=await freePort()
+  const child=spawn(process.execPath,[fileURLToPath(new URL('../bin.mjs',import.meta.url))],{env:{PATH:process.env.PATH,RELAY_ORIGIN:'wss://relay.example',RELAY_OPEN_REGISTRATION:'1',RELAY_DIAGNOSTICS:'1',RELAY_PORT:String(port)},stdio:['ignore','pipe','pipe']})
+  t.after(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill()})
+  let output='';child.stdout.on('data',chunk=>{output+=chunk});child.stderr.on('data',()=>{})
+  for(let i=0;i<100&&!output.includes('listening');i++)await new Promise(r=>setTimeout(r,20))
+  const socket=new WebSocket(`ws://127.0.0.1:${port}/v1/phone?computer=SENSITIVE_TEST_ONLY`);socket.on('error',()=>{})
+  const [,response]=await once(socket,'unexpected-response');response.resume();socket.terminate();assert.equal(response.statusCode,409)
+  child.kill('SIGTERM');await once(child,'exit')
+  const entries=output.split('\n').filter(line=>line.startsWith('{')).map(line=>JSON.parse(line))
+  assert.equal(entries[0].event,'diagnostics_started')
+  assert.ok(entries.some(entry=>entry.event==='upgrade_rejected'&&entry.reason==='COMPUTER_OFFLINE'&&entry.status===409))
+  assert.equal(output.includes('SENSITIVE_TEST_ONLY'),false)
+})
