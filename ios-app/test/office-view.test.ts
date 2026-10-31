@@ -18,3 +18,11 @@ test('Bots working in a running meeting sit in that room, the others at their de
   assert.equal(seats.meetings,1,'an idle room is free');
   assert.equal(seats.busyDesks,2,'b and d work at their desks; waiting is not counted as busy');
 });
+
+test('four desks per floor, and a floor for every meeting room',()=>{
+  const {officeFloors}=module.exports;
+  const floors=officeFloors(['a','b','c','d','e'],['r1']);
+  assert.deepEqual(floors.map((f:any)=>[f.agents,f.room]),[[['a','b','c','d'],'r1'],[['e'],null]]);
+  assert.equal(officeFloors([],['r1','r2','r3']).length,3);
+  assert.deepEqual(officeFloors([],[]),[{agents:[],room:null}],'an empty office still has its floor');
+});
