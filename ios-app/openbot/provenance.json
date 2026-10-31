@@ -2541,8 +2541,12 @@
       "gitBlob": "5fb7f56a1dd6d22e6664bd2c8c17606139e85944",
       "mode": "100644",
       "upstreamSha256": "d2c64b3a09bfbcddff008cfb60b3f67586008609b6070a992e78387ae78d40f2",
-      "importedSha256": "d2c64b3a09bfbcddff008cfb60b3f67586008609b6070a992e78387ae78d40f2",
-      "adaptation": null
+      "importedSha256": "7f930becb457bf7c9f565b96920875c7c4312f487f021d775dbea7476836cb84",
+      "adaptation": "DS Bridge avatar shapes: candidate face seeds use lowercase letters, digits and hyphens (at most 32 characters) instead of `agent:avatar:batch:index`, which the Bridge refuses; the same silhouette-then-expression selection of twelve faces is kept. Original upstream file retained at preservedOriginal.path.",
+      "preservedOriginal": {
+        "path": "adaptations/original/src/features/agents/model/avatar-candidates.ts",
+        "sha256": "d2c64b3a09bfbcddff008cfb60b3f67586008609b6070a992e78387ae78d40f2"
+      }
     },
     {
       "source": "apps/mobile/src/features/agents/model/bloub-activity.ts",

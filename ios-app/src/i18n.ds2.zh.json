@@ -177,5 +177,6 @@
   "Working": "工作中",
   "Free": "空闲",
   "In a meeting": "会议中",
-  "Official connection": "官方连接"
+  "Official connection": "官方连接",
+  "Invalid action fields or values.": "电脑拒绝了提交的内容：有字段或数值不符合要求。"
 }
