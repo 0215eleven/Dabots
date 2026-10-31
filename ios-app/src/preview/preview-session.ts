@@ -63,7 +63,7 @@ export function previewClient(serverId = "preview"): MobileClient {
   if (serverId === "studio") return studioClient();
   const state = {
     bots, rooms: [room], models: [], agentAccess: true, mainBotIds: ["preview-chief"], prefs: {},
-    work: { bots: { "preview-design": { said: "正在调整首页的配色", since: now - 90_000 } }, approvals: [] },
+    work: { bots: { "preview-design": { said: "正在调整首页的配色", since: now - 90_000 } }, rooms: { "preview-room": [{ botId: "preview-research", said: "正在整理用户反馈", speaking: true }] }, approvals: [{ id: "approval-1", botId: "preview-writing" }] },
   };
   const client = {
     info: async () => ({ serverId, capabilities: { history: true, stream: true, send: true, groups: true, "agent-open": true, botManagement: true, groupManagement: true, actions: ["create-bot", "create-room"] } }),

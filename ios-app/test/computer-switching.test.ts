@@ -264,7 +264,7 @@ function homeScreen(f: ReturnType<typeof fixture>) {
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) },
     '@/shared/components/large-title': { useLargeTitleScroll: () => ({}) }, '@ds/provider': { useDs: () => ({ view: { capabilities: { actions: ['create-bot'] } }, online: true, times: {} }) },
     '@/features/agents/components/agent-list-reveal': { useAgentListReveal: () => ({}) }, '@/shared/lib/motion': { useReducedMotion: () => true },
-    '@ds/computers': { useComputers: () => f.value, useComputerNames: () => ({ name: (host: typeof office) => host.name }), usePeerHosts: () => ({ peers: {} }), peerBotColor: () => noop, peerRows: () => [] },
+    '@ds/home-view': { useHomeView: () => ['list', () => {}] }, '@ds/computers': { useComputers: () => f.value, useComputerNames: () => ({ name: (host: typeof office) => host.name }), usePeerHosts: () => ({ peers: {} }), peerBotColor: () => noop, peerRows: () => [] },
     'uniwind': { useUniwind: () => ({ theme: 'light' }) }, '@/features/workspace/components/computer-tag': { ComputerTagContext: { Provider: 'TagProvider' } },
   });
   const walk = (node: any): any[] => Array.isArray(node) ? node.flatMap(walk) : node && typeof node === 'object' ? [node, ...Object.values(node.props ?? {}).flatMap(walk)] : [];

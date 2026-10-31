@@ -165,5 +165,16 @@
   "Pinned chats": "置顶",
   "All": "全部",
   "Computer offline": "电脑离线",
-  "This address now answers as another computer.": "这个地址现在对应的是另一台电脑。"
+  "This address now answers as another computer.": "这个地址现在对应的是另一台电脑。",
+  "Chats": "聊天",
+  "Office": "办公室",
+  "Meeting rooms": "会议室",
+  "Desks": "工位",
+  "{count} in a meeting": "{count} 间在开会",
+  "{count} working": "{count} 人在忙",
+  "In meeting room · {name}": "在会议室 · {name}",
+  "Waiting for you": "等你确认",
+  "Working": "工作中",
+  "Free": "空闲",
+  "In a meeting": "会议中"
 }

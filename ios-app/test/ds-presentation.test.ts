@@ -8,13 +8,14 @@ const react={createElement:(type:any,props:any,...children:any[])=>({type,props:
 function load(path:string,mocks:Record<string,any>){const code=transformSync(readFileSync(new URL(path,import.meta.url),'utf8'),{loader:'tsx',format:'cjs',jsx:'transform'}).code;const module={exports:{} as any};new Function('require','module','exports','React',code)((name:string)=>name==='react'?react:mocks[name]??(name==='../names/ComputerNamesProvider'?{useComputerNames:()=>({name:(host:any)=>host?.name??'Dabots',load:async()=>{},rename:async()=>{},error:''})}:new Proxy({}, {get:()=>noop})),module,module.exports,react);return module.exports;}
 function animation(){return {duration(){return this},reduceMotion(value:string){return {...this,motion:value}}};}
 const reanimated={__esModule:true,default:{FlatList:'FlatList',View:'AnimatedView'},Easing:{bezier:noop},FadeIn:animation(),LinearTransition:animation(),ReduceMotion:{System:'system',Always:'always'},useSharedValue:(value:any)=>({get:()=>value,set:(next:any)=>{value=next}})};
+let homeView='list';
 function screen(hidden:boolean,insets:{top:number;bottom:number;left?:number;right?:number}={top:0,bottom:0},online=true,hosts=[{serverId:'h',name:'host',slot:'a'}],peers:Record<string,any>={},times:Record<string,number>={}){const agents=[{id:'visible'},{id:'hidden'}];return load('../openbot/mobile/src/features/agents/screens/connected-screen.tsx',{
  '@ds/text':{useDsText:()=>({tr:(text:string)=>text,locale:'en'})},'heroui-native/hooks':{useThemeColor:(names:any)=>Array.isArray(names)?names.map(()=>'#141414'):'#141414'},'react':{...react,useState:()=>[hidden,noop]},'react-native':{View:'View',Pressable:'Pressable',StyleSheet:{hairlineWidth:0.5}},'react-native-reanimated':reanimated,'expo-router':{Stack:{Screen:'Screen'}},
  '@/features/workspace/context/mobile-workspace-context':{useMobileWorkspace:()=>({agents,activeAgents:agents.slice(0,1),activeServer:{id:'h',name:'host'},pinnedAgentIds:['hidden'],pinnedChannelIds:[],hiddenChannelIds:[]})},
  '@/features/channels/components/use-channels':{useChannels:()=>({channels:[]})},'react-native-safe-area-context':{useSafeAreaInsets:()=>({left:0,right:0,...insets})},
  '@/shared/components/large-title':{useLargeTitleScroll:()=>({})},'@ds/provider':{useDs:()=>({view:{capabilities:{actions:[]}},online,times})},
  '@/features/agents/components/agent-list-reveal':{useAgentListReveal:()=>({})},'@/shared/lib/motion':{useReducedMotion:()=>true},
- '@ds/computers':{useComputers:()=>({hosts,host:hosts[0],switchHost:async()=>true}),useComputerNames:()=>({name:(host:any)=>host.name}),usePeerHosts:()=>({peers}),peerBotColor:()=>()=>null,peerRows:(peer:any)=>peer.rows},'uniwind':{useUniwind:()=>({theme:'light'})},'@/features/agents/components/peer-chat-row':{PeerChatRow:'PeerChatRow'},'@/features/workspace/components/computer-tag':{ComputerTagContext:{Provider:'TagProvider'}},
+ '@ds/home-view':{useHomeView:()=>[homeView,()=>{}]},'@/features/agents/components/office-view':{OfficeView:'OfficeView'},'@ds/computers':{useComputers:()=>({hosts,host:hosts[0],switchHost:async()=>true}),useComputerNames:()=>({name:(host:any)=>host.name}),usePeerHosts:()=>({peers}),peerBotColor:()=>()=>null,peerRows:(peer:any)=>peer.rows},'uniwind':{useUniwind:()=>({theme:'light'})},'@/features/agents/components/peer-chat-row':{PeerChatRow:'PeerChatRow'},'@/features/workspace/components/computer-tag':{ComputerTagContext:{Provider:'TagProvider'}},
  }).ConnectedScreen();}
 // Render the actual imported screen with deterministic hooks, not a copied selector.
 // Find rendered elements by type, so the checks follow the screen's behavior rather than its nesting.
@@ -52,6 +53,17 @@ test('All merges the other computers\' chats with the active ones, newest first'
  assert.equal(row.type,'PeerChatRow');assert.equal(row.props.online,true);
  const chips:any[]=[];find(list.props.ListHeaderComponent,n=>{if(typeof n.type==='function'&&n.type.name==='ComputerChip')chips.push(n.props);return false;});
  assert.equal(chips.find(c=>c.label==='Home').status,'online','a watched computer shows its own status');
+});
+test('the bottom switch swaps the list for the office and keeps the computer chips on top',()=>{
+ homeView='office';
+ try{
+  const tree=screen(false,{top:0,bottom:0},true,[{serverId:'h',name:'Office',slot:'a'},{serverId:'s',name:'Home',slot:'b'}]);
+  assert.equal(find(tree,n=>n.type==='FlatList'),undefined);
+  const office=find(tree,n=>n.type==='OfficeView');
+  assert.deepEqual(office.props.agents.map((a:any)=>a.id),['visible'],'hidden Bots get no desk');
+  assert.ok(find(office.props.header,n=>typeof n.type==='function'&&n.type.name==='ComputerChip'));
+  assert.ok(find(tree,n=>typeof n.type==='function'&&n.type.name==='ViewSwitch'),'the switch stays at the bottom');
+ }finally{homeView='list'}
 });
 test('show hidden includes a hidden pinned Bot in the actual pinned section',()=>{const original=react.useState;react.useState=()=>[true,noop];try{const tree=screen(true);const header=find(tree,n=>n.type==='FlatList').props.ListHeaderComponent;assert.deepEqual(find(header,n=>Array.isArray(n.props?.agents)).props.agents.map((a:any)=>a.id),['hidden']);}finally{react.useState=original}});
 test('home consumes each native safe-area inset once, including notches and landscape',()=>{

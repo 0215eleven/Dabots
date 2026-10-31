@@ -9,6 +9,11 @@ import PlusIcon from 'lucide-react-native/icons/plus';
 import { type MenuAction, MenuView } from '@/shared/components/menu-view';
 import EllipsisIcon from 'lucide-react-native/icons/ellipsis';
 import LaptopIcon from 'lucide-react-native/icons/laptop';
+import ListIcon from 'lucide-react-native/icons/layout-list';
+import ArmchairIcon from 'lucide-react-native/icons/armchair';
+import { OfficeView } from '@/features/agents/components/office-view';
+import { haptics } from '@/shared/lib/haptics';
+import { useHomeView, type HomeView } from '@ds/home-view';
 import { ChatGlassButton } from '@/features/chat/components/chat-glass-icon-button';
 import { useLiquidGlass } from '@/shared/lib/use-liquid-glass';
 import { useThemeColor } from 'heroui-native/hooks';
@@ -145,6 +150,23 @@ function ComputerChip({ label, selected, status, disabled, onPress }: { label: s
      <Typography.Paragraph numberOfLines={1} style={{ fontSize: 15, lineHeight: 20, fontWeight: '600', color }}>{label}</Typography.Paragraph>
     </Pressable>;
 }
+// DS Bot Mobile: the quick switch between the chat list and the office, between the bottom actions.
+function ViewSwitch({ value, onChange }: { value: HomeView; onChange: (value: HomeView) => void }) {
+    const { tr } = useDsText();
+    const [foreground, muted] = useThemeColor(['foreground', 'muted']);
+    const option = (id: HomeView, label: string, Icon: typeof ListIcon) => {
+        const selected = value === id, color = selected ? String(foreground) : String(muted);
+        return <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={label} onPress={() => { if (!selected) { void haptics.selection(); onChange(id); } }}
+          className={`flex-row items-center gap-1.5 rounded-full px-3.5 ${selected ? 'bg-background' : ''}`} style={({ pressed }) => ({ height: 36, opacity: pressed ? 0.6 : 1 })}>
+         <Icon size={16} color={color} strokeWidth={2} accessible={false}/>
+         <Typography.Paragraph style={{ fontSize: 14, lineHeight: 18, fontWeight: '600', color }}>{label}</Typography.Paragraph>
+        </Pressable>;
+    };
+    return <View accessibilityRole="tablist" className="flex-row items-center rounded-full bg-control" style={{ padding: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(127,127,127,0.25)' }}>
+     {option('list', tr('Chats'), ListIcon)}
+     {option('office', tr('Office'), ArmchairIcon)}
+    </View>;
+}
 /** Original OpenBot list composition, bound to the selected DS computer. */
 export function ConnectedScreen() {
     const { view, online, times } = useDs();
@@ -199,15 +221,19 @@ export function ConnectedScreen() {
         if (!host || !(await computers.switchHost(host))) return;
         router.push(row.kind === 'group' ? { pathname: '/channel/[channelId]', params: { channelId: row.id, serverId: row.serverId } } : { pathname: '/chat/[agentId]', params: { agentId: row.id } });
     };
+    const [homeView, setHomeView] = useHomeView();
+    const chips = multiple ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: ROW_LEFT, paddingTop: 4, paddingBottom: 4 }}>
+     <ComputerChip label={tr('All')} selected={filter === 'all'} disabled={computers.switching} onPress={() => { if (!computers.switching) setAllComputers(true); }}/>
+     {computers.hosts.map(h => <ComputerChip key={h.slot || h.serverId} label={names.name(h)} selected={filter === h.serverId} status={status(h.serverId)} disabled={computers.switching} onPress={() => pick(h.serverId)}/>)}
+     {computers.switching ? <ActivityIndicator accessibilityLabel={tr('Connecting…')} size="small" color={String(muted)} /> : null}
+    </ScrollView> : null;
     return <ComputerTagContext.Provider value={tags}><View className="flex-1 bg-background">
   <Stack.Screen options={{ headerShown: false }}/>
   {/* The list pads both safe-area edges itself; UIKit must not add them again. Settings and New float at the bottom corners. */}
-  <Animated.FlatList data={listed} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24 + 60, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => item.peer ? <PeerChatRow row={item.peer} online={peers[item.peer.serverId]?.online === true} onOpen={row => void openPeer(row)}/> : <TransitioningChatRow agent={item.agent} channel={item.channel} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
-   {multiple ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: ROW_LEFT, paddingTop: 4, paddingBottom: 4 }}>
-    <ComputerChip label={tr('All')} selected={filter === 'all'} disabled={computers.switching} onPress={() => { if (!computers.switching) setAllComputers(true); }}/>
-    {computers.hosts.map(h => <ComputerChip key={h.slot || h.serverId} label={names.name(h)} selected={filter === h.serverId} status={status(h.serverId)} disabled={computers.switching} onPress={() => pick(h.serverId)}/>)}
-    {computers.switching ? <ActivityIndicator accessibilityLabel={tr('Connecting…')} size="small" color={String(muted)} /> : null}
-   </ScrollView> : null}
+  {homeView === 'office' ? <OfficeView agents={shownAgents} rooms={shownGroups} work={view?.work ?? {}} header={chips} topInset={insets.top + 6} bottomInset={insets.bottom + 24 + 60} sideInsets={{ left: insets.left, right: insets.right }}
+    onOpenBot={agent => router.push({ pathname: '/chat/[agentId]', params: { agentId: agent.id } })} onOpenRoom={room => router.push({ pathname: '/channel/[channelId]', params: { channelId: room.id, serverId: activeServer.id } })}/>
+  : <Animated.FlatList data={listed} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24 + 60, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => item.peer ? <PeerChatRow row={item.peer} online={peers[item.peer.serverId]?.online === true} onOpen={row => void openPeer(row)}/> : <TransitioningChatRow agent={item.agent} channel={item.channel} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
+   {chips}
    {computers.error ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-4 py-2">{tr(computers.error)}</Typography.Paragraph> : null}
    {view?.readOnly ? <View className="mx-4 mb-3 rounded-2xl bg-control px-4 py-3"><Typography.Paragraph className="text-text-secondary" style={{ fontSize: 13, lineHeight: 18 }}>{tr(view.readOnly)}</Typography.Paragraph></View> : null}
    {hasPinned ? <>
@@ -217,15 +243,17 @@ export function ConnectedScreen() {
    </> : null}
   </>} ListFooterComponent={hiddenCount > 0 || showHidden ? <Pressable accessibilityRole="button" onPress={() => setShowHidden(!showHidden)} hitSlop={8} style={({ pressed }) => ({ alignSelf: 'center', marginTop: 18, paddingHorizontal: 14, paddingVertical: 8, opacity: pressed ? 0.6 : 1 })}>
     <Typography.Paragraph className="text-muted" style={{ fontSize: 13, lineHeight: 18 }}>{tr(showHidden ? 'Hide hidden chats' : 'Show hidden chats')}</Typography.Paragraph>
-   </Pressable> : undefined} ListEmptyComponent={<View className="items-center px-8 pt-16"><Typography.Paragraph className="text-muted" align="center">{tr(view ? 'No chats to show.' : 'Reading this computer…')}</Typography.Paragraph></View>}/>
+   </Pressable> : undefined} ListEmptyComponent={<View className="items-center px-8 pt-16"><Typography.Paragraph className="text-muted" align="center">{tr(view ? 'No chats to show.' : 'Reading this computer…')}</Typography.Paragraph></View>}/>}
   <View pointerEvents="box-none" className="absolute flex-row items-center gap-2" style={{ left: ROW_LEFT + insets.left, right: ROW_LEFT + insets.right, bottom: Math.max(insets.bottom, 12) + 4 }}>
    <IconButton label={tr('Settings')} status={tr(online ? 'Connected' : 'Disconnected')} onPress={() => router.push('/settings')}>
     <EllipsisIcon size={22} color={foreground} strokeWidth={2} accessible={false}/>
     <View pointerEvents="none" accessible={false} style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 3.5, backgroundColor: online ? String(success) : String(muted) }}/>
    </IconButton>
    <View pointerEvents="none" className="flex-1" />
+   <ViewSwitch value={homeView} onChange={setHomeView}/>
+   <View pointerEvents="none" className="flex-1" />
    {createActions.length > 1 ? computers.switching ? <IconButton label={tr('New chat')} disabled>{plus}</IconButton> : <MenuView actions={createActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
-       : createActions.length === 1 ? <IconButton label={createActions[0].title} disabled={computers.switching} onPress={() => create(createActions[0].id ?? 'bot')}>{plus}</IconButton> : null}
+       : createActions.length === 1 ? <IconButton label={createActions[0].title} disabled={computers.switching} onPress={() => create(createActions[0].id ?? 'bot')}>{plus}</IconButton> : <View style={{ width: 44 }}/>}
   </View>
  </View></ComputerTagContext.Provider>;
 }
