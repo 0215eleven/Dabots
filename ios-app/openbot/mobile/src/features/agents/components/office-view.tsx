@@ -16,10 +16,18 @@ import type { MobileAgent } from "@/features/workspace/context/mobile-workspace-
 import { haptics } from "@/shared/lib/haptics";
 import { useReducedMotion } from "@/shared/lib/motion";
 import { useDsText } from "@ds/text";
+import { Bubble, type BubbleKind, ScreenCode, Seat, type SeatMotion } from "@/features/agents/components/office-motion";
 import type { DsWorkView } from "@ds/contracts";
 
 type Phase = DsWorkView["phase"];
 const busy = (phase: Phase | undefined) => phase === "working" || phase === "responding";
+const motionOf = (phase: Phase | undefined): SeatMotion => phase === "responding" ? "talking" : phase === "working" ? "typing" : phase === "waiting" ? "waiting" : "idle";
+function bubbleOf(phase: Phase | undefined, detail: string | null | undefined): BubbleKind {
+  if (phase === "waiting") return { kind: "ask" };
+  if (busy(phase) && detail) return { kind: "text", text: detail };
+  if (busy(phase)) return { kind: "dots" };
+  return { kind: "sleep" };
+}
 
 /** Where each Bot is: at its desk, or at the table of the meeting it is working in. */
 export function officeSeats(agents: readonly MobileAgent[], rooms: readonly ChannelSummary[], work: Readonly<Record<string, DsWorkView>>) {
@@ -34,7 +42,7 @@ export function officeSeats(agents: readonly MobileAgent[], rooms: readonly Chan
 
 // The floor plan, in floor units: 6 wide, rooms two to a row against the back wall, desks in two
 // columns below them. y grows towards the viewer; z is height.
-const WIDTH = 6, ROOM_DEPTH = 4.4, ROW = 4.6, WALL = 1.3, DEPTH = 0.6;
+const WIDTH = 6, ROOM_DEPTH = 4.4, ROW = 5.3, WALL = 1.3, DEPTH = 0.6;
 const DESK = { w: 2.1, d: 0.75, h: 0.55 };
 /** Rooms along the back wall and a desk for each Bot, plus the floor's depth. */
 export function officeLayout(desks: number, rooms: number) {
@@ -43,7 +51,7 @@ export function officeLayout(desks: number, rooms: number) {
     return { x: alone ? 0 : (index % 2) * (WIDTH / 2), y: row * ROOM_DEPTH, w: alone ? WIDTH : WIDTH / 2, d: ROOM_DEPTH };
   });
   const top = Math.ceil(rooms / 2) * ROOM_DEPTH + 0.4;
-  const deskSlots = Array.from({ length: desks }, (_, index) => ({ x: (index % 2) * (WIDTH / 2) + WIDTH / 4, y: top + Math.floor(index / 2) * ROW + 2.2 }));
+  const deskSlots = Array.from({ length: desks }, (_, index) => ({ x: (index % 2) * (WIDTH / 2) + WIDTH / 4, y: top + Math.floor(index / 2) * ROW + 2.6 }));
   return { rooms: roomRects, desks: deskSlots, depth: top + Math.ceil(desks / 2) * ROW + 0.3 };
 }
 
@@ -100,10 +108,19 @@ function Screen({ p, x, y, z, color, pulse }: { p: Projector; x: number; y: numb
   }, [pulse, reducedMotion, glow]);
   const style = useAnimatedStyle(() => ({ opacity: glow.get() }));
   const [left, top] = p.at(x, y, z + 0.5), [right, bottom] = p.at(x + 0.8, y, z + 0.06);
-  return <Animated.View pointerEvents="none" style={[{ position: "absolute", left, top, width: right - left, height: bottom - top, borderRadius: 3, backgroundColor: color }, style]} />;
+  return <Animated.View pointerEvents="none" style={[{ position: "absolute", left, top, width: right - left, height: bottom - top, borderRadius: 3, backgroundColor: color, overflow: "hidden" }, style]}>
+    {pulse ? <ScreenCode width={right - left} height={bottom - top} /> : null}
+  </Animated.View>;
 }
 
-const Desk = memo(function Desk({ p, slot, agent, phase, meeting, colors, onOpen }: { p: Projector; slot: { x: number; y: number }; agent: MobileAgent; phase: Phase | undefined; meeting: boolean; colors: Palette; onOpen: (agent: MobileAgent) => void }) {
+/** A bubble over the avatar whose top is at `top`; the z's of a free Bot drift up beside its head. */
+function SpeechBubble({ p, x, top, bubble }: { p: Projector; x: number; top: number; bubble: BubbleKind }) {
+  const width = p.scale * 2.4;
+  if (bubble.kind === "sleep") return <View pointerEvents="none" style={{ position: "absolute", left: x + p.scale * 0.2, top: top - 14 }}><Bubble bubble={bubble} maxWidth={width} /></View>;
+  return <View pointerEvents="none" style={{ position: "absolute", left: x - width / 2, top: top - 30, width, alignItems: "center" }}><Bubble bubble={bubble} maxWidth={width} /></View>;
+}
+
+const Desk = memo(function Desk({ p, slot, agent, phase, detail, meeting, colors, onOpen }: { p: Projector; slot: { x: number; y: number }; agent: MobileAgent; phase: Phase | undefined; detail: string | null | undefined; meeting: boolean; colors: Palette; onOpen: (agent: MobileAgent) => void }) {
   const { tr } = useDsText();
   const [success, warning, muted] = useThemeColor(["success", "warning", "muted"]);
   const avatar = Math.round(p.scale * 0.85);
@@ -122,7 +139,9 @@ const Desk = memo(function Desk({ p, slot, agent, phase, meeting, colors, onOpen
       <Box p={p} x={slot.x + 0.15} y={slot.y - 1.05} w={0.6} d={0.45} h={0.35} top={colors.chair} front={colors.front} />
     </Layer>
     {meeting ? null : <View pointerEvents="none" style={{ position: "absolute", left: ax - avatar / 2, top: ay - avatar / 2 }}>
-      <BloubAvatar agentId={agent.id} serverId={agent.serverId} hue={agent.avatarHue} seed={agent.avatarSeed} size={avatar} animateIdle={false} rings />
+      <Seat motion={motionOf(phase)}>
+        <BloubAvatar agentId={agent.id} serverId={agent.serverId} hue={agent.avatarHue} seed={agent.avatarSeed} size={avatar} animateIdle={false} rings />
+      </Seat>
     </View>}
     <Layer p={p}>
       <Box p={p} x={x} y={y} w={DESK.w} d={DESK.d} h={DESK.h} top={colors.top} front={colors.front} />
@@ -138,6 +157,7 @@ const Desk = memo(function Desk({ p, slot, agent, phase, meeting, colors, onOpen
         <Typography.Paragraph numberOfLines={1} style={{ fontSize: 11, lineHeight: 14, color: statusColor }}>{status}</Typography.Paragraph>
       </View>
     </View>
+    {meeting ? null : <SpeechBubble p={p} x={ax} top={ay - avatar / 2} bubble={bubbleOf(phase, detail)} />}
     <Pressable accessibilityRole="button" accessibilityLabel={`${agent.name}, ${status}`} onPress={() => { void haptics.impact("soft"); onOpen(agent); }}
       style={({ pressed }) => ({ position: "absolute", left: sx - p.scale * 1.4, top: ay - avatar / 2, width: p.scale * 2.8, height: labelTop + 40 - (ay - avatar / 2), opacity: pressed ? 0.4 : 1 })} />
   </>;
@@ -170,9 +190,19 @@ const MeetingRoom = memo(function MeetingRoom({ p, rect, room, work, agents, col
     </Layer>
     {seated.slice(0, chairs).map((agent, index) => {
       const [sx, sy] = p.at(chairX(index), tableY - 0.4, 0.75);
+      const phase = work?.members?.find(member => member.botId === agent.id)?.phase;
       return <View key={agent.id} pointerEvents="none" style={{ position: "absolute", left: sx - size / 2, top: sy - size / 2 }}>
-        <BloubAvatar agentId={agent.id} serverId={agent.serverId} hue={agent.avatarHue} seed={agent.avatarSeed} size={size} animateIdle={false} rings />
+        <Seat motion={motionOf(phase)}>
+          <BloubAvatar agentId={agent.id} serverId={agent.serverId} hue={agent.avatarHue} seed={agent.avatarSeed} size={size} animateIdle={false} rings />
+        </Seat>
       </View>;
+    })}
+    {/* The member speaking in the meeting, or waiting for you, says so over its head. */}
+    {seated.slice(0, chairs).map((agent, index) => {
+      const phase = work?.members?.find(member => member.botId === agent.id)?.phase;
+      if (phase !== "responding" && phase !== "waiting") return null;
+      const [sx, sy] = p.at(chairX(index), tableY - 0.4, 0.75);
+      return <SpeechBubble key={`bubble-${agent.id}`} p={p} x={sx} top={sy - size / 2} bubble={bubbleOf(phase, null)} />;
     })}
     <Layer p={p}>
       <Box p={p} x={cx - table.w / 2} y={tableY} w={table.w} d={table.d} h={0.42} top={colors.top} front={colors.front} />
@@ -244,7 +274,7 @@ export function OfficeView({ agents, rooms, work, header, topInset, bottomInset,
       <View className="overflow-hidden rounded-[22px]" style={{ width: p.width, height: p.height, alignSelf: "center", borderCurve: "continuous" }}>
         <Layer p={p}><Shell p={p} depth={layout.depth} colors={colors} /></Layer>
         {rooms.map((room, index) => <MeetingRoom key={room.id} p={p} rect={layout.rooms[index]} room={room} work={work[room.id]} agents={byId} colors={colors} onOpen={onOpenRoom} />)}
-        {agents.map((agent, index) => <Desk key={agent.id} p={p} slot={layout.desks[index]} agent={agent} phase={work[agent.id]?.phase} meeting={inMeeting.has(agent.id)} colors={colors} onOpen={onOpenBot} />)}
+        {agents.map((agent, index) => <Desk key={agent.id} p={p} slot={layout.desks[index]} agent={agent} phase={work[agent.id]?.phase} detail={work[agent.id]?.detail} meeting={inMeeting.has(agent.id)} colors={colors} onOpen={onOpenBot} />)}
       </View>
       <Activity agents={agents} work={work} inMeeting={inMeeting} />
     </ScrollView>
