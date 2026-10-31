@@ -171,7 +171,7 @@ function ViewSwitch({ value, onChange }: { value: HomeView; onChange: (value: Ho
 export function ConnectedScreen() {
     const { view, online, times } = useDs();
     const { tr } = useDsText();
-    const [foreground, success, muted] = useThemeColor(['foreground', 'success', 'muted']);
+    const [foreground, muted] = useThemeColor(['foreground', 'muted']);
     const reducedMotion = useReducedMotion();
     const { activeAgents, activeServer, agents, pinnedAgentIds, pinnedChannelIds, hiddenChannelIds } = useMobileWorkspace();
     const channels = useChannels(activeServer.id);
@@ -247,7 +247,6 @@ export function ConnectedScreen() {
   <View pointerEvents="box-none" className="absolute flex-row items-center gap-2" style={{ left: ROW_LEFT + insets.left, right: ROW_LEFT + insets.right, bottom: Math.max(insets.bottom, 12) + 4 }}>
    <IconButton label={tr('Settings')} status={tr(online ? 'Connected' : 'Disconnected')} onPress={() => router.push('/settings')}>
     <EllipsisIcon size={22} color={foreground} strokeWidth={2} accessible={false}/>
-    <View pointerEvents="none" accessible={false} style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 3.5, backgroundColor: online ? String(success) : String(muted) }}/>
    </IconButton>
    <View pointerEvents="none" className="flex-1" />
    <ViewSwitch value={homeView} onChange={setHomeView}/>

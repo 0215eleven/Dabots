@@ -30,7 +30,7 @@ test('home keeps its top empty and floats the menu, with its connection indicato
   assert.equal(bar.props.style.bottom,38,'bottom actions sit just above the home indicator');
   const menu=find(bar,n=>n.props?.label==='Settings');
   assert.equal(menu.type(menu.props).props.accessibilityValue.text,online?'Connected':'Disconnected');
-  assert.ok(find(menu,n=>n.props?.pointerEvents==='none'&&n.props.style.width===7));
+  assert.equal(find(menu,n=>n.props?.pointerEvents==='none'&&n.props.style?.width===7),undefined,'the menu carries no status dot; its accessibility value still says the state');
  }
 });
 test('home shows computer chips only with several computers, and tags rows in All',()=>{
