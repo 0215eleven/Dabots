@@ -45,9 +45,17 @@ export function activeHost<T extends SavedHost>(list: T[], active: unknown): T |
   return list.find(item => hostKey(item) === active) || list[0] || null;
 }
 
-/** Shown under each computer in the switcher, e.g. "192.168.1.8:7443". */
+/** The relay the desktop plugin's official connection uses. Its address is not shown to people. */
+export const OFFICIAL_RELAY = "wss://dsbot.ziyuegege.com";
+export const OFFICIAL_CONNECTION = "Official connection";
+
+/**
+ * Shown under each computer in the switcher, e.g. "192.168.1.8:7443". A computer reached through
+ * the official relay reads OFFICIAL_CONNECTION (a catalog key) instead of the relay's domain.
+ */
 export function hostAddress(host: Pick<SavedHost, "url" | "relay">) {
   if (host.relay) {
+    try { if (new URL(host.relay.relay).origin === OFFICIAL_RELAY) return OFFICIAL_CONNECTION; } catch { /* Shown as saved below. */ }
     try { return new URL(host.relay.relay).host; } catch { return host.relay.relay; }
   }
   try {

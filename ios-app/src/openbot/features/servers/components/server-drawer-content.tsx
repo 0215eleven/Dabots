@@ -51,7 +51,7 @@ export const ServerDrawerContent = memo(function ServerDrawerContent({ muted, op
     if (!open) setListOpen(false);
   }, [open]);
   const showsList = listOpen || !active;
-  const subtitle = active ? `${hostAddress(active)} · ${session.workspace.online ? tr("Connected") : tr("Connecting…")}` : null;
+  const subtitle = active ? `${tr(hostAddress(active))} · ${session.workspace.online ? tr("Connected") : tr("Connecting…")}` : null;
 
   const select = (host: Host) => {
     void haptics.selection();
@@ -125,7 +125,7 @@ export const ServerDrawerContent = memo(function ServerDrawerContent({ muted, op
                   <ProfileAvatar name={host.name} size={40} />
                   <View className="min-w-0 flex-1">
                     <Typography.Paragraph className="font-medium" numberOfLines={1} style={typeScale.rowTitle}>{host.name}</Typography.Paragraph>
-                    <Typography.Paragraph className="text-text-secondary" numberOfLines={1} style={typeScale.caption}>{hostAddress(host)}</Typography.Paragraph>
+                    <Typography.Paragraph className="text-text-secondary" numberOfLines={1} style={typeScale.caption}>{tr(hostAddress(host))}</Typography.Paragraph>
                   </View>
                 </Pressable>
               );

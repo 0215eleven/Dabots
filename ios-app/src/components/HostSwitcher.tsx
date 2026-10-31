@@ -68,7 +68,7 @@ export function HostSheet<T extends SavedHost>({ visible, hosts, current, online
               <View style={{ flex: 1, gap: 3 }}>
                 <Text numberOfLines={1} style={{ color: t.ink, fontSize: 18, fontWeight: "600" }}>{host.name}</Text>
                 <Text numberOfLines={1} style={{ color: active ? (online ? t.success : t.muted) : t.muted, fontSize: 14 }}>
-                  {active ? tr(online ? "Current computer · Connected" : "Current computer · Offline") : editing ? hostAddress(host) : tr("Tap to connect")}
+                  {active ? tr(online ? "Current computer · Connected" : "Current computer · Offline") : editing ? tr(hostAddress(host)) : tr("Tap to connect")}
                 </Text>
               </View>
               {!removable && (active ? <Dot color={online ? t.success : t.faint} /> : <Icon name="chevron" size={16} color={t.faint} />)}

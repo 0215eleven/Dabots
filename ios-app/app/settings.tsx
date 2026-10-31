@@ -88,7 +88,7 @@ function Settings() {
       {localeSaveStatus === 'failed' ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-1">{tr('Language changed for this session, but could not be saved on this device.')}</Typography.Paragraph> : null}
       {names.error ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-1">{tr(names.error)}</Typography.Paragraph> : null}
       <Group title={tr("Connection")} footer={tr("The app reconnects automatically when you change networks or return to the app.")}>
-        <Row title={host ? names.name(host) : tr("No computer paired")} detail={host ? hostAddress(host) : undefined}>
+        <Row title={host ? names.name(host) : tr("No computer paired")} detail={host ? tr(hostAddress(host)) : undefined}>
           <View className="flex-row items-center gap-1.5"><View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: String(session.workspace.online ? success : muted) }}/><Typography.Paragraph className="text-muted" style={{ fontSize: 15 }}>{status}</Typography.Paragraph></View>
         </Row>
         <Row title={tr("Reconnect now")} onPress={host ? () => { successFeedback(); session.resume(); } : undefined} />
@@ -97,7 +97,7 @@ function Settings() {
       <Group title={tr("Computers")}>
         {session.hosts.map(item => (
           <View key={item.slot || item.serverId} className="flex-row items-center">
-            <View className="min-w-0 flex-1"><Row title={names.name(item)} detail={hostAddress(item)} onPress={host && item.serverId === host.serverId ? undefined : () => { selectionFeedback(); void session.switchHost(item); }}/></View>
+            <View className="min-w-0 flex-1"><Row title={names.name(item)} detail={tr(hostAddress(item))} onPress={host && item.serverId === host.serverId ? undefined : () => { selectionFeedback(); void session.switchHost(item); }}/></View>
             <View className="flex-row items-center gap-2 pr-3">
               <Pressable accessibilityRole="button" accessibilityLabel={tr("Rename {p0}", {p0: names.name(item)})} onPress={event => { event.stopPropagation(); router.push({pathname: '/computer-name', params: {serverId: item.serverId, slot: hostKey(item)}}); }} style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><PencilIcon size={19} color={String(muted)} accessible={false}/></Pressable>
               {host && item.serverId === host.serverId ? <CheckIcon accessibilityLabel={tr("Selected")} size={20} color={String(accent)} strokeWidth={2.4}/>

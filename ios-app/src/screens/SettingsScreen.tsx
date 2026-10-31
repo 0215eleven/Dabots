@@ -419,7 +419,7 @@ export function SettingsScreen({
         {activePage === "mobile" && (
           <>
             <Section title={tr("Computer")}>
-              <SettingRow title={host.name} hint={hostAddress(host)}>
+              <SettingRow title={host.name} hint={tr(hostAddress(host))}>
                 <ConnectionState online={online} compact />
               </SettingRow>
               <SettingRow
