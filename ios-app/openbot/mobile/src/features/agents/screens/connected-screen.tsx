@@ -12,7 +12,7 @@ import LaptopIcon from 'lucide-react-native/icons/laptop';
 import ListIcon from 'lucide-react-native/icons/layout-list';
 import ArmchairIcon from 'lucide-react-native/icons/armchair';
 import { OfficeView } from '@/features/agents/components/office-view';
-import { haptics } from '@/shared/lib/haptics';
+import { GlassSwitch } from '@/features/agents/components/glass-switch';
 import { useHomeView, type HomeView } from '@ds/home-view';
 import { ChatGlassButton } from '@/features/chat/components/chat-glass-icon-button';
 import { useLiquidGlass } from '@/shared/lib/use-liquid-glass';
@@ -153,19 +153,7 @@ function ComputerChip({ label, selected, status, disabled, onPress }: { label: s
 // DS Bot Mobile: the quick switch between the chat list and the office, between the bottom actions.
 function ViewSwitch({ value, onChange }: { value: HomeView; onChange: (value: HomeView) => void }) {
     const { tr } = useDsText();
-    const [foreground, muted] = useThemeColor(['foreground', 'muted']);
-    const option = (id: HomeView, label: string, Icon: typeof ListIcon) => {
-        const selected = value === id, color = selected ? String(foreground) : String(muted);
-        return <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={label} onPress={() => { if (!selected) { void haptics.selection(); onChange(id); } }}
-          className={`flex-row items-center gap-1.5 rounded-full px-3.5 ${selected ? 'bg-background' : ''}`} style={({ pressed }) => ({ height: 36, opacity: pressed ? 0.6 : 1 })}>
-         <Icon size={16} color={color} strokeWidth={2} accessible={false}/>
-         <Typography.Paragraph style={{ fontSize: 14, lineHeight: 18, fontWeight: '600', color }}>{label}</Typography.Paragraph>
-        </Pressable>;
-    };
-    return <View accessibilityRole="tablist" className="flex-row items-center rounded-full bg-control" style={{ padding: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(127,127,127,0.25)' }}>
-     {option('list', tr('Chats'), ListIcon)}
-     {option('office', tr('Office'), ArmchairIcon)}
-    </View>;
+    return <GlassSwitch value={value} onChange={onChange} options={[{ id: 'list', label: tr('Chats'), Icon: ListIcon }, { id: 'office', label: tr('Office'), Icon: ArmchairIcon }]}/>;
 }
 /** Original OpenBot list composition, bound to the selected DS computer. */
 export function ConnectedScreen() {
