@@ -19,10 +19,12 @@ test('Bots working in a running meeting sit in that room, the others at their de
   assert.equal(seats.busyDesks,2,'b and d work at their desks; waiting is not counted as busy');
 });
 
-test('four desks per floor, and a floor for every meeting room',()=>{
-  const {officeFloors}=module.exports;
-  const floors=officeFloors(['a','b','c','d','e'],['r1']);
-  assert.deepEqual(floors.map((f:any)=>[f.agents,f.room]),[[['a','b','c','d'],'r1'],[['e'],null]]);
-  assert.equal(officeFloors([],['r1','r2','r3']).length,3);
-  assert.deepEqual(officeFloors([],[]),[{agents:[],room:null}],'an empty office still has its floor');
+test('rooms line the back wall two to a row, desks run down in two columns',()=>{
+  const {officeLayout}=module.exports;
+  const layout=officeLayout(5,3);
+  assert.deepEqual(layout.rooms.map((r:any)=>[r.x,r.y,r.w]),[[0,0,3],[3,0,3],[0,4.4,6]],'an odd last room spans the wall');
+  assert.deepEqual(layout.desks.map((d:any)=>d.x),[1.5,4.5,1.5,4.5,1.5]);
+  assert.ok(layout.desks.every((d:any)=>d.y>6),'desks start in front of the rooms');
+  assert.ok(layout.desks[2].y>layout.desks[0].y&&layout.depth>layout.desks[4].y,'each pair of desks is one row further down');
+  assert.equal(officeLayout(0,0).rooms.length,0);
 });
