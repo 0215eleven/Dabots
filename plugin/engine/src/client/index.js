@@ -697,7 +697,8 @@ export function apply(ctx) {
     () => shadow('conversation.input.dock', { id: 'bot-view', order: -95, inject: face }, WidgetDock),
     () => shadow('conversation.input.dock', { id: 'bot-secret', order: -90, inject: face }, SecretDock),
   ]
-  // The return button belongs to neither group: it renders only in Agent mode.
+  // The return button belongs to neither group: it renders only in Agent mode, and
+  // RETURN_CSS seats it to the right of the account row.
   ctx.effect(() => installCompiledStyles(RETURN_CSS, 'return'), 'ds-bot: return styles')
   shadow('sidebar.footer.action', { id: 'bot-return', order: -300, inject: face }, BotReturn)
 

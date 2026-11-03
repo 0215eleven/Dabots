@@ -6699,6 +6699,11 @@ var RETURN_CSS = `
 /* Shell styles carry --bt-ink-deepseek and Agent mode withdraws them; pin it here. */
 .bt-return .bt-mark{--bt-ink-deepseek:#4D6BFE}
 .bt-return-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+[class*="_footArea"]:has(.bt-return){display:grid!important;grid-template-columns:auto minmax(0,1fr);grid-auto-flow:row dense;align-items:center;gap:4px 9px;padding:8px 6px 6px!important}
+[class*="_footArea"]:has(.bt-return)>[class*="_footerActions"],[class*="_footArea"]:has(.bt-return)>[class*="_footerActions"]>div{display:contents!important}
+[class*="_footArea"]:has(.bt-return)>[class*="_footerActions"]>div>*{grid-column:1/-1}
+[class*="_footArea"]:has(.bt-return)>[class*="_footerActions"]>div>.bt-return{grid-column:2;order:1}
+[class*="_footArea"]:has(.bt-return)>[class*="_settingsArea"]{grid-column:1;order:1;width:auto!important}
 `;
 // BT-BLOUB-BRAND: OpenBot's Bloub robot (MIT @norbert_bodziony/bloub 0.4.1).
 var BLOUB_VIEWBOX = "-110 -110 220 220";
@@ -6710,9 +6715,9 @@ function bloubBrandMarkup() {
   // Eyes are enlarged: the engine draws them for a 200 px body, where they are
   // 2 px at the 20 px chip size and read as a blank dot.
   var eyes = BLOUB_EYES.map(function (eye) {
-    return '<g transform="' + eye.matrix + '"><g transform="scale(1.5)"><path class="bt-bloub-eye" d="' + eye.d + '" opacity="' + eye.alpha + '" /></g></g>';
+    return '<g transform="' + eye.matrix + '"><g transform="scale(1.5)"><path class="bt-bloub-eye" fill="#fff" d="' + eye.d + '" opacity="' + eye.alpha + '" /></g></g>';
   }).join("");
-  return '<svg viewBox="' + BLOUB_VIEWBOX + '" aria-hidden="true"><path class="bt-bloub-body" d="' + BLOUB_BODY + '" opacity="' + BLOUB_BODY_ALPHA + '" /><g class="bt-bloub-eyes">' + eyes + '</g></svg>';
+  return '<svg viewBox="' + BLOUB_VIEWBOX + '" aria-hidden="true"><path class="bt-bloub-body" fill="#4D6BFE" d="' + BLOUB_BODY + '" opacity="' + BLOUB_BODY_ALPHA + '" /><g class="bt-bloub-eyes">' + eyes + '</g></svg>';
 }
 // One stable silhouette per stored shape, so a Bot keeps its look between mounts.
 function bloubHash(value) {

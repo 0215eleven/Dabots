@@ -577,7 +577,7 @@ export function FooterAccount(props) {
 }
 
 // The only entry registered in every mode: in Agent mode the whole Bot surface is
-// withdrawn, and this button in the shell's own footer is the way back.
+// withdrawn, and this button beside the shell's own account seat is the way back.
 export function BotReturn({ wide, useSurface, actions }) {
   const mode = useSurface(value => value.mode)
   if (mode !== 'agent') return null
@@ -586,7 +586,10 @@ export function BotReturn({ wide, useSurface, actions }) {
     wide ? h('span', { className: 'bt-return-name' }, t('Dabots')) : null)
 }
 
-// Agent mode has none of the shell-group styles, so the return button carries its own.
+// Agent mode has none of the shell-group styles, so the return button carries its
+// own — including the seat to the right of the account row that SHELL_CSS builds
+// for Bot mode. The rules are scoped to a footer that holds this button, so Bot
+// mode keeps its own grid.
 export const RETURN_CSS = `
 .bt-return{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:0 14px;border:0;border-radius:999px;background:none;color:inherit;font:inherit;font-size:14px;line-height:20px;cursor:pointer;transition:background-color .12s ease}
 .bt-return:hover{background:rgba(127,127,127,.14)}
@@ -596,6 +599,11 @@ export const RETURN_CSS = `
 /* Shell styles carry --bt-ink-deepseek and Agent mode withdraws them; pin it here. */
 .bt-return .bt-mark{--bt-ink-deepseek:#4D6BFE}
 .bt-return-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+[class*="_footArea"]:has(.bt-return){display:grid!important;grid-template-columns:auto minmax(0,1fr);grid-auto-flow:row dense;align-items:center;gap:4px 9px;padding:8px 6px 6px!important}
+[class*="_footArea"]:has(.bt-return)>[class*="_footerActions"],[class*="_footArea"]:has(.bt-return)>[class*="_footerActions"]>div{display:contents!important}
+[class*="_footArea"]:has(.bt-return)>[class*="_footerActions"]>div>*{grid-column:1/-1}
+[class*="_footArea"]:has(.bt-return)>[class*="_footerActions"]>div>.bt-return{grid-column:2;order:1}
+[class*="_footArea"]:has(.bt-return)>[class*="_settingsArea"]{grid-column:1;order:1;width:auto!important}
 `
 
 export function BrandMark({ size = 24 }) {
