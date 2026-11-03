@@ -1,8 +1,8 @@
 // DS Bot Mobile: a two-way switch on the same glass capsule as the home's round actions
 // (ChatGlassButton): native Liquid Glass where available, otherwise its solid stand-in with the
-// thin edge and top sheen. The selected side is a soft translucent thumb, not a hole in the glass.
+// thin edge and top sheen. Icons only (labels stay for accessibility); the selected side is a soft
+// translucent thumb, not a hole in the glass.
 import { GlassView } from "expo-glass-effect";
-import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
 import type { ComponentType } from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
@@ -53,10 +53,9 @@ export function GlassSwitch<T extends string>({ value, options, onChange }: { va
           return (
             <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={label}
               onPress={() => { if (!selected) { void haptics.selection(); onChange(id); } }}
-              className={`flex-row items-center rounded-full ${options.length > 2 ? "gap-1 px-2.5" : "gap-1.5 px-3.5"}`}
-              style={({ pressed }) => ({ height: HEIGHT - INSET * 2, backgroundColor: selected ? thumb : "transparent", opacity: pressed ? 0.6 : 1 })}>
-              <Icon size={16} color={color} strokeWidth={2} accessible={false} />
-              <Typography.Paragraph style={{ fontSize: 14, lineHeight: 18, fontWeight: "600", color }}>{label}</Typography.Paragraph>
+              className="items-center justify-center rounded-full"
+              style={({ pressed }) => ({ height: HEIGHT - INSET * 2, width: 48, backgroundColor: selected ? thumb : "transparent", opacity: pressed ? 0.6 : 1 })}>
+              <Icon size={19} color={color} strokeWidth={selected ? 2.2 : 1.9} accessible={false} />
             </Pressable>
           );
         })}
