@@ -1,6 +1,7 @@
 import { readFile, writeFile, rename } from 'node:fs/promises'
 import { createPrivateKey, createPublicKey, generateKeyPairSync, randomUUID } from 'node:crypto'
 import { join } from 'node:path'
+import { hostname } from 'node:os'
 import { BridgeError } from './auth.js'
 import { createRelayConnector } from './relay-client.mjs'
 import { OFFICIAL_RELAY as BUILT_OFFICIAL_RELAY } from './official.mjs'
@@ -12,6 +13,7 @@ import { OFFICIAL_RELAY as BUILT_OFFICIAL_RELAY } from './official.mjs'
 // switches the pairing code to the relay form. Neither the relay secret (optional
 // for relays with open registration) nor key material ever leaves this module's files.
 const refuse = (code, message) => { throw new BridgeError(400, code, message) }
+const computerName = () => { try { return hostname() } catch { return null } }
 const MODES = new Set(['direct', 'relay'])
 async function writeAtomic(path, text) {
   const temporary = `${path}.${randomUUID()}.tmp`
@@ -96,7 +98,7 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
     // The connector reports synchronously while it is being created.
     const owner = {}
     generationOwner = owner
-    const current = connect({ relay: settings.relay, secret: settings.secret, identity, serverId: server.serverId, endpoint: id => server.relayEndpoint(id), ...(Socket ? { Socket } : {}),
+    const current = connect({ relay: settings.relay, secret: settings.secret, name: computerName(), identity, serverId: server.serverId, endpoint: id => server.relayEndpoint(id), ...(Socket ? { Socket } : {}),
       onStatus: value => {
         if (generationOwner !== owner) return
         const before = pairingContext()

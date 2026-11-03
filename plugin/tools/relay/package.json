@@ -21,6 +21,7 @@
     "bin.mjs",
     "server.mjs",
     "accounts.mjs",
+    "approvals.mjs",
     "README.md"
   ]
 }

@@ -61,6 +61,7 @@ function Root() {
         <Stack.Screen name="channel-info/[channelId]" options={{title:tr("Group"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
         <Stack.Screen name="+not-found" options={{title:tr("Unavailable")}} />
         <Stack.Screen name="pairing" options={{ presentation: "modal", headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="relay-admin" options={{ title: tr("Relay admin"), presentation: "formSheet", sheetAllowedDetents: [0.85], sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: false }} />
         <Stack.Screen name="computer-name" options={{ title: tr("Computer name"), presentation: "formSheet", sheetAllowedDetents: [0.85], sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: false }} />
         <Stack.Screen name="classic" options={{ headerShown: false }} />
       </Stack>

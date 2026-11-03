@@ -20,6 +20,7 @@ import {readFileSync} from 'node:fs'
 import {dirname,join} from 'node:path'
 import {createRelay} from './server.mjs'
 import {createAccounts} from './accounts.mjs'
+import {createApprovals} from './approvals.mjs'
 
 const env=process.env
 let limits
@@ -29,10 +30,14 @@ const blockedComputers=env.RELAY_BLOCKED_COMPUTERS?env.RELAY_BLOCKED_COMPUTERS.s
 const openRegistration=env.RELAY_OPEN_REGISTRATION==='1'
 if(!env.RELAY_ORIGIN||(!env.RELAY_SECRET_FILE&&!env.RELAY_DATA_FILE&&!openRegistration)){console.error('Set RELAY_ORIGIN and RELAY_SECRET_FILE (or RELAY_OPEN_REGISTRATION=1, or RELAY_DATA_FILE for accounts).');process.exit(2)}
 const secret=env.RELAY_SECRET_FILE?readFileSync(env.RELAY_SECRET_FILE,'utf8').trim():undefined
+// RELAY_APPROVALS_FILE=/var/lib/ds-bot-relay/approvals.json turns on computer approval: only approved
+// computers register. The first admin phone claims the relay with the one-time code written beside it
+// as admin-bootstrap-code (0600, removed once claimed).
+const approvals=env.RELAY_APPROVALS_FILE?await createApprovals({file:env.RELAY_APPROVALS_FILE,bootstrapFile:join(dirname(env.RELAY_APPROVALS_FILE),'admin-bootstrap-code')}):null
 const accounts=env.RELAY_DATA_FILE?await createAccounts({file:env.RELAY_DATA_FILE,bootstrapFile:join(dirname(env.RELAY_DATA_FILE),'bootstrap-code'),registration:env.RELAY_REGISTRATION??'invite'}):null
 const port=Number(env.RELAY_PORT??8790)
 if(!Number.isInteger(port)||port<1||port>65535){console.error('RELAY_PORT must be 1-65535.');process.exit(2)}
-const relay=await createRelay({secret,origin:env.RELAY_ORIGIN,host:env.RELAY_HOST??'127.0.0.1',port,trustProxy:env.RELAY_TRUST_PROXY==='1',trustedProxyIp:env.RELAY_TRUSTED_PROXY_IP,accounts,openRegistration,limits,blockedIps,blockedComputers,diagnostics:env.RELAY_DIAGNOSTICS==='1'})
+const relay=await createRelay({secret,origin:env.RELAY_ORIGIN,host:env.RELAY_HOST??'127.0.0.1',port,trustProxy:env.RELAY_TRUST_PROXY==='1',trustedProxyIp:env.RELAY_TRUSTED_PROXY_IP,accounts,approvals,openRegistration,limits,blockedIps,blockedComputers,diagnostics:env.RELAY_DIAGNOSTICS==='1'})
 // Temporary diagnostics carry fixed labels and counters, never payloads or identities.
 console.log(`ds-bot-relay listening on ${env.RELAY_HOST??'127.0.0.1'}:${port} for ${new URL(env.RELAY_ORIGIN).origin}${openRegistration?' with open registration':''}${accounts?` with accounts (${accounts.registration} registration)`:''}`)
 let stopping=false

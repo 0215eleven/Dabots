@@ -13,7 +13,7 @@ import {fileURLToPath} from 'node:url'
 const root=fileURLToPath(new URL('../',import.meta.url))
 const helper=join(root,'deploy/update.py')
 const ws=join(root,'node_modules/ws')
-const files=['bin.mjs','server.mjs','accounts.mjs','package.json','package-lock.json']
+const files=['bin.mjs','server.mjs','accounts.mjs','approvals.mjs','package.json','package-lock.json']
 const onlyLinux={skip:process.platform!=='linux'?'Linux deployment helper':false}
 const fake=`#!/usr/bin/env python3
 import json,os,pathlib,subprocess,sys,time
@@ -87,7 +87,7 @@ async function fixture(t,{mode='compose',failure='',longMount=false}={}){
  const install=join(area,'install'),previous=join(area,'releases/748f671'),bin=join(area,'tools')
  await Promise.all([mkdir(install),mkdir(join(previous,'relay'),{recursive:true}),mkdir(bin)])
  for(const dir of [install,join(previous,'relay')]){
-  for(const name of files)if(name!=='accounts.mjs'){
+  for(const name of files)if(!['accounts.mjs','approvals.mjs'].includes(name)){
    await writeFile(join(dir,name),`old ${name}\n`,{mode:0o640});await chmod(join(dir,name),0o640)
   }
   await mkdir(join(dir,'node_modules'));await writeFile(join(dir,'node_modules','old-dependency'),'old\n')

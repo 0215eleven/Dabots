@@ -63,8 +63,8 @@ df -h /opt /etc
 sudo useradd --system --home /opt/ds-bot-relay --shell /usr/sbin/nologin ds-bot-relay
 sudo mkdir -p /opt/ds-bot-relay /etc/ds-bot-relay
 
-# 2. 放入代码：仓库 plugin/tools/relay/ 下的 bin.mjs、server.mjs、accounts.mjs、package.json、package-lock.json
-sudo cp bin.mjs server.mjs accounts.mjs package.json package-lock.json /opt/ds-bot-relay/
+# 2. 放入代码：仓库 plugin/tools/relay/ 下的 bin.mjs、server.mjs、accounts.mjs、approvals.mjs、package.json、package-lock.json
+sudo cp bin.mjs server.mjs accounts.mjs approvals.mjs package.json package-lock.json /opt/ds-bot-relay/
 cd /opt/ds-bot-relay && sudo npm ci --omit=dev --ignore-scripts
 sudo chown -R root:root /opt/ds-bot-relay
 
@@ -298,6 +298,42 @@ Relay 0.2.0 支持 `RELAY_OPEN_REGISTRATION=1`，但更新脚本**不会设置�
 除 `info`、`register`、`login`、`logout` 外均需 `Authorization: Bearer <token>`。带 `Origin` 头的浏览器请求一律拒绝。同一 IP 或同一账号 15 分钟内 10 次登录失败后暂时拒绝；每个 IP 每分钟最多 120 次请求。令牌 90 天有效，每个账号最多 50 个会话。
 
 电脑登记：WebSocket `register` 帧可用 `accountToken`（该账号的会话令牌）代替 `secret`，可附带 `name`、`serverId`。同一台电脑（同一 Ed25519 公钥）只能属于一个账号。插件与手机端的登录界面将在后续版本加入。
+
+## 八、电脑审批（可选，管理员手机批准）
+
+开启后，只有管理员批准过的电脑才能在中转上登记。别人即使拿到开源插件和中转地址，新电脑也只会进入"等待批准"，被拒绝的连接关闭码为 4401（插件显示"等待管理员在手机上批准这台电脑"，每分钟自动重试）。管理员是手机：App 生成一把 Ed25519 密钥（只存在手机钥匙串里），服务器只保存公钥，每个管理请求都要签名，5 分钟内有效且不能重放。
+
+1. 给服务加环境变量并确保状态目录可写（systemd 用 `StateDirectory=ds-bot-relay`；Docker 把 `/var/lib/ds-bot-relay` 挂成卷）：
+
+   ```ini
+   Environment=RELAY_APPROVALS_FILE=/var/lib/ds-bot-relay/approvals.json
+   ```
+
+   然后 `sudo systemctl daemon-reload && sudo systemctl restart ds-bot-relay`。
+
+2. 服务启动时把一次性管理员代码写到同目录的 `admin-bootstrap-code`（0600）：
+
+   ```bash
+   sudo cat /var/lib/ds-bot-relay/admin-bootstrap-code
+   ```
+
+3. 手机 App：设置 → 官方中转 → 中转管理，输入这个代码点"成为管理员"。成功后代码文件自动删除，之后别人无法再认领。
+4. **注意：开启后你自己的电脑也要批准一次。** 电脑重新连上中转后会出现在"等待批准"里，点"批准"即可；"移除"会立即断开该电脑，"拒绝"的电脑不会再出现在列表里（误拒时先停服务，从 approvals.json 的 `denied` 里删掉它的编号再启动）。
+
+不设置 `RELAY_APPROVALS_FILE` 时行为与以前完全一样。更新脚本不会自动开启审批。
+
+### 管理接口（均为 `/v1/admin/`，需签名）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `claim` | `{code}`：用一次性代码成为第一个管理员 |
+| GET | `status` | `{admin, claimable}` |
+| GET | `devices` | `{pending, approved}`，每项含 `computerId`、`name`、时间 |
+| POST | `approve` | `{computerId}` |
+| POST | `deny` | `{computerId}`，并断开该电脑 |
+| POST | `revoke` | `{computerId}`，移出已批准列表并断开 |
+
+请求头：`x-dabots-admin-key`（base64url 公钥）、`x-dabots-admin-time`（毫秒）、`x-dabots-admin-signature`，签名内容为 `JSON.stringify(["dabots-relay-admin-v1", RELAY_ORIGIN, method, path, time, sha256hex(body)])`。同一 IP 15 分钟内 10 次认证失败后暂时拒绝。
 
 ## 临时连接诊断（默认关闭）
 

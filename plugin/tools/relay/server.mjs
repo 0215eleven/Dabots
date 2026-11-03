@@ -7,6 +7,7 @@ import {once} from 'node:events';
 import {isIP} from 'node:net';
 import {WebSocketServer,WebSocket} from 'ws';
 import {createAccountApi} from './accounts.mjs';
+import {createAdminApi} from './approvals.mjs';
 const hash=x=>createHash('sha256').update(x).digest();
 // These ceilings apply to secret/account registrations too: enabling the public
 // door must never create an unbounded pool of connections or encrypted traffic.
@@ -46,7 +47,7 @@ function createDiagnostics(enabled,write,now){
   stop,
  };
 }
-export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowedOrigins=[],trustProxy=false,trustedProxyIp,accounts=null,openRegistration=false,limits:overrides={},blockedIps=[],blockedComputers=[],diagnostics=false,diagnosticLog=console.log,diagnosticNow=Date.now}){
+export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowedOrigins=[],trustProxy=false,trustedProxyIp,accounts=null,approvals=null,openRegistration=false,limits:overrides={},blockedIps=[],blockedComputers=[],diagnostics=false,diagnosticLog=console.log,diagnosticNow=Date.now}){
  const limits=validateLimits(overrides);
  if(typeof diagnostics!=='boolean'||typeof diagnosticLog!=='function'||typeof diagnosticNow!=='function')throw Error('Invalid diagnostic configuration.');
  if(!Array.isArray(blockedIps)||blockedIps.length>4096||blockedIps.some(ip=>!canonicalIp(ip)))throw Error('blockedIps must contain at most 4096 IP literals.');
@@ -106,9 +107,16 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
   const rate=requests.get(ip)??{count:0,expires:now+60000};rate.count++;requests.set(ip,rate);
   return rate.count<=120;
  };
+ // With approvals, only approved computers register; admin phones approve them over signed requests.
+ const adminApi=approvals?createAdminApi({approvals,origin:publicUrl.origin,limit:allowRequest,onRevoke:id=>computers.get(id)?.ws.close(4401,'APPROVAL_REVOKED')}):null;
  const accountApi=accounts?createAccountApi({accounts,origin:publicUrl.origin,online:id=>computers.get(id)?.ws.readyState===WebSocket.OPEN,limit:allowRequest}):null;
  const server=createServer(async(req,res)=>{
   res.setHeader('cache-control','no-store');res.setHeader('content-type','application/json');
+  if(adminApi&&req.url.startsWith('/v1/admin/')){
+   const ip=clientIp(req);
+   if(ip===undefined){res.writeHead(400);res.end('{"code":"INVALID_CLIENT_IP"}');return;}
+   if(await adminApi(req,res,ip))return;
+  }
   if(accountApi&&req.url.startsWith('/v1/account/')){
    const ip=clientIp(req);
    if(ip===undefined){res.writeHead(400);res.end('{"code":"INVALID_CLIENT_IP"}');return;}
@@ -188,6 +196,8 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
       phase='signature';
       if(!verify(null,Buffer.from(signed),key,raw(m.signature,64)))throw Error('invalid');
       if(!registrationAllowed(ip)){diagnostic.event(trace,'registration_denied',{closeCode:4429,phase:'quota'});return ws.close(4429,'REGISTRATION_LIMIT');}
+      // A computer that proved its key but is not approved waits in the admin's list.
+      if(approvals&&!approvals.isApproved(id)){diagnostic.event(trace,'registration_denied',{closeCode:4401,phase:'approval'});void approvals.notePending(id,m.name).catch(()=>{});return ws.close(4401,'APPROVAL_REQUIRED');}
       if(computers.size>=limits.maxComputers&&!computers.has(id)){diagnostic.event(trace,'registration_denied',{closeCode:4429,phase:'capacity'});return ws.close(4429,'CAPACITY_LIMIT');}
       const accept=()=>{
        if(ws.readyState!==WebSocket.OPEN)return;
@@ -214,5 +224,5 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
  });
  const heartbeat=setInterval(()=>{const now=Date.now();for(const ws of wss.clients){if(now-ws.lastPong>=30000)ws.terminate();else ws.ping();}},10000);heartbeat.unref();
  server.listen(port,host);await once(server,'listening');let closing;
- return {url:`http://${host.includes(':')?'['+host+']':host}:${server.address().port}`,close(){return closing??=(async()=>{clearInterval(heartbeat);for(const ws of wss.clients)ws.terminate();await new Promise(resolve=>wss.close(resolve));server.closeAllConnections();await new Promise(resolve=>server.close(resolve));expected?.fill(0);await accounts?.flush();diagnostic.stop('SERVICE_STOPPED');})();}};
+ return {url:`http://${host.includes(':')?'['+host+']':host}:${server.address().port}`,close(){return closing??=(async()=>{clearInterval(heartbeat);for(const ws of wss.clients)ws.terminate();await new Promise(resolve=>wss.close(resolve));server.closeAllConnections();await new Promise(resolve=>server.close(resolve));expected?.fill(0);await accounts?.flush();await approvals?.flush();diagnostic.stop('SERVICE_STOPPED');})();}};
 }

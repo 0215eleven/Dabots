@@ -10,6 +10,7 @@ import { Stack, useRouter } from "expo-router";
 import { hostAddress, hostKey } from "../src/logic/hosts";
 import { useComputerNames } from "../src/names/ComputerNamesProvider";
 import { useHomeView } from "../src/ds/home-view";
+import { useAdminRelay } from "../src/session/admin-relay";
 import { setLiveActivityEnabled } from "../src/liveactivity/controller";
 import { LocalePreference, setLocalePreference, useI18n } from "../src/i18n";
 import { errorFeedback, selectionFeedback, successFeedback } from "../src/media/haptics";
@@ -39,6 +40,7 @@ function Settings() {
   const session = useSession();
   const names = useComputerNames();
   const [homeView, setHomeView] = useHomeView();
+  const adminRelay = useAdminRelay();
   const {view,commands,management}=useDs();
   const [reviewed,setReviewed]=useState<import("../src/ds/management").ManagementIssue[]>([]);
   const [sharedPending,setSharedPending]=useState(false),[sharedBlocked,setSharedBlocked]=useState(false);
@@ -102,6 +104,10 @@ function Settings() {
           <UiHost matchContents><Switch value={homeView === 'agent' && session.agentsAvailable} onValueChange={on => { selectionFeedback(); setHomeView(on ? 'agent' : 'list'); }} disabled={!session.agentsAvailable} /></UiHost>
         </Row>
       </Group>
+
+      {adminRelay ? <Group title={tr("Official relay")} footer={tr("Only computers you approve here may connect through the relay.")}>
+        <Row title={tr("Relay admin")} onPress={() => router.push('/relay-admin')} />
+      </Group> : null}
 
       <Group title={tr("Computers")}>
         {session.hosts.map(item => (

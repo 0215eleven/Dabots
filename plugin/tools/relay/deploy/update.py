@@ -20,10 +20,10 @@ import urllib.request
 from urllib.parse import urlsplit
 import uuid
 
-FILES = ("bin.mjs", "server.mjs", "accounts.mjs", "package.json", "package-lock.json")
+FILES = ("bin.mjs", "server.mjs", "accounts.mjs", "approvals.mjs", "package.json", "package-lock.json")
 SOURCE = Path(__file__).resolve().parent.parent
 VERSION_CHECK = "const [a,b]=process.versions.node.split('.').map(Number);if(a<22||(a===22&&b<12))process.exit(2);"
-VALIDATE = "import('./server.mjs').then(()=>import('./accounts.mjs')).catch(()=>process.exit(1))"
+VALIDATE = "import('./server.mjs').then(()=>import('./accounts.mjs')).then(()=>import('./approvals.mjs')).catch(()=>process.exit(1))"
 BUILD = VERSION_CHECK + "require('node:child_process').execFileSync('npm',['ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund','--userconfig=/dev/null'],{stdio:'inherit'});" + VALIDATE
 RUNTIME = VERSION_CHECK + """const fs=require('node:fs'),p=require('node:path');let data=process.env.RELAY_DATA_FILE||null;
 if(data){let probe=p.resolve(data),tail=[];while(!fs.existsSync(probe)){tail.unshift(p.basename(probe));const parent=p.dirname(probe);if(parent===probe)break;probe=parent;}data=p.join(fs.realpathSync(probe),...tail);}
