@@ -181,7 +181,7 @@ export function ConnectedScreen() {
     const canAddBot = view?.capabilities.actions.includes('create-bot') ?? false;
     const canAddGroup = view?.capabilities.actions.includes('create-room') ?? false;
     const createActions: MenuAction[] = [...(canAddBot ? [{ id: 'bot', title: tr('Add Bot'), image: 'person.badge.plus' as const }] : []), ...(canAddGroup ? [{ id: 'group', title: tr('New group'), image: 'person.2' as const }] : [])];
-    const create = (id: string) => { if (!computers.switching) router.push(id === 'group' ? '/add-channel' : '/add-agent'); };
+    const create = (id: string) => { if (computers.switching) return; if (id === 'agent') { setHomeView('agent'); void createAgent(); return; } router.push(id === 'group' ? '/add-channel' : '/add-agent'); };
     const plus = <PlusIcon size={20} color={foreground} strokeWidth={2}/>;
     const hasPinned = pinnedAgents.length > 0 || pinnedGroups.length > 0;
     const computers = useComputers();
@@ -227,6 +227,8 @@ export function ConnectedScreen() {
         } catch (error) { setAgentError(error instanceof Error ? error.message : String(error)); }
         finally { setCreatingAgent(false); }
     };
+    // New also starts a DSH Agent conversation when this computer offers Agents to this phone.
+    const newActions: MenuAction[] = [...createActions, ...(computers.agentsAvailable && view?.capabilities.agents ? [{ id: 'agent', title: tr('New DSH Agent'), image: 'apple.terminal' as const }] : [])];
     const chips = multiple ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: ROW_LEFT, paddingTop: 4, paddingBottom: 4 }}>
      <ComputerChip label={tr('All')} selected={filter === 'all'} disabled={computers.switching} onPress={() => { if (!computers.switching) setAllComputers(true); }}/>
      {computers.hosts.map(h => <ComputerChip key={h.slot || h.serverId} label={names.name(h)} selected={filter === h.serverId} status={status(h.serverId)} disabled={computers.switching} onPress={() => pick(h.serverId)}/>)}
@@ -256,8 +258,8 @@ export function ConnectedScreen() {
     <EllipsisIcon size={22} color={foreground} strokeWidth={2} accessible={false}/>
    </IconButton>
    <ViewSwitch value={homeView} agents={computers.agentsAvailable} onChange={setHomeView}/>
-   {createActions.length > 1 ? computers.switching ? <IconButton label={tr('New chat')} disabled>{plus}</IconButton> : <MenuView actions={createActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
-       : createActions.length === 1 ? <IconButton label={createActions[0].title} disabled={computers.switching} onPress={() => create(createActions[0].id ?? 'bot')}>{plus}</IconButton> : <View style={{ width: 44 }}/>}
+   {newActions.length > 1 ? computers.switching ? <IconButton label={tr('New chat')} disabled>{plus}</IconButton> : <MenuView actions={newActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
+       : newActions.length === 1 ? <IconButton label={newActions[0].title} disabled={computers.switching} onPress={() => create(newActions[0].id ?? 'bot')}>{plus}</IconButton> : <View style={{ width: 44 }}/>}
   </View>
  </View></ComputerTagContext.Provider>;
 }

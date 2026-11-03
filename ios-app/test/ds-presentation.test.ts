@@ -13,7 +13,7 @@ function screen(hidden:boolean,insets:{top:number;bottom:number;left?:number;rig
  '@ds/text':{useDsText:()=>({tr:(text:string)=>text,locale:'en'})},'heroui-native/hooks':{useThemeColor:(names:any)=>Array.isArray(names)?names.map(()=>'#141414'):'#141414'},'react':{...react,useState:()=>[hidden,noop]},'react-native':{View:'View',Pressable:'Pressable',StyleSheet:{hairlineWidth:0.5}},'react-native-reanimated':reanimated,'expo-router':{Stack:{Screen:'Screen'}},
  '@/features/workspace/context/mobile-workspace-context':{useMobileWorkspace:()=>({agents,activeAgents:agents.slice(0,1),activeServer:{id:'h',name:'host'},pinnedAgentIds:['hidden'],pinnedChannelIds:[],hiddenChannelIds:[]})},
  '@/features/channels/components/use-channels':{useChannels:()=>({channels:[]})},'react-native-safe-area-context':{useSafeAreaInsets:()=>({left:0,right:0,...insets})},
- '@/shared/components/large-title':{useLargeTitleScroll:()=>({})},'@ds/provider':{useDs:()=>({view:{capabilities:{actions:[]}},online,times})},
+ '@/shared/components/large-title':{useLargeTitleScroll:()=>({})},'@ds/provider':{useDs:()=>({view:{capabilities:{actions:[],agents:agentsOn}},online,times})},
  '@/features/agents/components/agent-list-reveal':{useAgentListReveal:()=>({})},'@/shared/lib/motion':{useReducedMotion:()=>true},
  '@ds/home-view':{useHomeView:()=>[homeView,()=>{}]},'@/features/agents/components/agent-list-view':{AgentListView:'AgentListView'},'@/features/agents/components/office-view':{OfficeView:'OfficeView'},'@ds/computers':{useComputers:()=>({hosts,host:hosts[0],switchHost:async()=>true,agentsAvailable:agentsOn}),useComputerNames:()=>({name:(host:any)=>host.name}),usePeerHosts:()=>({peers}),peerBotColor:()=>()=>null,peerRows:(peer:any)=>peer.rows},'uniwind':{useUniwind:()=>({theme:'light'})},'@/features/agents/components/peer-chat-row':{PeerChatRow:'PeerChatRow'},'@/features/workspace/components/computer-tag':{ComputerTagContext:{Provider:'TagProvider'}},
  }).ConnectedScreen();}
@@ -79,6 +79,13 @@ test('the Agent tab shows only when the computer offers Agents, and opens the Ag
   assert.equal(tabs(tree).value,'agent');
   assert.ok(find(tree,n=>n.type==='AgentListView'));
  }finally{homeView='list';agentsOn=false}
+});
+test('New offers a DSH Agent conversation only when the computer offers Agents',()=>{
+ const newLabel=(tree:any)=>find(tree,n=>n.props?.label==='New DSH Agent');
+ assert.equal(newLabel(screen(false)),undefined);
+ agentsOn=true;
+ try{assert.ok(newLabel(screen(false)),'the + action creates an Agent conversation');}
+ finally{agentsOn=false}
 });
 test('show hidden includes a hidden pinned Bot in the actual pinned section',()=>{const original=react.useState;react.useState=()=>[true,noop];try{const tree=screen(true);const header=find(tree,n=>n.type==='FlatList').props.ListHeaderComponent;assert.deepEqual(find(header,n=>Array.isArray(n.props?.agents)).props.agents.map((a:any)=>a.id),['hidden']);}finally{react.useState=original}});
 test('home consumes each native safe-area inset once, including notches and landscape',()=>{
