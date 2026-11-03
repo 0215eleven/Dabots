@@ -54,6 +54,7 @@ function Root() {
         <Stack.Screen name="connected" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false, presentation: "formSheet", sheetAllowedDetents: [0.85], sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: false, gestureEnabled: true, contentStyle: { backgroundColor: String(sheetBackground) } }} />
         <Stack.Screen name="chat/[agentId]" options={{ headerBackButtonDisplayMode: "minimal" }} />
+        <Stack.Screen name="legacy-agent/[id]" options={{ headerBackButtonDisplayMode: "minimal", title: "" }} />
         <Stack.Screen name="add-agent" options={{title:tr("Add Bot"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
         <Stack.Screen name="add-channel" options={{title:tr("New group"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
         <Stack.Screen name="agent-info/[agentId]" options={{title:tr("Bot"),presentation:"formSheet",sheetAllowedDetents:[0.85],sheetGrabberVisible:true,sheetExpandsWhenScrolledToEdge:false}} />
