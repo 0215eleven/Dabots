@@ -2,7 +2,7 @@
 // SDK tokens or public-service defaults. Optional accounts (accounts.mjs) only record which
 // registered computers an owner has, so a signed-in phone can list them.
 import {createServer} from 'node:http';
-import {createHash,createPublicKey,randomBytes,timingSafeEqual,verify} from 'node:crypto';
+import {createHash,createHmac,createPublicKey,randomBytes,timingSafeEqual,verify} from 'node:crypto';
 import {once} from 'node:events';
 import {isIP} from 'node:net';
 import {WebSocketServer,WebSocket} from 'ws';
@@ -47,7 +47,7 @@ function createDiagnostics(enabled,write,now){
   stop,
  };
 }
-export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowedOrigins=[],trustProxy=false,trustedProxyIp,accounts=null,approvals=null,openRegistration=false,limits:overrides={},blockedIps=[],blockedComputers=[],diagnostics=false,diagnosticLog=console.log,diagnosticNow=Date.now}){
+export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowedOrigins=[],trustProxy=false,trustedProxyIp,accounts=null,approvals=null,buildKey=null,openRegistration=false,limits:overrides={},blockedIps=[],blockedComputers=[],diagnostics=false,diagnosticLog=console.log,diagnosticNow=Date.now}){
  const limits=validateLimits(overrides);
  if(typeof diagnostics!=='boolean'||typeof diagnosticLog!=='function'||typeof diagnosticNow!=='function')throw Error('Invalid diagnostic configuration.');
  if(!Array.isArray(blockedIps)||blockedIps.length>4096||blockedIps.some(ip=>!canonicalIp(ip)))throw Error('blockedIps must contain at most 4096 IP literals.');
@@ -108,7 +108,9 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
   return rate.count<=120;
  };
  // With approvals, only approved computers register; admin phones approve them over signed requests.
- const adminApi=approvals?createAdminApi({approvals,origin:publicUrl.origin,limit:allowRequest,onRevoke:id=>computers.get(id)?.ws.close(4401,'APPROVAL_REVOKED')}):null;
+ // A computer waiting for approval keeps its socket; approving it registers it on the spot.
+ const waiting=new Map();
+ const adminApi=approvals?createAdminApi({approvals,origin:publicUrl.origin,limit:allowRequest,onApprove:id=>waiting.get(id)?.(),onRevoke:id=>{computers.get(id)?.ws.close(4401,'APPROVAL_REVOKED');waiting.get(id)?.close?.();}}):null;
  const accountApi=accounts?createAccountApi({accounts,origin:publicUrl.origin,online:id=>computers.get(id)?.ws.readyState===WebSocket.OPEN,limit:allowRequest}):null;
  const server=createServer(async(req,res)=>{
   res.setHeader('cache-control','no-store');res.setHeader('content-type','application/json');
@@ -195,9 +197,11 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
       const signed=JSON.stringify(['ds-bot-computer-v2',origin,nonce,id,m.edPublicKey,m.computerKey]);
       phase='signature';
       if(!verify(null,Buffer.from(signed),key,raw(m.signature,64)))throw Error('invalid');
+      // With a build key, only the official plugin (which tags its key with it) may register.
+      phase='build';
+      if(buildKey&&!(typeof m.build==='string'&&m.build.length===43&&timingSafeEqual(Buffer.from(m.build),Buffer.from(createHmac('sha256',buildKey).update(`dabots-build-v1\nrelay\n${m.computerKey}`).digest('base64url')))))throw Error('invalid');
       if(!registrationAllowed(ip)){diagnostic.event(trace,'registration_denied',{closeCode:4429,phase:'quota'});return ws.close(4429,'REGISTRATION_LIMIT');}
       // A computer that proved its key but is not approved waits in the admin's list.
-      if(approvals&&!approvals.isApproved(id)){diagnostic.event(trace,'registration_denied',{closeCode:4401,phase:'approval'});void approvals.notePending(id,m.name).catch(()=>{});return ws.close(4401,'APPROVAL_REQUIRED');}
       if(computers.size>=limits.maxComputers&&!computers.has(id)){diagnostic.event(trace,'registration_denied',{closeCode:4429,phase:'capacity'});return ws.close(4429,'CAPACITY_LIMIT');}
       const accept=()=>{
        if(ws.readyState!==WebSocket.OPEN)return;
@@ -209,6 +213,18 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
        registered={ws,streams:new Map(),id};computers.set(id,registered);clearTimeout(timer);control(ws,{type:'registered',computerId:id,...(owner?{account:owner.account.username}:{})});
        diagnostic.event(trace,'computer_registered');
       };
+      // A computer that proved its key but is not approved waits, listed for the admin, until approved.
+      if(approvals&&!approvals.isApproved(id)){
+       void approvals.notePending(id,m.name).catch(()=>{});
+       if(waiting.size>=limits.maxComputers&&!waiting.has(id)){diagnostic.event(trace,'registration_denied',{closeCode:4401,phase:'approval'});return ws.close(4401,'APPROVAL_REQUIRED');}
+       waiting.get(id)?.close();
+       const promote=()=>{if(waiting.get(id)!==promote)return;waiting.delete(id);if(owner)return void accounts.bindComputer(owner.account,{id,computerKey:m.computerKey,name:m.name,serverId:m.serverId}).then(()=>{binding=false;accept();},()=>ws.close(4403,'REGISTRATION_OR_FRAME_DENIED'));binding=false;accept();};
+       promote.close=()=>{if(waiting.get(id)===promote)waiting.delete(id);ws.close(4401,'APPROVAL_REQUIRED');};
+       waiting.set(id,promote);binding=true;clearTimeout(timer);
+       ws.once('close',()=>{if(waiting.get(id)===promote)waiting.delete(id);});
+       diagnostic.event(trace,'computer_pending');control(ws,{type:'pending',computerId:id});
+       return;
+      }
       if(!owner)return accept();
       binding=true;
       void accounts.bindComputer(owner.account,{id,computerKey:m.computerKey,name:m.name,serverId:m.serverId})

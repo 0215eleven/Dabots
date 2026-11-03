@@ -80,7 +80,7 @@ export function adminMessage({origin,method,path,time,body}){
 }
 
 /** Signed JSON routes under /v1/admin/. Returns false for any other path. */
-export function createAdminApi({approvals,origin,limit,onRevoke=()=>{},now=()=>Date.now()}){
+export function createAdminApi({approvals,origin,limit,onApprove=()=>{},onRevoke=()=>{},now=()=>Date.now()}){
  const seen=new Map(),failures=new Map();
  const reply=(res,status,body)=>{res.writeHead(status);res.end(JSON.stringify(body));};
  async function read(req){let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>4096)throw fail(413,'BODY_TOO_LARGE');chunks.push(chunk);}return Buffer.concat(chunks);}
@@ -111,7 +111,7 @@ export function createAdminApi({approvals,origin,limit,onRevoke=()=>{},now=()=>D
    if(route==='GET /v1/admin/status'){reply(res,200,{admin:approvals.isAdmin(key),claimable:!approvals.hasAdmin()});return true;}
    if(!approvals.isAdmin(key))throw fail(403,'ADMIN_REQUIRED');
    if(route==='GET /v1/admin/devices'){reply(res,200,approvals.list());return true;}
-   if(route==='POST /v1/admin/approve'){await approvals.approve(input.computerId);reply(res,200,{ok:true});return true;}
+   if(route==='POST /v1/admin/approve'){await approvals.approve(input.computerId);onApprove(input.computerId);reply(res,200,{ok:true});return true;}
    if(route==='POST /v1/admin/deny'){await approvals.deny(input.computerId);onRevoke(input.computerId);reply(res,200,{ok:true});return true;}
    if(route==='POST /v1/admin/revoke'){await approvals.revoke(input.computerId);onRevoke(input.computerId);reply(res,200,{ok:true});return true;}
    throw fail(404,'NOT_FOUND');

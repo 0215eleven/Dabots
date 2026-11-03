@@ -1,7 +1,8 @@
 import {createHash,createPublicKey,sign,randomBytes} from 'node:crypto'
 import {WebSocket} from 'ws'
 import {acceptPhoneHandshake,createRpcPeer} from './relay-shared.mjs'
-export function createRelayConnector({relay,secret,identity,serverId,endpoint,name=null,Socket=WebSocket,onStatus=()=>{}}){
+import {buildTag} from './build-tag.mjs'
+export function createRelayConnector({relay,secret,identity,serverId,endpoint,name=null,buildKey=null,Socket=WebSocket,onStatus=()=>{}}){
  // The computer's name helps a relay admin recognise it among computers waiting for approval.
  const label=typeof name==='string'&&name.trim()?name.trim().split('').filter(char=>char.charCodeAt(0)>=32&&char.charCodeAt(0)!==127).join('').slice(0,64):null
  const url=new URL(relay)
@@ -40,9 +41,11 @@ export function createRelayConnector({relay,secret,identity,serverId,endpoint,na
      if(value.type==='challenge'&&state==='connecting'){
       if(typeof value.nonce!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(value.nonce))throw Error('Invalid challenge')
       const payload=JSON.stringify(['ds-bot-computer-v2',url.origin,value.nonce,computerId,edPublicKey,computerKey])
-      ws.send(JSON.stringify({type:'register',nonce:value.nonce,computerId,edPublicKey,computerKey,signature:sign(null,Buffer.from(payload),identity.edPrivateKey).toString('base64url'),...(secret?{secret}:{}),...(label?{name:label}:{})}));return
+      ws.send(JSON.stringify({type:'register',nonce:value.nonce,computerId,edPublicKey,computerKey,signature:sign(null,Buffer.from(payload),identity.edPrivateKey).toString('base64url'),...(secret?{secret}:{}),...(label?{name:label}:{}),...(buildKey?{build:buildTag(buildKey,'relay',computerKey)}:{})}));return
      }
-     if(value.type==='registered'&&value.computerId===computerId&&state==='connecting'){clearTimeout(timeout);attempts=0;publish('ready');resolveReady();return}
+     // An approving relay keeps a new computer waiting on this socket until its admin approves it.
+     if(value.type==='pending'&&value.computerId===computerId&&state==='connecting'){clearTimeout(timeout);publish('pending');return}
+     if(value.type==='registered'&&value.computerId===computerId&&(state==='connecting'||state==='pending')){clearTimeout(timeout);attempts=0;publish('ready');resolveReady();return}
      if(state!=='ready')throw Error('Relay not registered')
      if(value.type==='open'){
       if(typeof value.streamId!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(value.streamId)||streams.has(value.streamId)||streams.size>=32)throw Error('Invalid stream')

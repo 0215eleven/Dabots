@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import { BridgeError, createAuthStore, digest } from './auth.js'
 import { validateRemoteUrl } from './remote-connection.mjs'
 import { createRelayEndpoint } from './relay-endpoint.mjs'
+import { buildTag, builtKey, sameTag } from './build-tag.mjs'
 
 const PREFIX = '/mobile/v1'
 const HEARTBEAT_MS = 15_000
@@ -49,7 +50,8 @@ async function jsonBody(request) {
   } catch { fail(400, 'INVALID_JSON', 'Send a JSON object.') }
 }
 
-export async function createMobileServer({ home, config = {}, adapter, managedRemote = false }) {
+export async function createMobileServer({ home, config = {}, adapter, managedRemote = false, buildKey = builtKey() }) {
+  const withBuildTag = pairing => buildKey ? { ...pairing, build: buildTag(buildKey, 'plugin', pairing.serverId) } : pairing
   const host = config.host ?? '127.0.0.1'
   const tls = Boolean(config.certPath && config.keyPath)
   if (Boolean(config.certPath) !== Boolean(config.keyPath)) throw new Error('Mobile TLS requires both certPath and keyPath.')
@@ -204,7 +206,12 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         result = { protocolVersion: 1, serverId: auth.data.serverId, name: config.name ?? 'Dabots', capabilities: adapter.capabilities?.() ?? {}, compatibility: adapter.compatibility?.() ?? {} }
       } else if (method === 'POST' && path === `${PREFIX}/pairings`) {
         rate(`pair:${ip}`, 10)
-        result = auth.beginPairing(await jsonBody(request))
+        const claim = await jsonBody(request)
+        // An official plugin pairs only with the official app, which proves it holds the same build key.
+        if (buildKey && !sameTag(buildKey, 'app', claim?.code, claim?.proof)) fail(403, 'APP_NOT_MATCHED', 'This app does not match this plugin. Install the official Dabots app.')
+        const pairing = { ...claim }
+        delete pairing.proof
+        result = auth.beginPairing(pairing)
       } else if (method === 'POST' && path === `${PREFIX}/pairings/complete`) {
         rate(`complete:${ip}`, 120)
         result = await auth.completePairing((await jsonBody(request)).claimToken)
@@ -391,6 +398,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
     serverId: auth.data.serverId,
     invalidatePairings: () => auth.invalidatePairings(),
     createPairing: options => auth.createPairing(null, options),
+    buildKey,
     relayEndpoint: remoteKey => createRelayEndpoint({ remoteKey, route, acceptSocket }),
     hasActiveDevices: () => auth.data.devices.some(device => !device.revokedAt && device.refreshExpiresAt > Date.now()),
     isDeviceAuthorized: id => auth.data.devices.some(device => device.id === id && !device.revokedAt && device.refreshExpiresAt > Date.now()),
@@ -399,7 +407,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         case 'status': return { enabled: true, url: publicUrl, serverId: auth.data.serverId, capabilities: adapter.capabilities?.() ?? {}, compatibility: adapter.compatibility?.() ?? {}, pending: auth.pending(), devices: auth.devices(), pairingLease: auth.pairingStatus() }
         case 'pairing.create':
           if (!publicUrl) fail(409, 'REMOTE_NOT_READY', 'Configure an HTTPS address or explicitly start the temporary tunnel before pairing.')
-          return auth.createPairing(publicUrl, payload)
+          return withBuildTag(auth.createPairing(publicUrl, payload))
         case 'pairing.cancel': return auth.cancelPairing(payload.leaseId)
         case 'pairing.approve': return auth.decidePairing(payload.requestId, true)
         case 'pairing.deny': return auth.decidePairing(payload.requestId, false)

@@ -17,6 +17,9 @@ import {
 } from "../components/UI";
 import { cache, Host, tokenStoreFor } from "../storage";
 import { parsePairing } from "../logic/pairing";
+import { matchPairing } from "../logic/build-match";
+import { approveWaitingComputer } from "../logic/relay-approve";
+import { relayAdminKey } from "../storage/admin-key";
 import { useTheme } from "../theme";
 export function PairingScreen({
   slot,
@@ -66,6 +69,14 @@ export function PairingScreen({
         throw new Error(
           "Paste the complete pairing JSON from your host and enter a device name.",
         );
+      const proof = matchPairing(data);
+      // A computer waiting for the relay admin: when this phone is that admin, scanning approves it.
+      if (data.kind === "relay" && data.pending) {
+        setStatus("Approving this computer on the relay…");
+        await approveWaitingComputer(data.relay, data.computerId, { key: relayAdminKey });
+        if (attempt.current !== run) return;
+        setStatus("");
+      }
       const url =
         data.kind === "direct"
           ? validateServerUrl(data.url, { allowInsecure: __DEV__ && insecure })
@@ -91,7 +102,7 @@ export function PairingScreen({
         throw new Error(
           "The server identity does not match this pairing code. Generate a new code on your host.",
         );
-      const pairing = await client.pair(data.code, device.trim());
+      const pairing = await client.pair(data.code, device.trim(), proof);
       setRaw("");
       setStatus("Waiting for approval on your computer…");
       const deadline = Date.now() + 120000;

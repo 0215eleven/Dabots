@@ -37,7 +37,11 @@ const approvals=env.RELAY_APPROVALS_FILE?await createApprovals({file:env.RELAY_A
 const accounts=env.RELAY_DATA_FILE?await createAccounts({file:env.RELAY_DATA_FILE,bootstrapFile:join(dirname(env.RELAY_DATA_FILE),'bootstrap-code'),registration:env.RELAY_REGISTRATION??'invite'}):null
 const port=Number(env.RELAY_PORT??8790)
 if(!Number.isInteger(port)||port<1||port>65535){console.error('RELAY_PORT must be 1-65535.');process.exit(2)}
-const relay=await createRelay({secret,origin:env.RELAY_ORIGIN,host:env.RELAY_HOST??'127.0.0.1',port,trustProxy:env.RELAY_TRUST_PROXY==='1',trustedProxyIp:env.RELAY_TRUSTED_PROXY_IP,accounts,approvals,openRegistration,limits,blockedIps,blockedComputers,diagnostics:env.RELAY_DIAGNOSTICS==='1'})
+// RELAY_BUILD_KEY_FILE holds the same build key as the official packages (DABOTS_BUILD_KEY): with it,
+// only the official plugin may register.
+const buildKey=env.RELAY_BUILD_KEY_FILE?readFileSync(env.RELAY_BUILD_KEY_FILE,'utf8').trim():null
+if(env.RELAY_BUILD_KEY_FILE&&!/^[A-Za-z0-9_-]{32,256}$/.test(buildKey))throw Error('RELAY_BUILD_KEY_FILE must hold 32 to 256 base64url characters.')
+const relay=await createRelay({secret,origin:env.RELAY_ORIGIN,host:env.RELAY_HOST??'127.0.0.1',port,trustProxy:env.RELAY_TRUST_PROXY==='1',trustedProxyIp:env.RELAY_TRUSTED_PROXY_IP,accounts,approvals,buildKey,openRegistration,limits,blockedIps,blockedComputers,diagnostics:env.RELAY_DIAGNOSTICS==='1'})
 // Temporary diagnostics carry fixed labels and counters, never payloads or identities.
 console.log(`ds-bot-relay listening on ${env.RELAY_HOST??'127.0.0.1'}:${port} for ${new URL(env.RELAY_ORIGIN).origin}${openRegistration?' with open registration':''}${accounts?` with accounts (${accounts.registration} registration)`:''}`)
 let stopping=false

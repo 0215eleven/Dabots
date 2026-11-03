@@ -208,5 +208,9 @@
   "Remove": "移除",
   "The relay refused this request ({code}).": "中转拒绝了这个请求（{code}）。",
   "An admin key needs 32 random bytes.": "生成管理员密钥需要 32 字节随机数。",
-  "Invalid key.": "密钥无效。"
+  "Invalid key.": "密钥无效。",
+  "This code is not from the official Dabots plugin. Install the official plugin on your computer.": "这个配对码不是官方 Dabots 插件生成的。请在电脑上安装官方插件。",
+  "This computer is waiting for the relay admin. Scan its code with the admin's phone first.": "这台电脑还在等待中转管理员批准。请先用管理员的手机扫它的配对码。",
+  "Approving this computer on the relay…": "正在中转上批准这台电脑…",
+  "This app does not match this plugin. Install the official Dabots app.": "这个 App 与电脑上的插件不匹配，请安装官方 Dabots App。"
 }

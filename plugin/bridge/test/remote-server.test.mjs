@@ -8,6 +8,7 @@ import { createServer } from 'node:http'
 import { WebSocket } from 'ws'
 import { createMobileServer } from '../src/server.js'
 import { registerOwnerOperator } from '../src/operator.mjs'
+import { buildTag } from '../src/build-tag.mjs'
 
 async function fixture(t, config = {}, options = {}) {
   const home = await mkdtemp(join(tmpdir(), 'bridge-remote-http-'))
@@ -100,4 +101,19 @@ test('remote operations pass through the authenticated owner carrier and reject 
     await response.text()
   }
   assert.equal(dispatches, 1)
+})
+
+test('an official plugin tags its codes and pairs only with an app holding the same build key', async t => {
+  const buildKey = 'm'.repeat(43)
+  const f = await fixture(t, { publicUrl: 'https://first.example' }, { buildKey })
+  const pairing = await f.server.operator('pairing.create')
+  assert.equal(pairing.build, buildTag(buildKey, 'plugin', pairing.serverId), 'the code carries the official tag')
+  const other = await f.request('/mobile/v1/pairings', { code: pairing.code, deviceName: 'Other app' })
+  assert.equal(other.status, 403)
+  assert.equal(other.body.error.code, 'APP_NOT_MATCHED')
+  const wrong = await f.request('/mobile/v1/pairings', { code: pairing.code, deviceName: 'Other app', proof: buildTag('x'.repeat(43), 'app', pairing.code) })
+  assert.equal(wrong.body.error.code, 'APP_NOT_MATCHED')
+  const official = await f.request('/mobile/v1/pairings', { code: pairing.code, deviceName: 'Official app', proof: buildTag(buildKey, 'app', pairing.code) })
+  assert.equal(official.status, 200)
+  assert.equal(official.body.status, 'pending')
 })

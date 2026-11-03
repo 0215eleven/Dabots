@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {generateKeyPairSync,createHash,sign,randomBytes} from 'node:crypto'
+import {generateKeyPairSync,createHash,createHmac,sign,randomBytes} from 'node:crypto'
 import {once} from 'node:events'
 import {mkdtemp,readFile,rm,stat} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
@@ -29,14 +29,14 @@ function phone(relay){
   }
   return {key,call}
 }
-function computer(relay,name){
+function computer(relay,name,tag=null){
   const keys=generateKeyPairSync('ed25519')
   const edPublicKey=keys.publicKey.export({type:'spki',format:'der'}).subarray(-32).toString('base64url'),computerKey=randomBytes(32).toString('base64url')
   const computerId=createHash('sha256').update(Buffer.from(edPublicKey,'base64url')).digest().subarray(0,16).toString('base64url')
   const register=async()=>{
     const ws=new WebSocket(relay.url.replace('http','ws')+'/v1/computer')
     const [challenge]=await once(ws,'message');const {nonce}=JSON.parse(challenge)
-    ws.send(JSON.stringify({type:'register',nonce,computerId,edPublicKey,computerKey,name,signature:sign(null,Buffer.from(JSON.stringify(['ds-bot-computer-v2',origin,nonce,computerId,edPublicKey,computerKey])),keys.privateKey).toString('base64url')}))
+    ws.send(JSON.stringify({type:'register',nonce,computerId,edPublicKey,computerKey,name,...(tag?{build:tag(computerKey)}:{}),signature:sign(null,Buffer.from(JSON.stringify(['ds-bot-computer-v2',origin,nonce,computerId,edPublicKey,computerKey])),keys.privateKey).toString('base64url')}))
     return new Promise(resolve=>{ws.once('message',data=>resolve({ws,reply:JSON.parse(data)}));ws.once('close',code=>resolve({ws,code}))})
   }
   return {computerId,register}
@@ -53,20 +53,41 @@ test('an unapproved computer waits; the admin phone approves it and it registers
   assert.equal((await stranger.call('GET','/v1/admin/devices')).body.code,'ADMIN_REQUIRED')
 
   const desk=computer(relay,'Office PC')
-  assert.equal((await desk.register()).code,4401,'an unapproved computer is refused with APPROVAL_REQUIRED')
+  const waiting=await desk.register()
+  t.after(()=>waiting.ws.terminate())
+  assert.deepEqual(waiting.reply,{type:'pending',computerId:desk.computerId},'an unapproved computer waits on its socket')
   const listed=(await admin.call('GET','/v1/admin/devices')).body
   assert.deepEqual(listed.pending.map(item=>[item.computerId,item.name]),[[desk.computerId,'Office PC']])
+  const registered=once(waiting.ws,'message')
   assert.equal((await admin.call('POST','/v1/admin/approve',{computerId:desk.computerId})).status,200)
-  const approved=await desk.register()
-  t.after(()=>approved.ws.terminate())
-  assert.equal(approved.reply.type,'registered')
+  assert.equal(JSON.parse((await registered)[0]).type,'registered','approval registers the waiting computer at once')
   assert.deepEqual((await admin.call('GET','/v1/admin/devices')).body.approved.map(item=>item.computerId),[desk.computerId])
 
-  // Removing an approved computer disconnects it and refuses it again.
-  const closed=once(approved.ws,'close')
+  // Removing an approved computer disconnects it; it waits again when it comes back.
+  const closed=once(waiting.ws,'close')
   assert.equal((await admin.call('POST','/v1/admin/revoke',{computerId:desk.computerId})).status,200)
   assert.equal((await closed)[0],4401)
-  assert.equal((await desk.register()).code,4401)
+  const again=await desk.register()
+  t.after(()=>again.ws.terminate())
+  assert.equal(again.reply.type,'pending')
+  // Denying a waiting computer disconnects it and keeps it off the list.
+  const denied=once(again.ws,'close')
+  assert.equal((await admin.call('POST','/v1/admin/deny',{computerId:desk.computerId})).status,200)
+  assert.equal((await denied)[0],4401)
+  assert.deepEqual((await admin.call('GET','/v1/admin/devices')).body.pending,[])
+})
+
+test('with a build key only the official plugin may register',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'relay-build-'));t.after(()=>rm(dir,{recursive:true,force:true}))
+  const buildKey='k'.repeat(43)
+  const relay=await createRelay({origin,port:0,openRegistration:true,buildKey});t.after(()=>relay.close())
+  const tag=computerKey=>createHmac('sha256',buildKey).update(`dabots-build-v1\nrelay\n${computerKey}`).digest('base64url')
+  const other=computer(relay,'Other build')
+  assert.equal((await other.register()).code,4403,'an untagged plugin is refused')
+  const official=computer(relay,'Official',tag)
+  const accepted=await official.register()
+  t.after(()=>accepted.ws.terminate())
+  assert.equal(accepted.reply.type,'registered')
 })
 
 test('admin requests must be fresh, signed by the key they name and used once',async t=>{

@@ -2,8 +2,8 @@
 // owner's relay plus the computer's relay identity.
 export interface RelayAddress { relay: string; computerId: string; computerKey: string }
 export type Pairing =
-  | { kind: "direct"; url: string; code: string; serverId: string; tlsPin?: string }
-  | ({ kind: "relay"; code: string; serverId: string } & RelayAddress);
+  | { kind: "direct"; url: string; code: string; serverId: string; tlsPin?: string; build?: string }
+  | ({ kind: "relay"; code: string; serverId: string; build?: string; pending?: boolean } & RelayAddress);
 
 export class PairingFormatError extends Error {}
 
@@ -18,11 +18,13 @@ export function parsePairing(input: string): Pairing {
   if (!data || typeof data !== "object") throw new PairingFormatError("This is not valid pairing JSON. Copy the complete code shown on your host.");
   const text = (key: string) => (typeof data[key] === "string" && data[key] ? data[key] as string : "");
   if (!text("code") || !text("serverId")) throw new PairingFormatError("Paste the complete pairing JSON from your host and enter a device name.");
+  // The official plugin's tag (see build-match.ts); kept as given and checked before pairing.
+  const build = text("build") ? { build: text("build") } : {};
   if (data.v === 2) {
     if (!/^[A-Za-z0-9_-]{22}$/.test(text("computerId")) || !/^[A-Za-z0-9_-]{43}$/.test(text("computerKey")))
       throw new PairingFormatError("This pairing code has an invalid computer identity.");
-    return { kind: "relay", relay: relayOrigin(data.relay), computerId: text("computerId"), computerKey: text("computerKey"), code: text("code"), serverId: text("serverId") };
+    return { kind: "relay", relay: relayOrigin(data.relay), computerId: text("computerId"), computerKey: text("computerKey"), code: text("code"), serverId: text("serverId"), ...build, ...(data.pending === true ? { pending: true } : {}) };
   }
   if (!text("url")) throw new PairingFormatError("Paste the complete pairing JSON from your host and enter a device name.");
-  return { kind: "direct", url: text("url"), code: text("code"), serverId: text("serverId"), ...(text("tlsPin") ? { tlsPin: text("tlsPin") } : {}) };
+  return { kind: "direct", url: text("url"), code: text("code"), serverId: text("serverId"), ...(text("tlsPin") ? { tlsPin: text("tlsPin") } : {}), ...build };
 }

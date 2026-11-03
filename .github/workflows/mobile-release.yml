@@ -40,10 +40,12 @@ jobs:
       - run: npm --prefix plugin/bridge run test:integration
       - run: npm run check:suite
       # Official packages name the maintainers' relay from a repository variable; without it the
-      # plugin offers the tunnel only. The address is not in the source.
+      # plugin offers the tunnel only. The address is not in the source. The build key (a secret)
+      # matches the official plugin with the official app.
       - run: npm run pack:plugin
         env:
           DABOTS_OFFICIAL_RELAY: ${{ vars.DABOTS_OFFICIAL_RELAY }}
+          DABOTS_BUILD_KEY: ${{ secrets.DABOTS_BUILD_KEY }}
       - run: npm run audit
       - uses: actions/upload-artifact@v4
         with:
@@ -63,6 +65,8 @@ jobs:
       EXPO_NO_TELEMETRY: '1'
       # Shown as "Official connection" instead of its domain; absent from the source.
       EXPO_PUBLIC_DABOTS_OFFICIAL_RELAY: ${{ vars.DABOTS_OFFICIAL_RELAY }}
+      # Pairs only with the official plugin built with the same key.
+      EXPO_PUBLIC_DABOTS_BUILD_KEY: ${{ secrets.DABOTS_BUILD_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

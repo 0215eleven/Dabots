@@ -254,7 +254,7 @@ export class MobileClient {
   readonly tlsPin?: string;
   readonly cache: Cache;
   info(): Promise<ServerInfo>;
-  pair(code: string, deviceName: string): Promise<Pairing>;
+  pair(code: string, deviceName: string, proof?: string): Promise<Pairing>;
   completePairing(claimToken: string): Promise<PairingResult>;
   state(): Promise<Record<string, unknown>>;
   conversations(): Promise<{ conversations: Conversation[] }>;

@@ -5,6 +5,7 @@ import { hostname } from 'node:os'
 import { BridgeError } from './auth.js'
 import { createRelayConnector } from './relay-client.mjs'
 import { OFFICIAL_RELAY as BUILT_OFFICIAL_RELAY } from './official.mjs'
+import { buildTag, builtKey } from './build-tag.mjs'
 
 // The relay server: phones reach this Bridge through it after a scan, with no
 // port, certificate or tunnel on this computer. Without saved settings a
@@ -49,7 +50,7 @@ async function loadIdentity(path) {
   return { edPrivateKey, xPublicKey: new Uint8Array(Buffer.from(saved.x.publicKey, 'base64url')), xSecretKey: new Uint8Array(Buffer.from(saved.x.secretKey, 'base64url')) }
 }
 
-export async function createRelaySettings({ home, server, Socket, connect = createRelayConnector, defaultRelay = null, officialRelay = BUILT_OFFICIAL_RELAY }) {
+export async function createRelaySettings({ home, server, Socket, connect = createRelayConnector, defaultRelay = null, officialRelay = BUILT_OFFICIAL_RELAY, buildKey = builtKey() }) {
   // Without a built-in official relay (any source build) the official choice is unavailable.
   const OFFICIAL_RELAY = officialRelay ? validateRelayUrl(officialRelay) : null
   const isOfficial = relay => Boolean(OFFICIAL_RELAY) && relay === OFFICIAL_RELAY
@@ -77,11 +78,13 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
   }
   let connector = null, generationOwner = null, state = { state: 'disabled', computerId: null, computerKey: null }, disposed = false, busy = false, revision = 0
   const relayReady = () => state.state === 'ready' && Boolean(state.computerId && state.computerKey)
+  // A computer waiting for the relay admin still shows its code: the admin phone approves it by scanning.
+  const relayPairable = () => (state.state === 'ready' || state.state === 'pending') && Boolean(state.computerId && state.computerKey)
   const pairingStatus = () => {
     const mode = settings.mode === 'relay' && (chosen || relayReady() || !server.url) ? 'relay' : 'direct'
-    return { mode, available: mode === 'relay' ? relayReady() : Boolean(server.url) }
+    return { mode, available: mode === 'relay' ? relayPairable() : Boolean(server.url) }
   }
-  const pairingContext = () => JSON.stringify([pairingStatus(), ...(relayReady() ? [state.computerId, state.computerKey] : [])])
+  const pairingContext = () => JSON.stringify([pairingStatus(), ...(relayPairable() ? [state.computerId, state.computerKey] : [])])
   const snapshot = () => ({ mode: settings.mode, relay: settings.relay, secretSet: Boolean(settings.secret), state: state.state,
     computerId: state.computerId, ready: settings.mode === 'relay' && relayReady(), revision,
     officialAvailable: Boolean(OFFICIAL_RELAY), ...(isOfficial(settings.relay) && !settings.secret ? { official: true } : {}) })
@@ -98,7 +101,7 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
     // The connector reports synchronously while it is being created.
     const owner = {}
     generationOwner = owner
-    const current = connect({ relay: settings.relay, secret: settings.secret, name: computerName(), identity, serverId: server.serverId, endpoint: id => server.relayEndpoint(id), ...(Socket ? { Socket } : {}),
+    const current = connect({ relay: settings.relay, secret: settings.secret, name: computerName(), buildKey, identity, serverId: server.serverId, endpoint: id => server.relayEndpoint(id), ...(Socket ? { Socket } : {}),
       onStatus: value => {
         if (generationOwner !== owner) return
         const before = pairingContext()
@@ -161,9 +164,9 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
     pairing(options) {
       if (settings.mode !== 'relay') return null
       if (pairingStatus().mode === 'direct') return null
-      if (!relayReady()) throw new BridgeError(409, 'RELAY_NOT_READY', '中转连接尚未就绪，请检查网络和中转服务地址。')
+      if (!relayPairable()) throw new BridgeError(409, 'RELAY_NOT_READY', '中转连接尚未就绪，请检查网络和中转服务地址。')
       const created = server.createPairing(options)
-      return { v: 2, relay: settings.relay, computerId: state.computerId, computerKey: state.computerKey, serverId: created.serverId, code: created.code, expiresAt: created.expiresAt, ...(options?.automatic ? { leaseId: created.leaseId } : {}) }
+      return { v: 2, relay: settings.relay, computerId: state.computerId, computerKey: state.computerKey, serverId: created.serverId, code: created.code, expiresAt: created.expiresAt, ...(state.state === 'pending' ? { pending: true } : {}), ...(buildKey ? { build: buildTag(buildKey, 'plugin', created.serverId) } : {}), ...(options?.automatic ? { leaseId: created.leaseId } : {}) }
     },
     async dispose() { disposed = true; await stop() },
   }

@@ -366,11 +366,12 @@ export class MobileClient {
     return value;
   }
 
-  async pair(code, deviceName) {
+  async pair(code, deviceName, proof) {
     requireString(code, 'Pairing code');
     requireString(deviceName, 'Device name');
     if (!this.#serverId) await this.info();
-    return this.#request('/pairings', { method: 'POST', auth: false, json: { code, deviceName } });
+    // An official app proves it matches the official plugin (see the app's build-match).
+    return this.#request('/pairings', { method: 'POST', auth: false, json: { code, deviceName, ...(typeof proof === 'string' && proof ? { proof } : {}) } });
   }
 
   async completePairing(claimToken) {
