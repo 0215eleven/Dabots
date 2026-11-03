@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createDeviceController } from '../src/controller.mjs'
 import { createOperatorClient } from '../src/operator-client.mjs'
 
-const official = { enabled: true, serverId: 'computer', url: null, devices: [], pending: [], relay: { mode: 'relay', official: true, relay: 'wss://dsbot.ziyuegege.com', computerId: 'A'.repeat(22), state: 'ready', ready: true, revision: 1 }, pairing: { mode: 'relay', available: true } }
+const official = { enabled: true, serverId: 'computer', url: null, devices: [], pending: [], relay: { mode: 'relay', official: true, relay: 'wss://official.example', computerId: 'A'.repeat(22), state: 'ready', ready: true, revision: 1 }, pairing: { mode: 'relay', available: true } }
 const qr = leaseId => ({ v: 2, relay: official.relay.relay, computerId: official.relay.computerId, computerKey: 'B'.repeat(43), serverId: 'computer', code: 'example-code', expiresAt: 2000, leaseId })
 const defer = () => { let resolve; return { promise: new Promise(done => { resolve = done }), get resolve() { return resolve } } }
 

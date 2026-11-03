@@ -34,7 +34,7 @@ test('relay addresses must be bare wss origins',()=>{
 
 test('settings persist owner-only, never echo the secret and keep one computer identity',async t=>{
   const f=await fixture(t)
-  assert.deepEqual(f.settings.snapshot(),{mode:'direct',relay:null,secretSet:false,state:'disabled',computerId:null,ready:false,revision:0})
+  assert.deepEqual(f.settings.snapshot(),{mode:'direct',relay:null,secretSet:false,state:'disabled',computerId:null,ready:false,revision:0,officialAvailable:false})
   await assert.rejects(f.settings.select({mode:'relay'}),{code:'RELAY_NOT_CONFIGURED'})
   await assert.rejects(f.settings.configure({relay:relayOrigin,secret:'short'}),{code:'INVALID_RELAY_SECRET'})
   await f.settings.configure({relay:relayOrigin,secret:f.secret})
@@ -137,4 +137,16 @@ test('a default open relay is used without saved settings or a secret, and a sav
   settings=await createRelaySettings({home,server,Socket:LocalSocket,defaultRelay:relayOrigin})
   assert.equal(settings.snapshot().mode,'direct','the owner choosing direct is not overridden by the default')
   assert.equal(settings.pairing(),null)
+})
+
+test('a source build without an official relay refuses the official choice and keeps a saved one direct',async t=>{
+  const home=await mkdtemp(join(tmpdir(),'bridge-no-official-'))
+  const server=await createMobileServer({home,adapter:adapter(),config:{devAllowInsecure:true}})
+  const settings=await createRelaySettings({home,server,officialRelay:null})
+  t.after(async()=>{await settings.dispose();await server.close();await rm(home,{recursive:true,force:true})})
+  assert.equal(settings.snapshot().officialAvailable,false)
+  assert.throws(()=>settings.official(),{code:'OFFICIAL_UNAVAILABLE'})
+  const official=await createRelaySettings({home:await mkdtemp(join(tmpdir(),'bridge-official-')),server,officialRelay:'wss://official.example'})
+  t.after(()=>official.dispose())
+  assert.equal(official.snapshot().officialAvailable,true)
 })

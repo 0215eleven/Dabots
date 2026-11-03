@@ -130,7 +130,7 @@ test('production entry offers the relay mode beside direct access and never retu
   const bridge = await startBridge({ connection, sessionController: {} }, { home, publicUrl: 'https://direct.example' })
   t.after(() => bridge.close())
   const secret = 'relay-registration-secret-'.padEnd(48, 'x')
-  assert.deepEqual((await bridge.operator('status')).relay, { mode: 'direct', relay: null, secretSet: false, state: 'disabled', computerId: null, ready: false, revision: 0 })
+  assert.deepEqual((await bridge.operator('status')).relay, { mode: 'direct', relay: null, secretSet: false, state: 'disabled', computerId: null, ready: false, revision: 0, officialAvailable: false })
   assert.equal((await bridge.operator('pairing.create')).url, 'https://direct.example')
   await assert.rejects(bridge.operator('relay.select', { mode: 'relay' }), { code: 'RELAY_NOT_CONFIGURED' })
   // An unreachable relay: configuration is saved, the door stays closed and pairing says why.

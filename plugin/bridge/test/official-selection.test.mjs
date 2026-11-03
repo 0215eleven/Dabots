@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createRelaySettings, OFFICIAL_RELAY } from '../src/relay-settings.mjs'
+import { createRelaySettings } from '../src/relay-settings.mjs'
+// Source builds carry no official relay; these tests supply one as a release build would.
+const OFFICIAL_RELAY = 'wss://official.example'
 
 test('official selection keeps private record and identity but never passes the private secret', async t => {
  const home = await mkdtemp(join(tmpdir(), 'bridge-official-'))
@@ -13,7 +15,7 @@ test('official selection keeps private record and identity but never passes the 
  const attempts = []
  const connect = options => { attempts.push(options); options.onStatus({ state: 'ready', computerId: 'computer', computerKey: 'key' }); return { close() {} } }
  const server = { serverId: 'one', url: null, invalidatePairings() {}, createPairing: () => ({ code: 'code', expiresAt: 123, serverId: 'one' }) }
- let settings = await createRelaySettings({ home, server, connect })
+ let settings = await createRelaySettings({ home, server, connect, officialRelay: OFFICIAL_RELAY })
  await settings.official()
  assert.equal(attempts.at(-1).relay, OFFICIAL_RELAY)
  assert.equal(attempts.at(-1).secret, null)
@@ -21,7 +23,7 @@ test('official selection keeps private record and identity but never passes the 
  assert.equal(await readFile(join(home, 'relay-connection.json'), 'utf8'), saved)
  const identity = await readFile(join(home, 'relay-identity.json'), 'utf8')
  await settings.dispose()
- settings = await createRelaySettings({ home, server, connect })
+ settings = await createRelaySettings({ home, server, connect, officialRelay: OFFICIAL_RELAY })
  t.after(() => settings.dispose())
  assert.equal(attempts.at(-1).secret, null)
  assert.equal(attempts.at(-1).relay, OFFICIAL_RELAY)

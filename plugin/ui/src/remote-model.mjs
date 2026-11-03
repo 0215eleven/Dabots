@@ -38,6 +38,7 @@ const messages = {
   RELAY_SECRET_REQUIRED: '请填写中转服务的注册密钥。',
   INVALID_RELAY_SETTINGS: '请填写中转服务地址和注册密钥。',
   RELAY_NOT_CONFIGURED: '请先保存中转服务地址和注册密钥。',
+  OFFICIAL_UNAVAILABLE: '此版本没有内置官方服务，请使用隧道连接。',
   RELAY_NOT_READY: '官方连接尚未就绪，请稍后重试或切换隧道连接。',
   INVALID_CONNECTION_MODE: '请选择官方登录或隧道连接。',
   REMOTE_NOT_READY: '请先配置 HTTPS 入口或启动临时隧道，再生成配对码。',

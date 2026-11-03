@@ -8,7 +8,9 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { WebSocket } from 'ws'
 import { createRelay } from '../../tools/relay/server.mjs'
 import { createMobileServer } from '../src/server.js'
-import { createRelaySettings, OFFICIAL_RELAY } from '../src/relay-settings.mjs'
+import { createRelaySettings } from '../src/relay-settings.mjs'
+// Source builds carry no official relay; these tests supply one as a release build would.
+const OFFICIAL_RELAY = 'wss://official.example'
 import { createRelayTransport } from '../../../ios-app/sdk/relay-transport.js'
 import { MobileClient, MemoryTokenStore } from '../../../ios-app/sdk/index.js'
 
@@ -26,7 +28,7 @@ test('unchanged phone SDK with iOS default Origin pairs, refreshes, reconnects a
  const server = await createMobileServer({ home, config: {}, managedRemote: true, adapter: {
   capabilities: () => ({ send: true, stream: true, agents: true }), state: async () => ({ session: 'unchanged-team' }), dispose: async () => {},
  } })
- const settings = await createRelaySettings({ home, server, Socket: LocalSocket })
+ const settings = await createRelaySettings({ home, server, Socket: LocalSocket, officialRelay: OFFICIAL_RELAY })
  const transports = [], clients = []
  t.after(async () => { clients.forEach(c => c.dispose()); transports.forEach(c => c.dispose()); await settings.dispose(); await relay.close(); await server.close(); await rm(home, { recursive: true, force: true }) })
  await settings.official()
@@ -85,7 +87,7 @@ test('actual official registration quota and denied registration never expose a 
   const home = join(root, String(i)); await mkdir(home)
   const server = await createMobileServer({ home, config: {}, managedRemote: true, adapter: { dispose: async () => {} } })
   servers.push(server)
-  const settings = await createRelaySettings({ home, server, Socket: LocalSocket })
+  const settings = await createRelaySettings({ home, server, Socket: LocalSocket, officialRelay: OFFICIAL_RELAY })
   connections.push(settings)
   await settings.official()
   await until(() => settings.snapshot().state === (i === 0 ? 'ready' : 'limited'))
@@ -98,7 +100,7 @@ test('actual official registration quota and denied registration never expose a 
  const home = join(root, 'closed'); await mkdir(home)
  const server = await createMobileServer({ home, config: {}, managedRemote: true, adapter: { dispose: async () => {} } })
  servers.push(server)
- const settings = await createRelaySettings({ home, server, Socket: ClosedSocket })
+ const settings = await createRelaySettings({ home, server, Socket: ClosedSocket, officialRelay: OFFICIAL_RELAY })
  connections.push(settings)
  await settings.official()
  await until(() => settings.snapshot().state === 'denied')

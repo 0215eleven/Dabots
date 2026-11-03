@@ -3,6 +3,7 @@ import { createPrivateKey, createPublicKey, generateKeyPairSync, randomUUID } fr
 import { join } from 'node:path'
 import { BridgeError } from './auth.js'
 import { createRelayConnector } from './relay-client.mjs'
+import { OFFICIAL_RELAY as BUILT_OFFICIAL_RELAY } from './official.mjs'
 
 // The relay server: phones reach this Bridge through it after a scan, with no
 // port, certificate or tunnel on this computer. Without saved settings a
@@ -12,7 +13,6 @@ import { createRelayConnector } from './relay-client.mjs'
 // for relays with open registration) nor key material ever leaves this module's files.
 const refuse = (code, message) => { throw new BridgeError(400, code, message) }
 const MODES = new Set(['direct', 'relay'])
-export const OFFICIAL_RELAY = 'wss://dsbot.ziyuegege.com'
 async function writeAtomic(path, text) {
   const temporary = `${path}.${randomUUID()}.tmp`
   await writeFile(temporary, text, { mode: 0o600 })
@@ -47,7 +47,10 @@ async function loadIdentity(path) {
   return { edPrivateKey, xPublicKey: new Uint8Array(Buffer.from(saved.x.publicKey, 'base64url')), xSecretKey: new Uint8Array(Buffer.from(saved.x.secretKey, 'base64url')) }
 }
 
-export async function createRelaySettings({ home, server, Socket, connect = createRelayConnector, defaultRelay = null }) {
+export async function createRelaySettings({ home, server, Socket, connect = createRelayConnector, defaultRelay = null, officialRelay = BUILT_OFFICIAL_RELAY }) {
+  // Without a built-in official relay (any source build) the official choice is unavailable.
+  const OFFICIAL_RELAY = officialRelay ? validateRelayUrl(officialRelay) : null
+  const isOfficial = relay => Boolean(OFFICIAL_RELAY) && relay === OFFICIAL_RELAY
   const path = join(home, 'relay-connection.json'), identityPath = join(home, 'relay-identity.json')
   const selectionPath = join(home, 'relay-selection.json')
   let settings = defaultRelay ? { version: 1, mode: 'relay', relay: validateRelayUrl(defaultRelay), secret: null } : { version: 1, mode: 'direct', relay: null, secret: null }
@@ -62,12 +65,12 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
     chosen = true
   }
   // Even an old saved record at the official address must never send its secret.
-  if (settings.relay === OFFICIAL_RELAY) settings = { ...settings, secret: null }
+  if (isOfficial(settings.relay)) settings = { ...settings, secret: null }
   const legacy = { ...settings }
   const selection = await readJson(selectionPath)
   if (selection && (selection.version !== 1 || !['official', 'direct', 'saved'].includes(selection.mode))) throw Error('Saved connection selection is invalid.')
   if (selection) {
-    settings = selection.mode === 'official' ? { version: 1, mode: 'relay', relay: OFFICIAL_RELAY, secret: null } : selection.mode === 'direct' ? { ...legacy, mode: 'direct' } : legacy
+    settings = selection.mode === 'official' ? (OFFICIAL_RELAY ? { version: 1, mode: 'relay', relay: OFFICIAL_RELAY, secret: null } : { ...legacy, mode: 'direct' }) : selection.mode === 'direct' ? { ...legacy, mode: 'direct' } : legacy
     chosen = true
   }
   let connector = null, generationOwner = null, state = { state: 'disabled', computerId: null, computerKey: null }, disposed = false, busy = false, revision = 0
@@ -79,7 +82,7 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
   const pairingContext = () => JSON.stringify([pairingStatus(), ...(relayReady() ? [state.computerId, state.computerKey] : [])])
   const snapshot = () => ({ mode: settings.mode, relay: settings.relay, secretSet: Boolean(settings.secret), state: state.state,
     computerId: state.computerId, ready: settings.mode === 'relay' && relayReady(), revision,
-    ...(settings.relay === OFFICIAL_RELAY && !settings.secret ? { official: true } : {}) })
+    officialAvailable: Boolean(OFFICIAL_RELAY), ...(isOfficial(settings.relay) && !settings.secret ? { official: true } : {}) })
   async function stop() {
     const current = connector
     connector = null
@@ -132,20 +135,23 @@ export async function createRelaySettings({ home, server, Socket, connect = crea
   return {
     snapshot,
     pairingStatus,
-    official() { return change({ version: 1, mode: 'relay', relay: OFFICIAL_RELAY, secret: null }, 'official') },
+    official() {
+      if (!OFFICIAL_RELAY) throw new BridgeError(409, 'OFFICIAL_UNAVAILABLE', '此版本没有内置官方服务，请使用隧道连接。')
+      return change({ version: 1, mode: 'relay', relay: OFFICIAL_RELAY, secret: null }, 'official')
+    },
     async configure(payload) {
       if (!payload || typeof payload !== 'object' || Object.keys(payload).some(key => !['relay', 'secret'].includes(key))) refuse('INVALID_RELAY_SETTINGS', '请填写中转服务地址。')
       const relay = validateRelayUrl(payload.relay)
       if (payload.secret !== undefined && payload.secret !== '' && !validSecret(payload.secret)) refuse('INVALID_RELAY_SECRET', '注册密钥至少 32 字节，且不能包含空白字符。')
       // An empty secret is allowed: open relays need none. A saved one is kept for the same address.
-      const secret = relay === OFFICIAL_RELAY ? null : payload.secret === '' ? null : payload.secret ?? (relay === settings.relay ? settings.secret : null)
+      const secret = isOfficial(relay) ? null : payload.secret === '' ? null : payload.secret ?? (relay === settings.relay ? settings.secret : null)
       return change({ ...settings, relay, secret })
     },
     async select(payload) {
       if (!payload || !MODES.has(payload.mode) || Object.keys(payload).some(key => key !== 'mode')) refuse('INVALID_CONNECTION_MODE', '请选择服务器中转或自己直连。')
       if (payload.mode === 'relay' && !settings.relay) refuse('RELAY_NOT_CONFIGURED', '请先保存中转服务地址。')
       if (payload.mode === 'direct') return change({ ...legacy, mode: 'direct' }, 'direct')
-      if (settings.relay === OFFICIAL_RELAY) return change({ version: 1, mode: 'relay', relay: OFFICIAL_RELAY, secret: null }, 'official')
+      if (isOfficial(settings.relay)) return change({ version: 1, mode: 'relay', relay: OFFICIAL_RELAY, secret: null }, 'official')
       return change({ ...settings, mode: payload.mode })
     },
     // Relay pairing material: no URL, only what the phone needs to reach and

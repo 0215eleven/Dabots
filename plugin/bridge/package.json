@@ -44,6 +44,7 @@
     "src/relay-shared.mjs",
     "THIRD_PARTY_RELAY_NOTICES.txt",
     "src/relay-settings.mjs",
+    "src/official.mjs",
     "src/named-tunnel.mjs"
   ],
   "scripts": {

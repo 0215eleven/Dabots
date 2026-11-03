@@ -110,6 +110,10 @@ export function ConnectionModePanel({ state, controller }) {
     if (next === 'official') void controller.useOfficial()
     else void controller.selectMode('direct')
   }
+  // A package built without the official relay (any source build) offers the tunnel only.
+  if (relay?.officialAvailable === false) return h('div', null,
+    h('p', { className: 'dsma-small' }, '此版本没有内置官方服务，请使用隧道连接。'),
+    h(RemoteConnectionPanel, { state, controller }))
   const option = (mode, label, detail) => h('label', { className: 'dsma-mode', 'data-selected': choice === mode },
     h('input', { type: 'radio', name: 'dsma-connection-mode', value: mode, checked: choice === mode, disabled: state.busy, onChange: () => choose(mode) }),
     h('span', null, h('strong', null, label), h('small', null, detail)))

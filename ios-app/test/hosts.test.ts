@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { activeHost, hostAddress, OFFICIAL_CONNECTION, OFFICIAL_RELAY, removeHost, restoreHosts, upsertHost } from "../src/logic/hosts.ts";
+import { activeHost, hostAddress, OFFICIAL_CONNECTION, removeHost, restoreHosts, upsertHost } from "../src/logic/hosts.ts";
 
 const legacy = { url: "https://home.example:7443", serverId: "srv-home", name: "Home" };
 const office = { url: "https://office.example", serverId: "srv-office", name: "Office", slot: "a" };
@@ -40,7 +40,15 @@ test("computer addresses are short and tolerate malformed URLs", () => {
 
 test("the official relay is shown as the official connection, never its domain", () => {
   const relay = (origin: string) => ({ url: "https://unused.example", relay: { relay: origin, computerId: "c", computerKey: "k" } });
-  assert.equal(hostAddress(relay(OFFICIAL_RELAY)), OFFICIAL_CONNECTION);
-  assert.equal(hostAddress(relay(`${OFFICIAL_RELAY}/`)), OFFICIAL_CONNECTION);
-  assert.equal(hostAddress(relay("wss://relay.example.com")), "relay.example.com", "an owner's own relay keeps its address");
+  const saved = process.env.EXPO_PUBLIC_DABOTS_OFFICIAL_RELAY;
+  try {
+    delete process.env.EXPO_PUBLIC_DABOTS_OFFICIAL_RELAY;
+    assert.equal(hostAddress(relay("wss://official.example")), "official.example", "a source build knows no official relay");
+    process.env.EXPO_PUBLIC_DABOTS_OFFICIAL_RELAY = "wss://official.example";
+    assert.equal(hostAddress(relay("wss://official.example")), OFFICIAL_CONNECTION);
+    assert.equal(hostAddress(relay("wss://official.example/")), OFFICIAL_CONNECTION);
+    assert.equal(hostAddress(relay("wss://relay.example.com")), "relay.example.com", "an owner's own relay keeps its address");
+  } finally {
+    if (saved === undefined) delete process.env.EXPO_PUBLIC_DABOTS_OFFICIAL_RELAY; else process.env.EXPO_PUBLIC_DABOTS_OFFICIAL_RELAY = saved;
+  }
 });

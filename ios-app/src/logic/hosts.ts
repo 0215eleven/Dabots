@@ -45,8 +45,11 @@ export function activeHost<T extends SavedHost>(list: T[], active: unknown): T |
   return list.find(item => hostKey(item) === active) || list[0] || null;
 }
 
-/** The relay the desktop plugin's official connection uses. Its address is not shown to people. */
-export const OFFICIAL_RELAY = "wss://dsbot.ziyuegege.com";
+/**
+ * The relay of official Dabots builds, set at build time (EXPO_PUBLIC_DABOTS_OFFICIAL_RELAY) and
+ * absent from source builds. Its address is not shown to people.
+ */
+export const officialRelay = (): string | null => process.env.EXPO_PUBLIC_DABOTS_OFFICIAL_RELAY || null;
 export const OFFICIAL_CONNECTION = "Official connection";
 
 /**
@@ -55,7 +58,8 @@ export const OFFICIAL_CONNECTION = "Official connection";
  */
 export function hostAddress(host: Pick<SavedHost, "url" | "relay">) {
   if (host.relay) {
-    try { if (new URL(host.relay.relay).origin === OFFICIAL_RELAY) return OFFICIAL_CONNECTION; } catch { /* Shown as saved below. */ }
+    const official = officialRelay();
+    try { if (official && new URL(host.relay.relay).origin === new URL(official).origin) return OFFICIAL_CONNECTION; } catch { /* Shown as saved below. */ }
     try { return new URL(host.relay.relay).host; } catch { return host.relay.relay; }
   }
   try {

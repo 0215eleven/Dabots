@@ -210,3 +210,11 @@ for (const reason of ['BRIDGE_START_FAILED', 'TEAM_UNAVAILABLE']) {
     assert.deepEqual(ui.calls, [['official']])
   })
 }
+
+test('a package without the official relay offers the tunnel only', () => {
+  const ui = harness(quick)
+  ui.state.status = { ...ui.state.status, relay: { mode: 'direct', relay: null, officialAvailable: false } }
+  const tree = ui.renderMode()
+  assert.equal(ui.nodes(tree, node => node.type === 'input' && node.props.type === 'radio').length, 0)
+  assert.ok(JSON.stringify(ui.nodes(tree, node => node.type === 'p').map(node => node.props.children)).includes('没有内置官方服务'))
+})

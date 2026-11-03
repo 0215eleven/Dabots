@@ -44,6 +44,12 @@ try{
   await stageEngine({engineDir,target:stage})
   await cp(new URL('plugin/docs/',root),join(stage,'docs'),{recursive:true})
   const bridge=await stageBridge({bridgeDir,target:stage})
+  // Official release packages name the maintainers' relay here; source builds leave it unset.
+  const officialRelay=process.env.DABOTS_OFFICIAL_RELAY?.trim()
+  if(officialRelay){
+    if(!/^wss:\/\/[a-z0-9.-]+(:\d{1,5})?$/i.test(officialRelay))throw Error('DABOTS_OFFICIAL_RELAY must be a bare wss:// origin')
+    await writeFile(join(stage,'bridge','src','official.mjs'),`// Written by pack-suite for an official release package.\nexport const OFFICIAL_RELAY = ${JSON.stringify(officialRelay)}\n`)
+  }
   const suite={revision:SUITE_REVISION,dev:args.dev,source:{repository:'0215eleven/Dabots',commit,dirty:Boolean(dirty)},
     engine:{version:engine.version,source:engineSource,digest:engineDigest,agents:contract.agents},bridge:{version:bridge.version},
     companion:{version:JSON.parse(await readFile(new URL('plugin/ui/package.json',root),'utf8')).version}}
