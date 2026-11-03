@@ -9,6 +9,7 @@ import Constants from "expo-constants";
 import { Stack, useRouter } from "expo-router";
 import { hostAddress, hostKey } from "../src/logic/hosts";
 import { useComputerNames } from "../src/names/ComputerNamesProvider";
+import { useHomeView } from "../src/ds/home-view";
 import { setLiveActivityEnabled } from "../src/liveactivity/controller";
 import { LocalePreference, setLocalePreference, useI18n } from "../src/i18n";
 import { errorFeedback, selectionFeedback, successFeedback } from "../src/media/haptics";
@@ -37,6 +38,7 @@ function Settings() {
   const router = useRouter();
   const session = useSession();
   const names = useComputerNames();
+  const [homeView, setHomeView] = useHomeView();
   const {view,commands,management}=useDs();
   const [reviewed,setReviewed]=useState<import("../src/ds/management").ManagementIssue[]>([]);
   const [sharedPending,setSharedPending]=useState(false),[sharedBlocked,setSharedBlocked]=useState(false);
@@ -92,6 +94,13 @@ function Settings() {
           <View className="flex-row items-center gap-1.5"><View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: String(session.workspace.online ? success : muted) }}/><Typography.Paragraph className="text-muted" style={{ fontSize: 15 }}>{status}</Typography.Paragraph></View>
         </Row>
         <Row title={tr("Reconnect now")} onPress={host ? () => { successFeedback(); session.resume(); } : undefined} />
+      </Group>
+
+      {/* Placed high so the Agent switch is easy to find; it is the same choice as the home's Agent tab. */}
+      <Group title="Agent" footer={tr(session.agentsAvailable ? "On: the home opens on this computer's DSH Agent conversations. The bottom switch moves between Chats, Office and Agent." : "Allow this phone to use the DSH Agent on the computer first, under the paired devices of Dabots.")}>
+        <Row title={tr("Agent mode")} detail={session.agentsAvailable ? undefined : tr("Not allowed on this computer yet")}>
+          <UiHost matchContents><Switch value={homeView === 'agent' && session.agentsAvailable} onValueChange={on => { selectionFeedback(); setHomeView(on ? 'agent' : 'list'); }} disabled={!session.agentsAvailable} /></UiHost>
+        </Row>
       </Group>
 
       <Group title={tr("Computers")}>

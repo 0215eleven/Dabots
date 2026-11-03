@@ -178,5 +178,10 @@
   "Free": "空闲",
   "In a meeting": "会议中",
   "Official connection": "官方连接",
-  "Invalid action fields or values.": "电脑拒绝了提交的内容：有字段或数值不符合要求。"
+  "Invalid action fields or values.": "电脑拒绝了提交的内容：有字段或数值不符合要求。",
+  "Agent mode": "Agent 模式",
+  "Not allowed on this computer yet": "这台电脑还没有授权",
+  "On: the home opens on this computer's DSH Agent conversations. The bottom switch moves between Chats, Office and Agent.": "打开后，首页显示这台电脑的 DSH Agent 对话。底部切换栏可以在 聊天 / 办公室 / Agent 之间切换。",
+  "Classic Agent conversations on this computer, separate from the Bot team.": "这台电脑上的经典 Agent 对话，和 Bot 团队分开。",
+  "No Agent conversations yet.": "还没有 Agent 对话。"
 }

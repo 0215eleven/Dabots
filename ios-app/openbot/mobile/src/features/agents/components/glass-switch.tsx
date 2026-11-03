@@ -53,7 +53,7 @@ export function GlassSwitch<T extends string>({ value, options, onChange }: { va
           return (
             <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={label}
               onPress={() => { if (!selected) { void haptics.selection(); onChange(id); } }}
-              className="flex-row items-center gap-1.5 rounded-full px-3.5"
+              className={`flex-row items-center rounded-full ${options.length > 2 ? "gap-1 px-2.5" : "gap-1.5 px-3.5"}`}
               style={({ pressed }) => ({ height: HEIGHT - INSET * 2, backgroundColor: selected ? thumb : "transparent", opacity: pressed ? 0.6 : 1 })}>
               <Icon size={16} color={color} strokeWidth={2} accessible={false} />
               <Typography.Paragraph style={{ fontSize: 14, lineHeight: 18, fontWeight: "600", color }}>{label}</Typography.Paragraph>
