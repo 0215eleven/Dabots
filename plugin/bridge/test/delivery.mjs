@@ -12,7 +12,9 @@ import { fixtureEnvironment } from './fixture-environment.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const area = join(root, 'fixture')
-const fixtureSource = resolve(process.env.BRIDGE_TEST_BOT ?? join(root, 'fixture/extended/package'))
+// Delivery validates the shipped engine. BRIDGE_TEST_BOT remains available for
+// explicit compatibility runs with the frozen public 0.1.7 fixture.
+const fixtureSource = resolve(process.env.BRIDGE_TEST_BOT ?? join(root, '../engine'))
 const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
 assert.match(manifest.version, /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/)
 const digest = bytes => createHash('sha256').update(bytes).digest('hex')
@@ -78,7 +80,7 @@ async function boot(mockPort, webPort) {
   }, 10_000)
 }
 try {
-  // Reuse the already-created patched fixture, never regenerate/apply its patch.
+  // Use the selected engine as-is; never regenerate or patch it during delivery.
   await access(join(fixtureSource, 'index.js'))
   const bridgeArchive = process.argv[2] ? resolve(process.argv[2])
     : join(home, JSON.parse(command('npm', ['pack', '--json', '--pack-destination', home]))[0].filename)
@@ -86,8 +88,8 @@ try {
   await writeFile(join(profile, 'package.json'), JSON.stringify({ name: 'isolated-public-bridge-delivery', private: true, dependencies: { '@deepseek-ai/dsh': '0.2.1-rc.2', 'ds-bot-mobile-bridge': `file:${bridgeArchive}` }, dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'] } } }))
   console.log('Installing public DSH and packed bridge into a fresh profile...')
   command('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--prefer-offline', '--registry=https://registry.npmjs.org'], profile)
-  // DS Bot is a frozen test fixture, not an installation or patch target. Copy
-  // it outside node_modules so installing/removing the bridge cannot prune it.
+  // Copy the selected engine outside node_modules so installing/removing the
+  // Bridge cannot prune it. No user's installation or profile is used.
   const fixtureBot = join(home, 'fixture-ds-bot')
   await cp(fixtureSource, fixtureBot, { recursive: true, filter: source => !relative(fixtureSource, source).split(sep).includes('node_modules') })
   await symlink(join(profile, 'node_modules'), join(fixtureBot, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir')
@@ -125,7 +127,9 @@ try {
   assert.equal(JSON.parse(await readFile(join(automaticHome, 'bridge.json'), 'utf8')).serverId, firstUse.serverId)
   await stop(current)
   await boot(mockPort, webPort)
-  const autoResumed = await rpc('/mobile-operator', 'status')
+  // The manager can be ready before the resumed Bridge registers its owner route.
+  // Retry only this read; retain the enabled/identity assertions below.
+  const autoResumed = await until(() => rpc('/mobile-operator', 'status'))
   assert.equal(autoResumed.enabled, true)
   assert.equal(autoResumed.serverId, firstUse.serverId)
   check('real public owner first use needs no enabled/home override and resumes the same isolated state')
@@ -144,12 +148,18 @@ try {
   await rpc('/mobile-operator', 'pairing.approve', { requestId: claim.requestId })
   const session = await client.completePairing(claim.claimToken)
   check('real carrier owner principal creates and approves pairing without fixture operator admission')
-  const state = await client.state(), bot = state.bots[0]
+  const state = await client.state()
    const botCall = async (endpoint, payload = {}) => {
      const response = await fetch(`${base}/api/bot`, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ endpoint, payload }) })
      assert.equal(response.status, 200)
      const result = await response.json(); assert.equal(result.ok, true); return result.value
    }
+   // The initial Main Bot intentionally waits for model selection. Use an
+   // explicitly configured sender for this positive message-delivery fixture.
+   assert.ok(state.defaultModel, 'The mock-backed host must offer a model')
+   const sender = await botCall('create-bot', { name: 'DeliverySender', role: 'Fixture', model: state.defaultModel })
+   const bot = (await client.state()).bots.find(item => item.id === sender.id)
+   assert.ok(bot?.sessionId)
    const member = await botCall('create-bot', { name: 'DeliveryMember', role: 'Fixture', model: state.defaultModel })
    const room = await botCall('create-room', { name: 'Delivery group', members: [bot.id, member.id], admin: bot.id })
    const list = await client.conversations()
@@ -201,7 +211,7 @@ try {
   check('npm uninstall and clean restart restore DS Bot profile with original Bot/Session and no operator')
   await verifySources()
    console.log(`Archive: bytes=${(await readFile(bridgeArchive)).length}; sha256=${digest(await readFile(bridgeArchive))}; source files unchanged=${sourceHashes.size}`)
-   console.log(`${passed} delivery lifecycle assertions passed; public npm DSH ${installed.version}; reviewed DS Bot fixture source; mock model.`)
+   console.log(`${passed} delivery lifecycle assertions passed; public npm DSH ${installed.version}; ${process.env.BRIDGE_TEST_BOT ? 'explicit compatibility engine' : 'repository production engine'}; mock model.`)
 } catch (error) {
   // Never print raw CLI logs, cookies, pair codes, device tokens or profile state.
   console.error(`Delivery failed: ${error.name}; code=${error.code ?? 'ASSERTION_OR_RUNTIME'}; line=${error.stack?.match(/delivery\.mjs:(\d+)/)?.[1] ?? 'unknown'}`)

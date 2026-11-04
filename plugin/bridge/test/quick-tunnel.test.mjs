@@ -208,6 +208,9 @@ test('startup timeout kills the process and retry does not inherit stale output'
   await f.tunnel.start({ confirmed: true }); await pause(35)
   assert.equal(f.tunnel.snapshot().error, 'TUNNEL_START_TIMEOUT'); assert.equal(f.tunnel.snapshot().url, null)
   assert.deepEqual(f.children[0].kills, ['SIGTERM']); assert.equal(f.calls.length, 1)
+  // Timeout is reported before asynchronous directory cleanup finishes. Await
+  // that existing termination before asking for another owned process.
+  await f.tunnel.stop()
   await f.tunnel.start({ confirmed: true }); await connect(f.children[1], 'retry')
   await connect(f.children[0], 'old'); assert.equal(f.tunnel.snapshot().url, 'https://retry.trycloudflare.com')
 })
