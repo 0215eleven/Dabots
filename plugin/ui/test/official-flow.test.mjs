@@ -100,3 +100,87 @@ test('completed pairing shows success without granting another QR or cancelling 
   assert.equal(calls.filter(([method]) => method === 'pairing.cancel').length, 0)
   c.dispose()
 })
+
+const waiting = { ...official, relay: { ...official.relay, state: 'pending', ready: false } }
+
+test('waiting official QR preserves its approval marker and build tag in displayed and copied data', async () => {
+  const c = createDeviceController({ now: () => 10, uuid: () => 'lease-waiting', call: async (method, payload) =>
+    method === 'status' ? waiting : method === 'pairing.create' ? { ...qr(payload.leaseId), pending: true, build: 'K'.repeat(43) } : {} })
+  await c.refresh(); await c.autoPair()
+  assert.equal(c.snapshot().pairing.pending, true)
+  let copied
+  await c.copy({ writeText: async value => { copied = JSON.parse(value) } })
+  assert.equal(copied.pending, true)
+  assert.equal(copied.build, 'K'.repeat(43))
+  assert.equal(copied.leaseId, undefined, 'the owner cancellation lease stays out of the QR')
+  c.dispose()
+})
+
+test('approving the same waiting computer preserves its QR until the phone claims and completes it', async () => {
+  let current = waiting
+  const calls = []
+  const c = createDeviceController({ now: () => 10, uuid: () => 'lease-approval', call: async (method, payload) => {
+    calls.push(method)
+    return method === 'status' ? current : method === 'pairing.create' ? { ...qr(payload.leaseId), pending: true } : {}
+  } })
+  await c.refresh(); await c.autoPair(); await c.copy({ writeText: async () => {} })
+  const issued = c.snapshot().pairing
+  current = { ...official, relay: { ...official.relay, revision: waiting.relay.revision + 1 } }
+  await c.refresh()
+  assert.equal(c.snapshot().pairing, issued, 'approval is not a change of transport or computer identity')
+  assert.equal(c.snapshot().copied, true)
+  assert.equal(calls.includes('pairing.cancel'), false)
+  current = { ...current, pairingLease: { leaseId: 'lease-approval', state: 'claimed', expiresAt: 2000 } }
+  await c.refresh()
+  assert.equal(c.snapshot().pairing, null)
+  assert.equal(c.snapshot().pairingResult, 'claimed')
+  assert.equal(calls.includes('pairing.cancel'), false)
+  current = { ...current, pairingLease: { ...current.pairingLease, state: 'paired' } }
+  await c.refresh(); c.clearPairing()
+  assert.equal(c.snapshot().pairingResult, 'paired')
+  assert.equal(calls.includes('pairing.cancel'), false)
+  c.dispose()
+})
+
+test('approval during an in-flight QR request does not discard its response', async () => {
+  let current = waiting
+  const pending = defer(), calls = []
+  const c = createDeviceController({ now: () => 10, uuid: () => 'lease-approval-flight', call: async method => {
+    calls.push(method)
+    return method === 'status' ? current : method === 'pairing.create' ? pending.promise : {}
+  } })
+  await c.refresh()
+  const run = c.create()
+  current = { ...official, relay: { ...official.relay, revision: waiting.relay.revision + 1 } }
+  await c.refresh()
+  pending.resolve({ ...qr('lease-approval-flight'), pending: true }); await run
+  assert.ok(c.snapshot().pairing)
+  assert.equal(calls.includes('pairing.cancel'), false)
+  c.dispose()
+})
+
+test('approval cannot preserve a QR across identity, transport, availability or intervening generation changes', async () => {
+  const approved = { ...official, relay: { ...official.relay, revision: waiting.relay.revision + 1 } }
+  for (const next of [
+    { ...approved, serverId: 'different-computer' },
+    { ...approved, relay: { ...approved.relay, computerId: 'C'.repeat(22) } },
+    { ...approved, relay: { ...approved.relay, relay: 'wss://different.example' } },
+    { ...approved, pairing: { mode: 'direct', available: true } },
+    { ...approved, pairing: { mode: 'relay', available: false } },
+    { ...approved, remote: { mode: 'fixed', state: 'configured', revision: 3 } },
+    { ...approved, relay: { ...approved.relay, revision: waiting.relay.revision + 3 } },
+    { ...waiting, relay: { ...waiting.relay, revision: waiting.relay.revision + 1 } },
+  ]) {
+    let current = waiting
+    const calls = []
+    const c = createDeviceController({ now: () => 10, uuid: () => 'lease-changed', call: async (method, payload) => {
+      calls.push(method)
+      return method === 'status' ? current : method === 'pairing.create' ? { ...qr(payload.leaseId), pending: true } : {}
+    } })
+    await c.refresh(); await c.autoPair()
+    current = next; await c.refresh()
+    assert.equal(c.snapshot().pairing, null)
+    assert.equal(calls.filter(method => method === 'pairing.cancel').length, 1)
+    c.dispose()
+  }
+})

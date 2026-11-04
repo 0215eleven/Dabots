@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { Button, Typography } from 'heroui-native';
+import { useRouter } from 'expo-router';
 import { SheetScrollView } from '@/shared/components/sheet-scroll-view';
 import { SheetFormField } from '@/shared/components/sheet-form-field';
 import { SettingsRow, SettingsSection } from '@/features/settings/components/settings-content';
 import { useAdminRelay } from '../src/session/admin-relay';
+import { useSession } from '../src/session/SessionProvider';
 import { useI18n } from '../src/i18n';
 import { createRelayAdmin, RelayAdminError, type RelayDevice } from '../src/logic/relay-admin';
 import { relayAdminKey } from '../src/storage/admin-key';
@@ -16,6 +18,8 @@ const short = (id: string) => `${id.slice(0, 6)}…${id.slice(-4)}`;
 /** This phone as the relay's admin: claim it once, then approve or remove computers. */
 export default function RelayAdmin() {
     const { tr } = useI18n();
+    const router = useRouter();
+    const { host } = useSession();
     const relay = useAdminRelay();
     const [admin, setAdmin] = useState<Admin | null>(null);
     const [publicKey, setPublicKey] = useState('');
@@ -54,8 +58,13 @@ export default function RelayAdmin() {
     ]);
     const time = (value?: number) => value ? new Date(value).toLocaleString() : '';
 
-    if (!relay) return <SheetScrollView contentContainerClassName="p-5"><Typography.Paragraph>{tr('No relay to manage: pair a computer through the official connection first.')}</Typography.Paragraph></SheetScrollView>;
+    const backToPairing = !host ? <Button variant="secondary" isDisabled={busy} onPress={() => {
+        if (router.canGoBack()) router.back();
+        else router.replace('/pairing');
+    }}><Button.Label>{tr('Back to pairing')}</Button.Label></Button> : null;
+    if (!relay) return <SheetScrollView contentContainerClassName="gap-6 p-5">{backToPairing}<Typography.Paragraph>{tr('No relay to manage: pair a computer through the official connection first.')}</Typography.Paragraph></SheetScrollView>;
     return <SheetScrollView contentContainerClassName="gap-6 px-4 pt-5 pb-8" keyboardShouldPersistTaps="handled">
+      {backToPairing}
       {error ? <Typography.Paragraph accessibilityRole="alert" className="text-danger-text px-1">{error}</Typography.Paragraph> : null}
       {!status ? <Typography.Paragraph className="text-muted px-1">{tr('Checking the relay…')}</Typography.Paragraph> : null}
       {status && !status.admin && status.claimable ? <View className="gap-4">

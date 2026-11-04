@@ -2220,6 +2220,11 @@ function pairingContext(status) {
     ...mode === "relay" ? [status.relay?.relay, status.relay?.state, status.relay?.computerId, status.relay?.revision] : []
   ]);
 }
+function relayApprovalKeepsPairing(before, after) {
+  const previous = before?.relay, next = after?.relay;
+  if (pairingMode(before) !== "relay" || !canPair(before) || !canPair(after) || previous?.state !== "pending" || next?.state !== "ready" || !Number.isSafeInteger(previous.revision) || next.revision !== previous.revision + 1) return false;
+  return pairingContext(before) === pairingContext({ ...after, relay: { ...next, state: previous.state, revision: previous.revision } });
+}
 function canPair(status) {
   if (status?.enabled !== true) return false;
   if (status.pairing) return ["direct", "relay"].includes(status.pairing.mode) && status.pairing.available === true;
@@ -2287,7 +2292,7 @@ function createDeviceController({ call, now = Date.now, uuid = () => crypto.rand
       try {
         const status = await invoke("status", {});
         if (!disposed && issued === refreshEpoch) {
-          const changed = state.status !== null && pairingContext(status) !== pairingContext(state.status);
+          const changed = state.status !== null && pairingContext(status) !== pairingContext(state.status) && !relayApprovalKeepsPairing(state.status, status);
           if (changed) {
             pairingEpoch++;
             void cancelLease();
@@ -2331,7 +2336,7 @@ function createDeviceController({ call, now = Date.now, uuid = () => crypto.rand
         const relay = relayOrigin(value.relay), relayStatus = state.status?.relay;
         if (!RELAY_ID.test(value.computerId ?? "") || !RELAY_KEY.test(value.computerKey ?? "") || !value.code || !value.serverId || !(value.expiresAt > now())) throw Error("Bridge 返回的配对资料无效，请刷新后重试。");
         if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && pairingMode(state.status) === "relay") && (!relayStatus || relayStatus.relay === relay && relayStatus.computerId === value.computerId) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
-          emit({ pairing: { v: 2, relay, computerId: value.computerId, computerKey: value.computerKey, serverId: value.serverId, code: value.code, expiresAt: value.expiresAt, ...matchTag(value) } });
+          emit({ pairing: { v: 2, relay, computerId: value.computerId, computerKey: value.computerKey, serverId: value.serverId, code: value.code, expiresAt: value.expiresAt, ...value.pending === true ? { pending: true } : {}, ...matchTag(value) } });
         }
       } else if (method === "pairing.create") {
         const url = httpsOrigin(value.url);

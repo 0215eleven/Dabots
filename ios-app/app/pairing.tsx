@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PairingScreen } from "../src/screens/PairingScreen";
 import { useSession } from "../src/session/SessionProvider";
+import { officialRelay } from "../src/logic/hosts";
 import { useTheme } from "../src/theme";
 
 export default function Pairing() {
@@ -17,6 +18,7 @@ export default function Pairing() {
         slot={session.pairingSlot}
         onConnected={async (host, client) => { await session.connected(host, client); router.replace("/"); }}
         onCancel={session.host ? () => router.back() : undefined}
+        onManageRelay={officialRelay() ? () => router.push("/relay-admin") : undefined}
       />
     </View>
   );

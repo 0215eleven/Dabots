@@ -186,6 +186,8 @@
   "No Agent conversations yet.": "还没有 Agent 对话。",
   "Relay admin": "中转管理",
   "Official relay": "官方中转",
+  "Become the relay admin or manage computer approvals before pairing.": "配对前，可以先成为中转管理员，或管理电脑审批。",
+  "Back to pairing": "返回配对",
   "Only computers you approve here may connect through the relay.": "只有在这里批准过的电脑才能通过中转连接。",
   "No relay to manage: pair a computer through the official connection first.": "没有可管理的中转：请先通过官方连接配对一台电脑。",
   "Checking the relay…": "正在检查中转…",

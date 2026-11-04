@@ -25,12 +25,15 @@ export function PairingScreen({
   slot,
   onConnected,
   onCancel,
+  onManageRelay,
 }: {
   /** Credential slot the new pairing is stored in. */
   slot: string;
   onConnected: (host: Host, client: MobileClient) => Promise<void>;
   /** Present when another computer is already paired. */
   onCancel?: () => void;
+  /** Opens official relay setup before a computer has been paired. */
+  onManageRelay?: () => void;
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -187,6 +190,13 @@ export function PairingScreen({
             "Browser development preview. Device credentials stay in this tab's memory. Use the iOS or Android app for everyday access.",
           )}
         />
+      )}
+      {onManageRelay && (
+        <Card>
+          <Label>{tr("Official relay")}</Label>
+          <Label muted>{tr("Become the relay admin or manage computer approvals before pairing.")}</Label>
+          <Button title={tr("Relay admin")} secondary disabled={busy} onPress={onManageRelay} />
+        </Card>
       )}
       <Card>
         <Label>{tr("Connect your host")}</Label>

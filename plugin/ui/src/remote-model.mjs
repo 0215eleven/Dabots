@@ -75,6 +75,17 @@ export function pairingContext(status) {
     mode, status.pairing?.available, ...(mode === 'relay' ? [status.relay?.relay, status.relay?.state, status.relay?.computerId, status.relay?.revision] : [])])
 }
 
+// Approval advances the relay's status revision, but keeps the same available
+// door and identity. Any intervening reconnect/configuration revision still
+// invalidates the lease, as do changes to the rest of its pairing context.
+export function relayApprovalKeepsPairing(before, after) {
+  const previous = before?.relay, next = after?.relay
+  if (pairingMode(before) !== 'relay' || !canPair(before) || !canPair(after)
+    || previous?.state !== 'pending' || next?.state !== 'ready'
+    || !Number.isSafeInteger(previous.revision) || next.revision !== previous.revision + 1) return false
+  return pairingContext(before) === pairingContext({ ...after, relay: { ...next, state: previous.state, revision: previous.revision } })
+}
+
 // The pairing code follows the selected door: the owner's relay, or the direct address.
 export function canPair(status) {
   if (status?.enabled !== true) return false
