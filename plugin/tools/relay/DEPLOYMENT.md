@@ -12,6 +12,15 @@
 
 ## 新服务配置（示例）
 
+从仓库根目录进入 Relay 源码目录，创建安装目录并复制完整模块与清单：
+
+```sh
+cd plugin/tools/relay
+sudo install -d -m 0755 /opt/ds-bot-relay
+sudo cp bin.mjs server.mjs accounts.mjs access.mjs access-api.mjs access-cli.mjs package.json package-lock.json /opt/ds-bot-relay/
+sudo npm --prefix /opt/ds-bot-relay ci --omit=dev --ignore-scripts
+```
+
 将 `bin.mjs`、`server.mjs`、`accounts.mjs`、`access.mjs`、`access-api.mjs`、`access-cli.mjs`、`package.json`、`package-lock.json` 安装到服务代码目录，然后运行 `npm ci --omit=dev --ignore-scripts`。保留原有第三方许可。邀请码数据必须放在代码目录之外的持久卷，目录只允许服务用户访问。
 
 服务停止时，以服务用户执行（路径和用户按现有部署替换）：
