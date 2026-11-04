@@ -47,11 +47,15 @@ function fixture({ official = 'wss://relay.invalid', locale = 'en', dark = false
     'react-native': { View: 'View', Text: 'Text', ScrollView: 'ScrollView', Switch: 'Switch',
       Platform: { OS: 'ios' }, Keyboard: { dismiss() {} }, Alert: { alert: (...args:any[]) => alerts.push(args) } },
     'expo-router': { Redirect: 'Redirect', useRouter: () => router },
+    'expo-router/react-navigation': { HeaderHeightContext: { value: 96 }, HeaderShownContext: { value: true } },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }) },
+    'react-native-keyboard-controller': { KeyboardAwareScrollView: 'KeyboardAwareScrollView' },
+    'uniwind': { withUniwind: (component: unknown) => component },
+    '@/shared/lib/platform': { isIOS: true, isAndroid: false },
+    '@/shared/components/sheet-scroll-edge-effect': { SheetScrollEdgeEffect: 'SheetScrollEdgeEffect' },
     'expo-clipboard': { getStringAsync: async () => '' },
     'heroui-native': { Button: heroButton, Typography: { Paragraph: 'Paragraph' } },
     '@/features/agents/screens/connected-screen': { ConnectedScreen: 'ConnectedScreen' },
-    '@/shared/components/sheet-scroll-view': { SheetScrollView: 'SheetScrollView' },
     '@/shared/components/sheet-form-field': { SheetFormField: 'SheetFormField' },
     '@/features/settings/components/settings-content': { SettingsRow: 'SettingsRow', SettingsSection: 'SettingsSection' },
     '../src/screens/PairingScreen': { PairingScreen: 'PairingScreen' },
@@ -85,6 +89,7 @@ function fixture({ official = 'wss://relay.invalid', locale = 'en', dark = false
       useState(initial: any) { const slot = cursor++; if (!(slot in values)) values[slot] = typeof initial === 'function' ? initial() : initial;
         return [values[slot], (next: any) => { values[slot] = typeof next === 'function' ? next(values[slot]) : next; }]; },
       useRef(initial: unknown) { const slot = cursor++; return values[slot] ??= { current: initial }; },
+      useContext: (context: { value: unknown }) => context.value,
       useCallback: (callback: unknown) => callback,
       useEffect(effect: () => unknown, deps: unknown[]) {
         const slot = cursor++;
@@ -99,7 +104,8 @@ function fixture({ official = 'wss://relay.invalid', locale = 'en', dark = false
         jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText;
       runInNewContext(output, { module, exports: module.exports, React: react, __DEV__: false, setTimeout, require(name: string) {
         if (name === 'react') return react;
-
+        // Run the actual alias target, not a placeholder that hides the native viewport contract.
+        if (name === '@/shared/components/sheet-scroll-view') return load('../openbot/mobile/src/shared/components/sheet-scroll-view.tsx');
         if (name in shared) return shared[name];
         throw new Error(`Unexpected component import: ${name}`);
       } });
@@ -107,6 +113,7 @@ function fixture({ official = 'wss://relay.invalid', locale = 'en', dark = false
     }
     const component = load(file);
     return { render(props?: unknown) { cursor = 0; return (component.default ?? component.PairingScreen)(props); },
+      renderNative() { cursor = 0; const tree = component.default(); return typeof tree.type === 'function' ? tree.type(tree.props) : tree; },
       async flush() { for (const effect of effects.splice(0)) effect(); await tick(); } };
   }
   const index = mount('../app/index.tsx'), route = mount('../app/pairing.tsx'), pairing = mount('../src/screens/PairingScreen.tsx');
@@ -116,7 +123,33 @@ function fixture({ official = 'wss://relay.invalid', locale = 'en', dark = false
     return elements(pairing.render(props));
   };
   return { tr, theme, routes, claims, adminRelays, connections, session, index, admin, pairingNodes,
-    alerts, resetCount: () => resetCount, failRedeem: (message:string|null) => {failure=message;}, adminNodes: () => elements(admin.render()), clientsCreated: () => clientsCreated, setPending: () => { pending = true; } };
+    alerts, resetCount: () => resetCount, failRedeem: (message:string|null) => {failure=message;}, adminNodes: () => elements(admin.render()), nativeAdminNodes: () => elements(admin.renderNative()), clientsCreated: () => clientsCreated, setPending: () => { pending = true; } };
+}
+
+// Node verifies the actual route-to-sheet layout boundary; it cannot establish iOS pixel geometry.
+// Reverting the route to a plain ScrollView must fail even while its input still exists in the JSX.
+for (const dark of [false, true]) for (const paired of [false, true]) {
+  test(`invitation supplies a bounded keyboard-aware native sheet (${dark ? 'dark' : 'light'}, ${paired ? 'paired' : 'fresh'})`, async () => {
+    const f = fixture({ dark, paired, locale: paired ? 'zh' : 'en' });
+    let nodes = f.nativeAdminNodes();
+    const viewport = nodes.find(node => node.type === 'KeyboardAwareScrollView');
+    assert.ok(viewport, 'invitation must use the shared native sheet viewport');
+    assert.equal(nodes[0].props.style.flex, 1);
+    assert.equal(viewport.props.style.flex, 1, 'the scroll viewport fills the fixed native sheet');
+    assert.equal(viewport.props.className, 'bg-sheet');
+    assert.equal(viewport.props.contentInsetAdjustmentBehavior, 'automatic');
+    assert.equal(viewport.props.keyboardShouldPersistTaps, 'handled');
+    assert.equal(viewport.props.enabled, true, 'focused inputs remain keyboard-aware');
+    assert.equal(viewport.props.mode, 'insets');
+    assert.ok(elements(viewport).some(node => node.type === 'Field' && node.props.label === f.tr('Invitation code')));
+    await f.admin.flush();
+    nodes = f.nativeAdminNodes();
+    const field = nodes.find(node => node.type === 'Field');
+    assert.equal(field.props.editable, true);
+    field.props.onChangeText('fixture-code');
+    assert.equal(button(f.nativeAdminNodes(), f.tr('Use invitation')).disabled, false);
+    assert.deepEqual(f.claims, [], 'opening or editing the form does not redeem an invitation');
+  });
 }
 
 for (const locale of ['en', 'zh']) for (const dark of [false, true]) {

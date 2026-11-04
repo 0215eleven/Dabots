@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, Text, View } from "react-native";
+import { Alert, Text } from "react-native";
 import { useRouter } from "expo-router";
 import * as Crypto from "expo-crypto";
-import { Button, Card, Field, Label, styles } from "../src/components/UI";
+import { SheetScrollView } from "@/shared/components/sheet-scroll-view";
+import { Button, Card, Field, Label } from "../src/components/UI";
 import { useSession } from "../src/session/SessionProvider";
 import { useI18n } from "../src/i18n";
 import { useTheme } from "../src/theme";
@@ -43,7 +44,7 @@ export default function RelayAccess() {
     {text:tr("Cancel"),style:"cancel"},
     {text:tr("Reset phone identity"),style:"destructive",onPress:()=>{setCode("");setEnrolled(null);void run(()=>refresh(true));}},
   ]);
-  return <View style={{flex:1,backgroundColor:t.bg}}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.page,{gap:16,paddingBottom:32}]}>
+  return <SheetScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="gap-4 p-4 pb-8">
     {!host ? <Button title={tr("Back to pairing")} secondary disabled={busy} onPress={back}/> : null}
     <Label large>{tr("Connection invitation")}</Label>
     {!relay ? <Label muted>{tr("This build has no official connection configured.")}</Label> : <>
@@ -61,5 +62,5 @@ export default function RelayAccess() {
       <Button title={tr("Retry")} secondary disabled={busy} onPress={()=>void run(()=>refresh())}/>
       <Button title={tr("Reset phone identity")} secondary danger disabled={busy} onPress={reset}/>
     </>}
-  </ScrollView></View>;
+  </SheetScrollView>;
 }
