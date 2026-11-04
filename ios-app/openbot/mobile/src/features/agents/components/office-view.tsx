@@ -6,10 +6,10 @@
 import type { ChannelSummary } from "@openbot/contracts/ipc";
 import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
-import { memo, useEffect, type ReactNode } from "react";
+import { memo, useEffect, useId, type ReactNode } from "react";
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import Svg, { Ellipse, Line, Polygon, Rect } from "react-native-svg";
+import Svg, { Defs, Ellipse, Line, Pattern, Polygon, Rect } from "react-native-svg";
 import { useUniwind } from "uniwind";
 import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
 import type { MobileAgent } from "@/features/workspace/context/mobile-workspace-context";
@@ -83,17 +83,27 @@ function Layer({ p, children }: { p: Projector; children: ReactNode }) {
   return <Svg pointerEvents="none" width={p.width} height={p.height} style={{ position: "absolute", left: 0, top: 0 }}>{children}</Svg>;
 }
 
-function Shell({ p, depth, colors }: { p: Projector; depth: number; colors: Palette }) {
-  const lines = [];
-  for (let x = 1; x < WIDTH; x++) lines.push(<Line key={`x${x}`} x1={p.at(x, 0)[0]} y1={p.at(x, 0)[1]} x2={p.at(x, depth)[0]} y2={p.at(x, depth)[1]} stroke={colors.grid} strokeWidth={1} />);
-  for (let y = 1; y < depth; y++) lines.push(<Line key={`y${y}`} x1={0} y1={p.at(0, y)[1]} x2={p.width} y2={p.at(0, y)[1]} stroke={colors.grid} strokeWidth={1} />);
+/** Repeat over the actual parent bounds, never a guessed oversized scene rectangle. */
+function Floor({ scale, colors }: { scale: number; colors: Palette }) {
+  const id = useId();
+  return <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}>
+    <Svg width="100%" height="100%">
+      <Defs><Pattern id={id} patternUnits="userSpaceOnUse" width={scale} height={scale * DEPTH}>
+        <Line x1={0} y1={0} x2={scale} y2={0} stroke={colors.grid} strokeWidth={1} />
+        <Line x1={0} y1={0} x2={0} y2={scale * DEPTH} stroke={colors.grid} strokeWidth={1} />
+      </Pattern></Defs>
+      <Rect width="100%" height="100%" fill={colors.floor} />
+      <Rect width="100%" height="100%" fill={`url(#${id})`} />
+    </Svg>
+  </View>;
+}
+
+function Shell({ p, colors }: { p: Projector; colors: Palette }) {
   const [, wallTop] = p.at(0, 0, WALL), [, floorTop] = p.at(0, 0);
   return <>
     <Rect x={0} y={wallTop} width={p.width} height={floorTop - wallTop} fill={colors.wall} />
     {[0.6, 2.3, 4.0].map(x => <Rect key={x} x={p.at(x, 0)[0]} y={p.at(0, 0, 1.05)[1]} width={1.4 * p.scale} height={0.6 * p.scale} rx={3} fill={colors.window} />)}
     <Rect x={0} y={floorTop - 4} width={p.width} height={4} fill={colors.trim} />
-    <Rect x={0} y={floorTop} width={p.width} height={p.at(0, depth)[1] - floorTop} fill={colors.floor} />
-    {lines}
   </>;
 }
 
@@ -262,8 +272,12 @@ export function OfficeView({ agents, rooms, work, header, topInset, bottomInset,
   const layout = officeLayout(agents.length, rooms.length);
   const p = projector((Math.min(width - sideInsets.left - sideInsets.right, 560) - 24) / WIDTH, layout.depth);
   return (
-    <ScrollView contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingTop: topInset, paddingBottom: bottomInset, paddingLeft: sideInsets.left, paddingRight: sideInsets.right, gap: 12 }}>
+    <View style={{ flex: 1, backgroundColor: colors.floor }}>
+    {/* The stationary layer also covers native elastic overscroll past either content edge. */}
+    <Floor scale={p.scale} colors={colors} />
+    <ScrollView style={{ flex: 1 }} contentInsetAdjustmentBehavior="never" showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ flexGrow: 1, paddingTop: topInset, paddingBottom: bottomInset, paddingLeft: sideInsets.left, paddingRight: sideInsets.right, gap: 12 }}>
+      <Floor scale={p.scale} colors={colors} />
       {header}
       <View className="flex-row items-baseline gap-3" style={{ paddingHorizontal: 20 }}>
         <Typography.Paragraph className="text-muted" style={{ fontSize: 13, lineHeight: 18, fontWeight: "600" }}>{tr("Office")}</Typography.Paragraph>
@@ -271,12 +285,13 @@ export function OfficeView({ agents, rooms, work, header, topInset, bottomInset,
           {[meetings ? tr("{count} in a meeting", { count: String(meetings) }) : null, busyDesks ? tr("{count} working", { count: String(busyDesks) }) : null].filter(Boolean).join(" · ")}
         </Typography.Paragraph>
       </View>
-      <View className="overflow-hidden rounded-[22px]" style={{ width: p.width, height: p.height, alignSelf: "center", borderCurve: "continuous" }}>
-        <Layer p={p}><Shell p={p} depth={layout.depth} colors={colors} /></Layer>
+      <View className="overflow-hidden" style={{ width: p.width, height: p.height, alignSelf: "center" }}>
+        <Layer p={p}><Shell p={p} colors={colors} /></Layer>
         {rooms.map((room, index) => <MeetingRoom key={room.id} p={p} rect={layout.rooms[index]} room={room} work={work[room.id]} agents={byId} colors={colors} onOpen={onOpenRoom} />)}
         {agents.map((agent, index) => <Desk key={agent.id} p={p} slot={layout.desks[index]} agent={agent} phase={work[agent.id]?.phase} detail={work[agent.id]?.detail} meeting={inMeeting.has(agent.id)} colors={colors} onOpen={onOpenBot} />)}
       </View>
       <Activity agents={agents} work={work} inMeeting={inMeeting} />
     </ScrollView>
+    </View>
   );
 }
