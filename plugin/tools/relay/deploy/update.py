@@ -20,14 +20,15 @@ import urllib.request
 from urllib.parse import urlsplit
 import uuid
 
-FILES = ("bin.mjs", "server.mjs", "accounts.mjs", "approvals.mjs", "package.json", "package-lock.json")
+FILES = ("bin.mjs", "server.mjs", "accounts.mjs", "access.mjs", "access-api.mjs", "access-cli.mjs", "package.json", "package-lock.json")
 SOURCE = Path(__file__).resolve().parent.parent
 VERSION_CHECK = "const [a,b]=process.versions.node.split('.').map(Number);if(a<22||(a===22&&b<12))process.exit(2);"
-VALIDATE = "import('./server.mjs').then(()=>import('./accounts.mjs')).then(()=>import('./approvals.mjs')).catch(()=>process.exit(1))"
+VALIDATE = "import('./server.mjs').then(()=>import('./accounts.mjs')).then(()=>import('./access.mjs')).then(()=>import('./access-api.mjs')).catch(()=>process.exit(1))"
 BUILD = VERSION_CHECK + "require('node:child_process').execFileSync('npm',['ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund','--userconfig=/dev/null'],{stdio:'inherit'});" + VALIDATE
-RUNTIME = VERSION_CHECK + """const fs=require('node:fs'),p=require('node:path');let data=process.env.RELAY_DATA_FILE||null;
+RUNTIME = VERSION_CHECK + """const fs=require('node:fs'),p=require('node:path');let data=process.env.RELAY_ACCESS_FILE||process.env.RELAY_DATA_FILE||null;
 if(data){let probe=p.resolve(data),tail=[];while(!fs.existsSync(probe)){tail.unshift(p.basename(probe));const parent=p.dirname(probe);if(parent===probe)break;probe=parent;}data=p.join(fs.realpathSync(probe),...tail);}
-process.stdout.write(JSON.stringify({dataFile:data}));"""
+const admission={};for(const key of ['RELAY_ACCESS_FILE','RELAY_SECRET_FILE','RELAY_DATA_FILE','RELAY_OPEN_REGISTRATION','RELAY_APPROVALS_FILE','RELAY_BUILD_KEY_FILE'])if(process.env[key])admission[key]=process.env[key];
+process.stdout.write(JSON.stringify({dataFile:data,admission}));"""
 HEALTH = """const h=process.env.RELAY_HOST||'127.0.0.1';const host=['0.0.0.0','::'].includes(h)?'127.0.0.1':h;
 fetch('http://'+(host.includes(':')?'['+host+']':host)+':'+(process.env.RELAY_PORT||8790)+'/healthz',{signal:AbortSignal.timeout(2000)})
 .then(async r=>{if(!r.ok||(await r.json()).ok!==true)process.exit(1)}).catch(()=>process.exit(1));"""
@@ -35,6 +36,18 @@ fetch('http://'+(host.includes(':')?'['+host+']':host)+':'+(process.env.RELAY_PO
 
 class Refused(Exception):
     pass
+
+
+def check_admission_env(values):
+    # Called before writing candidates/backups: rollback must not restart an
+    # original open-registration/approval configuration.
+    if (values.get("RELAY_OPEN_REGISTRATION") == "1" or values.get("RELAY_APPROVALS_FILE")
+            or values.get("RELAY_BUILD_KEY_FILE")):
+        raise Refused("Legacy open/approval/build-key admission needs an explicit closed migration before updating")
+    if values.get("RELAY_ACCESS_FILE") and (values.get("RELAY_SECRET_FILE") or values.get("RELAY_DATA_FILE")):
+        raise Refused("Invitation access cannot mix with legacy admission")
+    if not any(values.get(key) for key in ("RELAY_ACCESS_FILE", "RELAY_SECRET_FILE", "RELAY_DATA_FILE")):
+        raise Refused("Cannot verify closed admission for the installed service")
 
 
 SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
@@ -215,6 +228,7 @@ class Compose:
         volumes = json.loads(run(["docker", "image", "inspect", "--format", "{{json .Config.Volumes}}", self.image], label="Relay image volume check")) or {}
         reject_code_overlays(mounts=[{"Destination": target} for target in volumes])
         runtime = json.loads(run(self.command("exec", "-T", self.service, "node", "-e", RUNTIME), label="Relay runtime check"))
+        check_admission_env(runtime.get("admission", {}))
         data = runtime.get("dataFile")
         if data and (data == "/app" or data.startswith("/app/")):
             raise Refused("Mutable Relay data is inside the code release; use a separate persistent mount before updating")
@@ -334,6 +348,19 @@ class Systemd:
         if self.service.startswith("-") or not self.service.replace("-", "").replace("_", "").isalnum():
             raise Refused("Invalid systemd service name")
         run(["systemctl", "cat", f"{self.service}.service"], label="Systemd service lookup")
+        pid = run(["systemctl", "show", "-p", "MainPID", "--value", self.service], label="Service process lookup")
+        if not pid.isdecimal() or int(pid) < 2:
+            raise Refused("A running Relay process is required to verify admission before update")
+        try:
+            selected = {"RELAY_ACCESS_FILE", "RELAY_SECRET_FILE", "RELAY_DATA_FILE", "RELAY_OPEN_REGISTRATION", "RELAY_APPROVALS_FILE", "RELAY_BUILD_KEY_FILE"}
+            admission = {}
+            for entry in Path(f"/proc/{pid}/environ").read_bytes().split(b"\0"):
+                key, separator, value = entry.partition(b"=")
+                if separator and key.decode("ascii", "ignore") in selected:
+                    admission[key.decode("ascii")] = value.decode("utf-8", "strict")
+            check_admission_env(admission)
+        except (OSError, UnicodeError) as error:
+            raise Refused("Cannot verify installed Relay admission; no update performed") from error
         self.base = Path(run(["systemctl", "show", "-p", "WorkingDirectory", "--value", self.service], label="Service directory lookup"))
         if not self.base.is_absolute() or self.base.is_symlink() or not plain_file(self.base / "server.mjs"):
             raise Refused("Systemd WorkingDirectory must contain regular Relay source files")

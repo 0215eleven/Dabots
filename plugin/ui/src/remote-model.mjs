@@ -75,10 +75,10 @@ export function pairingContext(status) {
     mode, status.pairing?.available, ...(mode === 'relay' ? [status.relay?.relay, status.relay?.state, status.relay?.computerId, status.relay?.revision] : [])])
 }
 
-// Approval advances the relay's status revision, but keeps the same available
+// Phone association advances the relay's status revision, but keeps the same available
 // door and identity. Any intervening reconnect/configuration revision still
 // invalidates the lease, as do changes to the rest of its pairing context.
-export function relayApprovalKeepsPairing(before, after) {
+export function relayAssociationKeepsPairing(before, after) {
   const previous = before?.relay, next = after?.relay
   if (pairingMode(before) !== 'relay' || !canPair(before) || !canPair(after)
     || previous?.state !== 'pending' || next?.state !== 'ready'

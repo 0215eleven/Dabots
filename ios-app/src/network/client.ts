@@ -3,6 +3,10 @@ import { Platform } from "react-native";
 import { ClientOptions, MobileClient, validateServerUrl, validateTlsPin } from "@ds-bot/mobile-sdk";
 import { createRelayTransport, type RelayHost } from "@ds-bot/mobile-sdk/relay-transport";
 import * as Crypto from "expo-crypto";
+import { relayPhoneKey } from "../storage/relay-key";
+import { signPhoneConnection } from "../logic/relay-access";
+import { relayOrigin } from "../logic/pairing";
+import { officialRelay } from "../logic/hosts";
 interface NativeResponse { status:number; headers:Record<string,string>; bodyText?:string; bodyFile?:string; fileId?:string }
 interface SocketEvent { id:string; type:string; data?:string; code?:number; reason?:string }
 interface Transport {
@@ -31,8 +35,14 @@ function encodeBody(body:RequestInit["body"]) {
 }
 // The relay transport encrypts end to end and stands in for fetch and WebSocket;
 // its key identity is stored like a TLS pin so a changed computer is noticed.
-function createRelayClient(options:Omit<ClientOptions,"baseUrl"|"tlsPin">,relay:RelayHost):MobileClient {
-  const transport=createRelayTransport({...relay,randomBytes:length=>Crypto.getRandomBytes(length),WebSocket:globalThis.WebSocket});
+function createRelayClient(options:Omit<ClientOptions,"baseUrl"|"tlsPin">,relay:RelayHost&{requireAccess?:boolean}):MobileClient {
+  const official=officialRelay();
+  const transport=createRelayTransport({...relay,requireAccess:relay.requireAccess===true || (!!official && relayOrigin(relay.relay)===relayOrigin(official)),
+    authenticate:async challenge=>{
+      if(relayOrigin(challenge.relay)!==relayOrigin(relay.relay) || challenge.computerId!==relay.computerId || challenge.computerKey!==relay.computerKey || challenge.serverId!==relay.serverId) throw new Error("The computer identity does not match this connection.");
+      return signPhoneConnection(challenge,await relayPhoneKey(relay.relay));
+    },
+    randomBytes:length=>Crypto.getRandomBytes(length),WebSocket:globalThis.WebSocket});
   const relayFetch=(async(input:RequestInfo|URL,init?:RequestInit)=>{
     const response=await transport.fetch(input,init) as Response;
     if(Platform.OS==="web")return response;
@@ -48,7 +58,7 @@ function createRelayClient(options:Omit<ClientOptions,"baseUrl"|"tlsPin">,relay:
   client.dispose=()=>{dispose();transport.dispose();};
   return client;
 }
-export function createMobileClient(options:ClientOptions&{relay?:RelayHost}):MobileClient {
+export function createMobileClient(options:ClientOptions&{relay?:RelayHost&{requireAccess?:boolean}}):MobileClient {
   const {relay,...rest}=options;
   if(relay)return createRelayClient(rest,relay);
   options=rest;

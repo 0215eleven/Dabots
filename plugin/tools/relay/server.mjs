@@ -2,16 +2,16 @@
 // SDK tokens or public-service defaults. Optional accounts (accounts.mjs) only record which
 // registered computers an owner has, so a signed-in phone can list them.
 import {createServer} from 'node:http';
-import {createHash,createHmac,createPublicKey,randomBytes,timingSafeEqual,verify} from 'node:crypto';
+import {createHash,createPublicKey,randomBytes,timingSafeEqual,verify} from 'node:crypto';
 import {once} from 'node:events';
 import {isIP} from 'node:net';
 import {WebSocketServer,WebSocket} from 'ws';
 import {createAccountApi} from './accounts.mjs';
-import {createAdminApi} from './approvals.mjs';
+import {createAccessApi,phoneConnectionMessage,verifyPhone} from './access-api.mjs';
 const hash=x=>createHash('sha256').update(x).digest();
 // These ceilings apply to secret/account registrations too: enabling the public
 // door must never create an unbounded pool of connections or encrypted traffic.
-export const DEFAULT_LIMITS=Object.freeze({maxConnections:200,connectionsPerIp:20,connectionsPerMinute:600,maxComputers:100,streamsPerComputer:4,registrationPerIpPerHour:30,registrationPerHour:200,bytesPerComputerPerMinute:16*1048576,bytesPerIpPerMinute:32*1048576,bytesPerMinute:256*1048576,framesPerIpPerMinute:6000,framesPerMinute:30000});
+export const DEFAULT_LIMITS=Object.freeze({maxConnections:200,connectionsPerIp:20,connectionsPerMinute:600,maxComputers:100,maxPendingComputers:20,pendingComputersPerIp:4,pendingTimeoutMs:120000,streamsPerComputer:4,registrationPerIpPerHour:30,registrationPerHour:200,bytesPerComputerPerMinute:16*1048576,bytesPerIpPerMinute:32*1048576,bytesPerMinute:256*1048576,framesPerIpPerMinute:6000,framesPerMinute:30000});
 function validateLimits(overrides){
  if(!overrides||typeof overrides!=='object'||Array.isArray(overrides))throw Error('limits must be an object.');
  for(const [key,value] of Object.entries(overrides))if(!Object.hasOwn(DEFAULT_LIMITS,key)||!Number.isSafeInteger(value)||value<1)throw Error('Every limit must have a supported name and a positive safe integer value.');
@@ -47,7 +47,9 @@ function createDiagnostics(enabled,write,now){
   stop,
  };
 }
-export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowedOrigins=[],trustProxy=false,trustedProxyIp,accounts=null,approvals=null,buildKey=null,openRegistration=false,limits:overrides={},blockedIps=[],blockedComputers=[],diagnostics=false,diagnosticLog=console.log,diagnosticNow=Date.now}){
+export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowedOrigins=[],trustProxy=false,trustedProxyIp,accounts=null,access=null,approvals=null,buildKey=null,openRegistration=false,limits:overrides={},blockedIps=[],blockedComputers=[],diagnostics=false,diagnosticLog=console.log,diagnosticNow=Date.now}){
+ if(access&&(secret!==undefined||accounts||openRegistration||approvals||buildKey))throw Error('Phone invitation access cannot mix with legacy admission.');
+ if(approvals||buildKey)throw Error('Legacy relay approvals/build-key admission was removed; configure phone invitation access.');
  const limits=validateLimits(overrides);
  if(typeof diagnostics!=='boolean'||typeof diagnosticLog!=='function'||typeof diagnosticNow!=='function')throw Error('Invalid diagnostic configuration.');
  if(!Array.isArray(blockedIps)||blockedIps.length>4096||blockedIps.some(ip=>!canonicalIp(ip)))throw Error('blockedIps must contain at most 4096 IP literals.');
@@ -58,7 +60,7 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
  // With accounts, a computer may register with its owner's session instead of the shared secret.
  // With open registration any computer may register: phones still end-to-end encrypt to the
  // computer key from its QR code and each computer still approves each phone.
- if(secret!==undefined||(!accounts&&!openRegistration)){if(typeof secret!=='string'||Buffer.byteLength(secret)<32)throw Error('A relay registration secret of at least 32 bytes is required.');}
+ if(secret!==undefined||(!accounts&&!openRegistration&&!access)){if(typeof secret!=='string'||Buffer.byteLength(secret)<32)throw Error('A relay registration secret of at least 32 bytes is required.');}
  const expected=secret===undefined?null:hash(secret),publicUrl=new URL(origin);
  if(publicUrl.protocol!=='wss:'||publicUrl.username||publicUrl.password||publicUrl.search||publicUrl.hash||publicUrl.pathname!=='/')throw Error('A WSS relay origin is required.');
  const diagnostic=createDiagnostics(diagnostics,diagnosticLog,diagnosticNow),traces=new WeakMap();
@@ -107,17 +109,24 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
   const rate=requests.get(ip)??{count:0,expires:now+60000};rate.count++;requests.set(ip,rate);
   return rate.count<=120;
  };
- // With approvals, only approved computers register; admin phones approve them over signed requests.
- // A computer waiting for approval keeps its socket; approving it registers it on the spot.
- const waiting=new Map();
- const adminApi=approvals?createAdminApi({approvals,origin:publicUrl.origin,limit:allowRequest,onApprove:id=>waiting.get(id)?.(),onRevoke:id=>{computers.get(id)?.ws.close(4401,'APPROVAL_REVOKED');waiting.get(id)?.close?.();}}):null;
+ const waiting=new Map(),links=new Map(),phoneKeys=new WeakMap();
+ const unsubscribe=access?.onRevoke(key=>{
+  for(const [id,computer] of computers)if(access.owner(id)?.phoneKey===key){computer.ws.close(4403,'PHONE_REVOKED');for(const ws of computer.streams.values())ws.close(4403,'PHONE_REVOKED');}
+ });
+ const accessApi=access?createAccessApi({access,origin:publicUrl.origin,limit:allowRequest,associate:async(phoneKey,input)=>{
+  const link=links.get(input.computerId);
+  if(!link||link.ws.readyState!==WebSocket.OPEN||link.expiresAt<=Date.now()||input.linkNonce!==link.linkNonce||input.computerKey!==link.computerKey||input.serverId!==link.serverId)throw Object.assign(Error('INVALID_LINK'),{status:409,code:'INVALID_LINK'});
+  await access.associate({phoneKey,computerId:link.id,computerKey:link.computerKey,serverId:link.serverId});
+  if(links.get(link.id)===link)waiting.get(link.id)?.();
+ }}):null;
  const accountApi=accounts?createAccountApi({accounts,origin:publicUrl.origin,online:id=>computers.get(id)?.ws.readyState===WebSocket.OPEN,limit:allowRequest}):null;
  const server=createServer(async(req,res)=>{
   res.setHeader('cache-control','no-store');res.setHeader('content-type','application/json');
-  if(adminApi&&req.url.startsWith('/v1/admin/')){
+  if(accessApi&&req.url.startsWith('/v1/access/')){
    const ip=clientIp(req);
    if(ip===undefined){res.writeHead(400);res.end('{"code":"INVALID_CLIENT_IP"}');return;}
-   if(await adminApi(req,res,ip))return;
+   if(deniedIps.has(ip)){res.writeHead(403);res.end('{"code":"CLIENT_BLOCKED"}');return;}
+   if(await accessApi(req,res,ip))return;
   }
   if(accountApi&&req.url.startsWith('/v1/account/')){
    const ip=clientIp(req);
@@ -157,6 +166,7 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
   if(requestOrigin!==undefined&&!originSet.has(requestOrigin)&&!(url.pathname==='/v1/phone'&&requestOrigin===nativePhoneOrigin))return refuse(403,'ORIGIN_DENIED');
   if(!['/v1/computer','/v1/phone'].includes(url.pathname))return refuse(404,'NOT_FOUND');
   if(url.pathname==='/v1/computer'&&url.search)return refuse(400,'INVALID_QUERY');
+  if(access&&url.pathname==='/v1/phone'&&(url.searchParams.size!==1||!url.searchParams.has('computer')||!url.searchParams.get('computer')||!/^[A-Za-z0-9_-]{22}$/.test(url.searchParams.get('computer'))))return refuse(400,'INVALID_QUERY');
   const computer=url.pathname==='/v1/phone'?computers.get(url.searchParams.get('computer')):null;
   if(url.pathname==='/v1/phone'&&deniedComputers.has(url.searchParams.get('computer')))return refuse(403,'COMPUTER_BLOCKED');
   if(url.pathname==='/v1/phone'&&(!computer||computer.ws.readyState!==WebSocket.OPEN))return refuse(409,'COMPUTER_OFFLINE');
@@ -170,14 +180,32 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
    ws.once('close',()=>{const n=(ips.get(ip)??1)-1;if(n)ips.set(ip,n);else ips.delete(ip);});
    if(computer){
     diagnostic.event(trace,'phone_opened');
+    const authorized=()=>!access||access.allows(phoneKeys.get(ws),computer.id,computer.computerKey,computer.serverId);
+    const open=()=>{
+    if(!authorized())return ws.close(4403,'PHONE_DENIED');
+    if(computer.ws.readyState!==WebSocket.OPEN||computers.get(computer.id)!==computer)return ws.close(4503,'COMPUTER_OFFLINE');
+    if(computer.streams.size>=limits.streamsPerComputer)return ws.close(4429,'STREAM_LIMIT');
     const streamId=randomBytes(16),key=streamId.toString('base64url');computer.streams.set(key,ws);
     control(computer.ws,{type:'open',streamId:key});control(ws,{type:'connected',streamId:key});
-    ws.on('message',(data,binary)=>{if(!trafficAllowed(ip,computer.id,data.length))return ws.close(4429,'TRAFFIC_LIMIT');if(!binary||data.length>1048576-16)return ws.close(4400,'INVALID_FRAME');send(computer.ws,Buffer.concat([streamId,data]));});
+    ws.on('message',(data,binary)=>{if(!authorized())return ws.close(4403,'PHONE_DENIED');if(!trafficAllowed(ip,computer.id,data.length))return ws.close(4429,'TRAFFIC_LIMIT');if(!binary||data.length>1048576-16)return ws.close(4400,'INVALID_FRAME');send(computer.ws,Buffer.concat([streamId,data]));});
     ws.once('close',()=>{computer.streams.delete(key);control(computer.ws,{type:'close',streamId:key});});
+    };
+    if(access){
+     const nonce=randomBytes(32).toString('base64url');
+     const timer=setTimeout(()=>ws.close(4408,'PHONE_AUTH_TIMEOUT'),10000);timer.unref();ws.once('close',()=>clearTimeout(timer));
+     control(ws,{type:'phone-challenge',access:1,nonce,computerId:computer.id,computerKey:computer.computerKey,serverId:computer.serverId});
+     ws.once('message',(data,binary)=>{clearTimeout(timer);try{
+      if(binary||data.length>4096||!trafficAllowed(ip,computer.id,data.length))throw Error();
+      const input=JSON.parse(data.toString());
+      if(input.type!=='authenticate'||!verifyPhone(input.key,phoneConnectionMessage({origin:publicUrl.origin,nonce,computerId:computer.id,computerKey:computer.computerKey,serverId:computer.serverId}),input.signature))throw Error();
+      phoneKeys.set(ws,input.key);open();
+     }catch{ws.close(4403,'PHONE_DENIED');}});
+    }else open();
     return;
    }
    const nonce=randomBytes(32).toString('base64url');let registered=null,binding=false,phase='frame';
-   const timer=setTimeout(()=>{diagnostic.event(trace,'registration_denied',{closeCode:4408,phase:'timeout'});ws.close(4408,'REGISTRATION_TIMEOUT');},10000);timer.unref();control(ws,{type:'challenge',nonce});
+   let linkTimer,pendingTimer;
+   const timer=setTimeout(()=>{diagnostic.event(trace,'registration_denied',{closeCode:4408,phase:'timeout'});ws.close(4408,'REGISTRATION_TIMEOUT');},10000);timer.unref();control(ws,{type:'challenge',nonce,...(access?{access:1,version:3}:{})});
    ws.on('message',(data,binary)=>{
     try{
      if(!trafficAllowed(ip,registered?.id,data.length))return ws.close(4429,'TRAFFIC_LIMIT');
@@ -189,41 +217,45 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
       // The shared secret, or (with accounts) the session of the account that owns this computer.
       const owner=typeof m.accountToken==='string'&&accounts?accounts.authenticate(m.accountToken):null;
       phase='credential';
-      if(!owner&&!openRegistration&&!(typeof m.secret==='string'&&expected&&timingSafeEqual(hash(m.secret),expected)))throw Error('invalid');
+      if(!access&&!owner&&!openRegistration&&!(typeof m.secret==='string'&&expected&&timingSafeEqual(hash(m.secret),expected)))throw Error('invalid');
       phase='identity';
       const ed=raw(m.edPublicKey,32);raw(m.computerKey,32);const id=hash(ed).subarray(0,16).toString('base64url');
       if(id!==m.computerId||deniedComputers.has(id))throw Error('invalid');
       const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),ed]),format:'der',type:'spki'});
-      const signed=JSON.stringify(['ds-bot-computer-v2',origin,nonce,id,m.edPublicKey,m.computerKey]);
+      if(access&&(m.version!==3||typeof m.serverId!=='string'||!m.serverId||m.serverId.length>128||/[\u0000-\u001f\u007f]/.test(m.serverId)))throw Error('invalid');
+      const signed=JSON.stringify(access?['ds-bot-computer-v3',publicUrl.origin,nonce,id,m.edPublicKey,m.computerKey,m.serverId]:['ds-bot-computer-v2',origin,nonce,id,m.edPublicKey,m.computerKey]);
       phase='signature';
       if(!verify(null,Buffer.from(signed),key,raw(m.signature,64)))throw Error('invalid');
-      // With a build key, only the official plugin (which tags its key with it) may register.
-      phase='build';
-      if(buildKey&&!(typeof m.build==='string'&&m.build.length===43&&timingSafeEqual(Buffer.from(m.build),Buffer.from(createHmac('sha256',buildKey).update(`dabots-build-v1\nrelay\n${m.computerKey}`).digest('base64url')))))throw Error('invalid');
-      if(!registrationAllowed(ip)){diagnostic.event(trace,'registration_denied',{closeCode:4429,phase:'quota'});return ws.close(4429,'REGISTRATION_LIMIT');}
+      const boundOwner=access?.owner(id);
+      if(!(boundOwner&&access.isPhone(boundOwner.phoneKey))&&!registrationAllowed(ip)){diagnostic.event(trace,'registration_denied',{closeCode:4429,phase:'quota'});return ws.close(4429,'REGISTRATION_LIMIT');}
       // A computer that proved its key but is not approved waits in the admin's list.
       if(computers.size>=limits.maxComputers&&!computers.has(id)){diagnostic.event(trace,'registration_denied',{closeCode:4429,phase:'capacity'});return ws.close(4429,'CAPACITY_LIMIT');}
       const accept=()=>{
        if(ws.readyState!==WebSocket.OPEN)return;
+       clearTimeout(pendingTimer);
        // A computer that reconnects before the heartbeat has noticed its dead socket signed this
        // nonce with its own key, so it replaces the stale registration instead of being refused.
        const previous=computers.get(id);
        if(!previous&&computers.size>=limits.maxComputers)return ws.close(4429,'CAPACITY_LIMIT');
        if(previous){computers.delete(id);diagnostic.event(trace,'computer_replaced');previous.ws.close(4409,'REPLACED');}
-       registered={ws,streams:new Map(),id};computers.set(id,registered);clearTimeout(timer);control(ws,{type:'registered',computerId:id,...(owner?{account:owner.account.username}:{})});
+       registered={ws,streams:new Map(),id,computerKey:m.computerKey,serverId:m.serverId};computers.set(id,registered);clearTimeout(timer);control(ws,{type:'registered',computerId:id,...(access?{access:1,linkNonce:links.get(id).linkNonce,linkExpiresAt:links.get(id).expiresAt}:{}),...(owner?{account:owner.account.username}:{})});
        diagnostic.event(trace,'computer_registered');
       };
-      // A computer that proved its key but is not approved waits, listed for the admin, until approved.
-      if(approvals&&!approvals.isApproved(id)){
-       void approvals.notePending(id,m.name).catch(()=>{});
-       if(waiting.size>=limits.maxComputers&&!waiting.has(id)){diagnostic.event(trace,'registration_denied',{closeCode:4401,phase:'approval'});return ws.close(4401,'APPROVAL_REQUIRED');}
+      if(access){
+       const bound=access.owner(id);
+       if(bound&&(bound.computerKey!==m.computerKey||bound.serverId!==m.serverId))throw Error('invalid');
+       const pending=!bound||!access.isPhone(bound.phoneKey);
+       if(pending&&!waiting.has(id)&&(waiting.size>=limits.maxPendingComputers||[...waiting.values()].filter(item=>item.ip===ip).length>=limits.pendingComputersPerIp))return ws.close(4429,'PENDING_LIMIT');
        waiting.get(id)?.close();
-       const promote=()=>{if(waiting.get(id)!==promote)return;waiting.delete(id);if(owner)return void accounts.bindComputer(owner.account,{id,computerKey:m.computerKey,name:m.name,serverId:m.serverId}).then(()=>{binding=false;accept();},()=>ws.close(4403,'REGISTRATION_OR_FRAME_DENIED'));binding=false;accept();};
-       promote.close=()=>{if(waiting.get(id)===promote)waiting.delete(id);ws.close(4401,'APPROVAL_REQUIRED');};
-       waiting.set(id,promote);binding=true;clearTimeout(timer);
-       ws.once('close',()=>{if(waiting.get(id)===promote)waiting.delete(id);});
-       diagnostic.event(trace,'computer_pending');control(ws,{type:'pending',computerId:id});
-       return;
+       const link={id,ws,computerKey:m.computerKey,serverId:m.serverId,linkNonce:randomBytes(32).toString('base64url'),expiresAt:Date.now()+300000};links.set(id,link);
+       linkTimer=setInterval(()=>{if(links.get(id)!==link||ws.readyState!==WebSocket.OPEN)return;link.linkNonce=randomBytes(32).toString('base64url');link.expiresAt=Date.now()+300000;control(ws,{type:'link',access:1,linkNonce:link.linkNonce,linkExpiresAt:link.expiresAt});},240000);linkTimer.unref();
+       if(pending){
+        const promote=()=>{if(waiting.get(id)!==promote||!access.allows(access.owner(id)?.phoneKey,id,m.computerKey,m.serverId))return;waiting.delete(id);binding=false;accept();};
+        promote.ip=ip;promote.close=()=>{if(waiting.get(id)===promote)waiting.delete(id);ws.close(4403,'REPLACED');};waiting.set(id,promote);binding=true;clearTimeout(timer);
+        pendingTimer=setTimeout(()=>ws.close(4408,'LINK_WAIT_EXPIRED'),limits.pendingTimeoutMs);pendingTimer.unref();
+        ws.once('close',()=>{if(waiting.get(id)===promote)waiting.delete(id);});
+        diagnostic.event(trace,'computer_pending');control(ws,{type:'pending',computerId:id,access:1,linkNonce:link.linkNonce,linkExpiresAt:link.expiresAt});return;
+       }
       }
       if(!owner)return accept();
       binding=true;
@@ -232,13 +264,13 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
       return;
      }
      if(!binary){const m=JSON.parse(data.toString());if(m.type!=='close')throw Error('invalid');const phone=registered.streams.get(raw(m.streamId,16).toString('base64url'));if(phone){diagnostic.event(traces.get(phone),'phone_closed_by_computer',{closeCode:1000});phone.close(1000,'BRIDGE_CLOSED');}return;}
-     if(data.length<16)throw Error('invalid');const phone=registered.streams.get(data.subarray(0,16).toString('base64url'));if(!phone)throw Error('invalid');send(phone,data.subarray(16));
+     if(data.length<16)throw Error('invalid');const phone=registered.streams.get(data.subarray(0,16).toString('base64url'));if(!phone)throw Error('invalid');if(access&&!access.allows(phoneKeys.get(phone),registered.id,registered.computerKey,registered.serverId))return phone.close(4403,'PHONE_DENIED');send(phone,data.subarray(16));
     }catch{diagnostic.event(trace,registered?'frame_denied':'registration_denied',{closeCode:4403,phase:registered?'frame':phase});ws.close(4403,'REGISTRATION_OR_FRAME_DENIED');}
    });
-   ws.once('close',()=>{clearTimeout(timer);if(registered){if(computers.get(registered.id)===registered)computers.delete(registered.id);for(const phone of registered.streams.values())phone.close(4503,'COMPUTER_OFFLINE');registered.streams.clear();}});
+   ws.once('close',()=>{clearTimeout(timer);clearTimeout(pendingTimer);clearInterval(linkTimer);for(const [id,link] of links)if(link.ws===ws)links.delete(id);if(registered){if(computers.get(registered.id)===registered)computers.delete(registered.id);for(const phone of registered.streams.values())phone.close(4503,'COMPUTER_OFFLINE');registered.streams.clear();}});
   });
  });
  const heartbeat=setInterval(()=>{const now=Date.now();for(const ws of wss.clients){if(now-ws.lastPong>=30000)ws.terminate();else ws.ping();}},10000);heartbeat.unref();
  server.listen(port,host);await once(server,'listening');let closing;
- return {url:`http://${host.includes(':')?'['+host+']':host}:${server.address().port}`,close(){return closing??=(async()=>{clearInterval(heartbeat);for(const ws of wss.clients)ws.terminate();await new Promise(resolve=>wss.close(resolve));server.closeAllConnections();await new Promise(resolve=>server.close(resolve));expected?.fill(0);await accounts?.flush();await approvals?.flush();diagnostic.stop('SERVICE_STOPPED');})();}};
+ return {url:`http://${host.includes(':')?'['+host+']':host}:${server.address().port}`,close(){return closing??=(async()=>{clearInterval(heartbeat);unsubscribe?.();for(const ws of wss.clients)ws.terminate();await new Promise(resolve=>wss.close(resolve));server.closeAllConnections();await new Promise(resolve=>server.close(resolve));expected?.fill(0);await accounts?.flush();diagnostic.stop('SERVICE_STOPPED');})();}};
 }

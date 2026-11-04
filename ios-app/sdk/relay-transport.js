@@ -9,7 +9,7 @@ function keyBytes(key){if(key instanceof Uint8Array&&key.length===32)return key.
 const hex=value=>Array.from(value,x=>x.toString(16).padStart(2,'0')).join('');
 async function binary(value){if(value instanceof ArrayBuffer)return new Uint8Array(value);if(ArrayBuffer.isView(value))return new Uint8Array(value.buffer,value.byteOffset,value.byteLength);if(value?.arrayBuffer)return new Uint8Array(await value.arrayBuffer());throw Error('Invalid relay binary data.');}
 function abortable(promise,signal){if(!signal)return promise;if(signal.aborted)return Promise.reject(Error('Request cancelled.'));return new Promise((resolve,reject)=>{const abort=()=>{cleanup();reject(Error('Request cancelled.'));},cleanup=()=>signal.removeEventListener('abort',abort);signal.addEventListener('abort',abort,{once:true});promise.then(value=>{cleanup();resolve(value);},error=>{cleanup();reject(error);});});}
-export function createRelayTransport({relay,computerId,computerKey,serverId,randomBytes,WebSocket:Socket=globalThis.WebSocket,onStatus=()=>{}}){
+export function createRelayTransport({relay,computerId,computerKey,serverId,randomBytes,authenticate,requireAccess=false,WebSocket:Socket=globalThis.WebSocket,onStatus=()=>{}}){
  const origin=new URL(relay);if(origin.protocol!=='wss:'||origin.username||origin.password||origin.pathname!=='/'||origin.search||origin.hash)throw Error('Invalid WSS relay origin.');
  if(typeof computerId!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(computerId)||typeof serverId!=='string'||!serverId||typeof Socket!=='function')throw Error('Invalid relay host.');
  const key=keyBytes(computerKey),baseUrl=`https://${hex(sha256(utf8.encode(computerId))).slice(0,32)}.relay.invalid`,tlsPin=`sha256:${hex(sha256(key))}`;
@@ -17,7 +17,7 @@ export function createRelayTransport({relay,computerId,computerKey,serverId,rand
  function connect(){
   if(disposed)return Promise.reject(Error('Relay transport disposed.'));if(current)return current.ready;
   const socket=new Socket(`${origin.origin}/v1/phone?computer=${encodeURIComponent(computerId)}`);socket.binaryType='arraybuffer';
-  const state={socket,channel:null,rpc:null,queue:Promise.resolve(),ready:null,stop:null,queued:0};let resolveReady,rejectReady,settled=false;
+  const state={socket,channel:null,rpc:null,queue:Promise.resolve(),ready:null,stop:null,queued:0,proofSent:false,challenged:false};let resolveReady,rejectReady,settled=false;
   state.ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});state.ready.catch(()=>{});current=state;onStatus('connecting');
   const timer=setTimeout(()=>stop('RELAY_HANDSHAKE_TIMEOUT'),15000);
   function stop(code='RELAY_DISCONNECTED'){
@@ -35,6 +35,16 @@ export function createRelayTransport({relay,computerId,computerKey,serverId,rand
     if(current!==state)return;
     if(typeof event.data==='string'){
      if(state.channel)throw Error('Unexpected relay control.');const frame=JSON.parse(event.data);if(frame.type==='error'){stop(frame.code);return;}
+     if(frame.type==='phone-challenge'){
+      if(state.challenged||frame.access!==1||frame.computerId!==computerId||frame.computerKey!==b64url(key)||frame.serverId!==serverId)throw Error('Invalid admission target.');
+      keyBytes(frame.nonce);state.challenged=true;
+      if(typeof authenticate!=='function'){stop('RELAY_INVITATION_REQUIRED');return;}
+      const proof=await authenticate({relay:origin.origin,nonce:frame.nonce,computerId,computerKey:b64url(key),serverId});
+      if(current!==state)return;
+      if(typeof proof?.key!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(proof.key)||typeof proof?.signature!=='string'||!/^[A-Za-z0-9_-]{86}$/.test(proof.signature))throw Error('Invalid phone proof.');
+      state.proofSent=true;socket.send(JSON.stringify({type:'authenticate',key:proof.key,signature:proof.signature}));return;
+     }
+     if(requireAccess&&!state.proofSent){stop('RELAY_ACCESS_REQUIRED');return;}
      if(frame.type!=='connected'||typeof frame.streamId!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(frame.streamId))throw Error('Invalid relay stream.');
      const epoch=b64url(randomBytesFrom(randomBytes,32)),context={relay:origin.origin,computerId,serverId,streamId:frame.streamId,epoch};
      state.channel=createPhoneHandshake({computerKey:key,context,randomBytes});socket.send(utf8.encode(JSON.stringify({type:'offer',version:2,epoch,serverId,box:encode(state.channel.offer)})));return;

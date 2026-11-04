@@ -103,20 +103,22 @@ test('completed pairing shows success without granting another QR or cancelling 
 
 const waiting = { ...official, relay: { ...official.relay, state: 'pending', ready: false } }
 
-test('waiting official QR preserves its approval marker and build tag in displayed and copied data', async () => {
+test('waiting official QR preserves its phone-association nonce in displayed and copied data', async () => {
   const c = createDeviceController({ now: () => 10, uuid: () => 'lease-waiting', call: async (method, payload) =>
-    method === 'status' ? waiting : method === 'pairing.create' ? { ...qr(payload.leaseId), pending: true, build: 'K'.repeat(43) } : {} })
+    method === 'status' ? waiting : method === 'pairing.create' ? { ...qr(payload.leaseId), pending: true, access:1,linkNonce:'A'.repeat(43),linkExpiresAt:1000 } : {} })
   await c.refresh(); await c.autoPair()
   assert.equal(c.snapshot().pairing.pending, true)
   let copied
   await c.copy({ writeText: async value => { copied = JSON.parse(value) } })
   assert.equal(copied.pending, true)
-  assert.equal(copied.build, 'K'.repeat(43))
+  assert.equal(copied.access, 1)
+  assert.equal(copied.linkNonce, 'A'.repeat(43))
+  assert.equal(copied.build, undefined)
   assert.equal(copied.leaseId, undefined, 'the owner cancellation lease stays out of the QR')
   c.dispose()
 })
 
-test('approving the same waiting computer preserves its QR until the phone claims and completes it', async () => {
+test('associating the same waiting computer preserves its QR until the phone claims and completes it', async () => {
   let current = waiting
   const calls = []
   const c = createDeviceController({ now: () => 10, uuid: () => 'lease-approval', call: async (method, payload) => {

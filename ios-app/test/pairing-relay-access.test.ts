@@ -28,11 +28,11 @@ function button(nodes: any[], title: string) {
 }
 
 // Mount the real route and screen components at their native UI/network boundaries.
-// The admin-relay hook is real too: an empty saved-host list must not gate setup.
+// An empty saved-host list must not gate enrollment.
 function fixture({ official = 'wss://relay.invalid', locale = 'en', dark = false, paired = false } = {}) {
   const tr = (key: string) => locale === 'zh' ? zh[key] ?? key : key;
   const routes = ['/pairing'];
-  const claims: string[] = [], adminRelays: string[] = [], connections: unknown[][] = [];
+  const claims: string[] = [], adminRelays: string[] = [], connections: unknown[][] = [], alerts: any[][] = []; let failure: string | null = null, resetCount = 0;
   const host = { name: 'Existing computer', serverId: 'existing', url: 'https://host.invalid', slot: 'existing' };
   const session = { loading: false, host: paired ? host : null, hosts: paired ? [host] : [], pairingSlot: 'new-slot',
     connected: async (...args: unknown[]) => { connections.push(args); } };
@@ -45,7 +45,7 @@ function fixture({ official = 'wss://relay.invalid', locale = 'en', dark = false
     pair: async () => ({ claimToken: 'fixture-claim' }), completePairing: async () => ({ accessToken: 'fixture-token' }) };
   const shared: Record<string, any> = {
     'react-native': { View: 'View', Text: 'Text', ScrollView: 'ScrollView', Switch: 'Switch',
-      Platform: { OS: 'ios' }, Keyboard: { dismiss() {} }, Alert: { alert() {} } },
+      Platform: { OS: 'ios' }, Keyboard: { dismiss() {} }, Alert: { alert: (...args:any[]) => alerts.push(args) } },
     'expo-router': { Redirect: 'Redirect', useRouter: () => router },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }) },
     'expo-clipboard': { getStringAsync: async () => '' },
@@ -56,20 +56,20 @@ function fixture({ official = 'wss://relay.invalid', locale = 'en', dark = false
     '@/features/settings/components/settings-content': { SettingsRow: 'SettingsRow', SettingsSection: 'SettingsSection' },
     '../src/screens/PairingScreen': { PairingScreen: 'PairingScreen' },
     '../components/PairingScanner': { PairingScanner: 'PairingScanner' },
+    '../src/components/UI': { Button: 'Button', Card: 'Card', Field: 'Field', Label: 'Label', Notice: 'Notice', styles: { page: {} } },
     '../components/UI': { Button: 'Button', Card: 'Card', Field: 'Field', Label: 'Label', Notice: 'Notice', styles: { page: {} } },
     '../network/client': { createMobileClient: () => { clientsCreated++; return client; } },
     '@ds-bot/mobile-sdk': { validateServerUrl: (url: string) => url },
     '../storage': { cache: {}, tokenStoreFor: () => ({}) },
     '../logic/pairing': { parsePairing: () => ({ kind: 'direct', url: client.baseUrl, serverId: 'fixture-server', code: 'fixture-code' }) },
-    '../logic/build-match': { matchPairing: () => undefined },
-    '../logic/relay-approve': { approveWaitingComputer: async () => {} },
-    '../src/storage/admin-key': { relayAdminKey: async () => ({ publicKey: 'fixture-public-key' }) },
-    '../storage/admin-key': { relayAdminKey: async () => ({ publicKey: 'fixture-public-key' }) },
+    'expo-crypto': { getRandomBytes: (n: number) => new Uint8Array(n) },
+    '../logic/relay-access': { createRelayAccess: () => ({ associate: async () => ({associated:true}) }) },
+    '../src/storage/relay-key': { relayPhoneKey: async () => ({ publicKey: 'fixture-public-key' }), resetRelayPhoneKey: async () => { resetCount++; claimed = false; return {publicKey:'reset-key'}; } },
+    '../storage/relay-key': { relayPhoneKey: async () => ({ publicKey: 'fixture-public-key' }) },
     '../src/media/haptics': { errorFeedback() {}, successFeedback() {} },
-    '../src/logic/relay-admin': { RelayAdminError: class extends Error {}, createRelayAdmin: ({ relay }: { relay: string }) => {
+    '../src/logic/relay-access': { RelayAccessError: class extends Error {}, createRelayAccess: ({ relay }: { relay: string }) => {
       adminRelays.push(relay);
-      return { status: async () => ({ admin: claimed, claimable: !claimed }), devices: async () => ({ pending: [], approved: [] }),
-        claim: async (code: string) => { claims.push(code); claimed = true; } };
+      return { status: async () => ({ protocol: 1, enrolled: claimed }), redeem: async (code: string) => { claims.push(code); if(failure) throw new shared['../src/logic/relay-access'].RelayAccessError(failure); claimed = true; } };
     } },
   };
   for (const name of ['../src/session/SessionProvider', './SessionProvider']) shared[name] = { useSession: () => session };
@@ -99,7 +99,7 @@ function fixture({ official = 'wss://relay.invalid', locale = 'en', dark = false
         jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText;
       runInNewContext(output, { module, exports: module.exports, React: react, __DEV__: false, setTimeout, require(name: string) {
         if (name === 'react') return react;
-        if (name === '../src/session/admin-relay') return load('../src/session/admin-relay.ts');
+
         if (name in shared) return shared[name];
         throw new Error(`Unexpected component import: ${name}`);
       } });
@@ -110,33 +110,38 @@ function fixture({ official = 'wss://relay.invalid', locale = 'en', dark = false
       async flush() { for (const effect of effects.splice(0)) effect(); await tick(); } };
   }
   const index = mount('../app/index.tsx'), route = mount('../app/pairing.tsx'), pairing = mount('../src/screens/PairingScreen.tsx');
-  const admin = mount('../app/relay-admin.tsx');
+  const admin = mount('../app/relay-access.tsx');
   const pairingNodes = () => {
     const props = elements(route.render()).find(node => node.type === 'PairingScreen').props;
     return elements(pairing.render(props));
   };
   return { tr, theme, routes, claims, adminRelays, connections, session, index, admin, pairingNodes,
-    adminNodes: () => elements(admin.render()), clientsCreated: () => clientsCreated, setPending: () => { pending = true; } };
+    alerts, resetCount: () => resetCount, failRedeem: (message:string|null) => {failure=message;}, adminNodes: () => elements(admin.render()), clientsCreated: () => clientsCreated, setPending: () => { pending = true; } };
 }
 
 for (const locale of ['en', 'zh']) for (const dark of [false, true]) {
-  test(`a fresh ${locale} phone (${dark ? 'dark' : 'light'}) claims the official relay and returns to its pairing draft`, async () => {
+  test(`a fresh ${locale} phone (${dark ? 'dark' : 'light'}) enrolls with the official relay and returns to its pairing draft`, async () => {
     const f = fixture({ locale, dark });
     assert.equal(f.index.render().props.href, '/pairing');
+    if(locale === 'zh') assert.notEqual(f.tr('Connection invitation'), 'Connection invitation');
     let nodes = f.pairingNodes();
     assert.equal(nodes[0].props.style.backgroundColor, f.theme.bg);
     nodes.find(node => node.type === 'Field' && node.props.label !== f.tr('Device name')).props.onChangeText('saved pairing draft');
-    button(nodes, f.tr('Relay admin')).onPress();
-    assert.deepEqual(f.routes, ['/pairing', '/relay-admin']);
+    button(nodes, f.tr('Connection invitation')).onPress();
+    assert.deepEqual(f.routes, ['/pairing', '/relay-access']);
     f.adminNodes(); await f.admin.flush();
     nodes = f.adminNodes();
     assert.deepEqual(f.adminRelays, ['wss://relay.invalid']);
-    nodes.find(node => node.type === 'SheetFormField').props.onChangeText('fixture-bootstrap-code');
+    nodes.find(node => node.type === 'Field').props.onChangeText('fixture-invitation-code');
     nodes = f.adminNodes();
-    const claim = button(nodes, f.tr('Become the admin'));
-    assert.equal(claim.isDisabled, false);
-    claim.onPress(); await tick();
-    assert.deepEqual(f.claims, ['fixture-bootstrap-code']);
+    const claim = button(nodes, f.tr('Use invitation'));
+    assert.equal(claim.disabled, false);
+    assert.equal(nodes.find(node => node.type === 'Field').props.secureTextEntry, true);
+    claim.onPress();
+    assert.equal(f.adminNodes().find(node => node.type === 'Field').props.value, '');
+    assert.equal(button(f.adminNodes(), f.tr('Back to pairing')).disabled, true);
+    await tick();
+    assert.deepEqual(f.claims, ['fixture-invitation-code']);
     button(f.adminNodes(), f.tr('Back to pairing')).onPress();
     assert.deepEqual(f.routes, ['/pairing']);
     assert.ok(f.pairingNodes().some(node => node.type === 'Field' && node.props.value === 'saved pairing draft'));
@@ -146,17 +151,17 @@ for (const locale of ['en', 'zh']) for (const dark of [false, true]) {
   });
 }
 
-test('source builds without an official relay keep direct pairing and offer a way back from an empty admin page', () => {
+test('source builds without an official relay keep direct pairing and offer a way back from an empty invitation page', () => {
   const f = fixture({ official: '' });
-  assert.equal(f.pairingNodes().some(node => node.type === 'Button' && node.props.title === f.tr('Relay admin')), false);
+  assert.equal(f.pairingNodes().some(node => node.type === 'Button' && node.props.title === f.tr('Connection invitation')), false);
   assert.ok(f.pairingNodes().some(node => node.type === 'PairingScanner'));
-  f.routes[0] = '/relay-admin';
+  f.routes[0] = '/relay-access';
   button(f.adminNodes(), f.tr('Back to pairing')).onPress();
   assert.deepEqual(f.routes, ['/pairing']);
 });
 
-test('an unpaired phone opening admin without navigation history returns to pairing', () => {
-  const f = fixture(); f.routes[0] = '/relay-admin';
+test('an unpaired phone opening invitation without navigation history returns to pairing', () => {
+  const f = fixture(); f.routes[0] = '/relay-access';
   button(f.adminNodes(), f.tr('Back to pairing')).onPress();
   assert.deepEqual(f.routes, ['/pairing']);
 });
@@ -172,14 +177,35 @@ test('adding a computer preserves the existing paired back action and successful
   assert.equal(f.connections.length, 1);
   assert.equal((f.connections[0][0] as { slot: string }).slot, 'new-slot');
   assert.equal(f.routes.at(-1), '/');
-  assert.equal(f.adminNodes().some(node => node.type === heroButton && text(node) === f.tr('Back to pairing')), false);
+  assert.equal(f.adminNodes().some(node => node.type === 'Button' && node.props.title === f.tr('Back to pairing')), false);
 });
 
 test('relay management is disabled during pairing and available again after cancellation', () => {
   const f = fixture(); f.setPending();
   f.pairingNodes().find(node => node.type === 'PairingScanner').props.onScan('fixture-pairing');
   let nodes = f.pairingNodes();
-  assert.equal(button(nodes, f.tr('Relay admin')).disabled, true);
+  assert.equal(button(nodes, f.tr('Connection invitation')).disabled, true);
   button(nodes, 'Cancel pairing').onPress();
-  assert.equal(button(f.pairingNodes(), f.tr('Relay admin')).disabled, false);
+  assert.equal(button(f.pairingNodes(), f.tr('Connection invitation')).disabled, false);
 });
+
+ test('failed or revoked redemption clears the invitation, permits retry and never resets identity automatically', async () => {
+   const f=fixture(); f.adminNodes();await f.admin.flush();
+   f.failRedeem("This phone's invitation access was revoked. Reset its phone identity and use a new invitation.");
+   f.adminNodes().find(n=>n.type==='Field').props.onChangeText('secret-code');
+   button(f.adminNodes(),'Use invitation').onPress();await tick();
+   assert.equal(f.adminNodes().find(n=>n.type==='Field').props.value,'');
+   assert.ok(f.adminNodes().some(n=>n.props.accessibilityRole==='alert'));
+   assert.equal(f.resetCount(),0);
+   button(f.adminNodes(),'Retry').onPress();await tick();
+   assert.equal(f.resetCount(),0);
+   button(f.adminNodes(),'Reset phone identity').onPress();
+   assert.equal(f.resetCount(),0);
+   f.alerts[0][2].find((b:any)=>b.style==='destructive').onPress();await tick();
+   assert.equal(f.resetCount(),1);
+   assert.equal(f.session.hosts.length,0);
+   f.failRedeem(null);
+   f.adminNodes().find(n=>n.type==='Field').props.onChangeText('new-invite');
+   const submit=button(f.adminNodes(),'Use invitation');submit.onPress();submit.onPress();await tick();
+   assert.deepEqual(f.claims,['secret-code','new-invite']);
+ });

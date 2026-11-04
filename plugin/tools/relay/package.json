@@ -21,7 +21,9 @@
     "bin.mjs",
     "server.mjs",
     "accounts.mjs",
-    "approvals.mjs",
+    "access.mjs",
+    "access-api.mjs",
+    "access-cli.mjs",
     "README.md"
   ]
 }

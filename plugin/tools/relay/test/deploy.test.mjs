@@ -13,8 +13,24 @@ import {fileURLToPath} from 'node:url'
 const root=fileURLToPath(new URL('../',import.meta.url))
 const helper=join(root,'deploy/update.py')
 const ws=join(root,'node_modules/ws')
-const files=['bin.mjs','server.mjs','accounts.mjs','approvals.mjs','package.json','package-lock.json']
+const files=['bin.mjs','server.mjs','accounts.mjs','access.mjs','access-api.mjs','access-cli.mjs','package.json','package-lock.json']
 const onlyLinux={skip:process.platform!=='linux'?'Linux deployment helper':false}
+
+test('updater refuses legacy open/approval fallback and unverifiable admission before writing a release',async()=>{
+ const script=`import importlib.util,sys,types,signal
+if not hasattr(signal,'SIGHUP'):signal.SIGHUP=1
+sys.modules.setdefault('fcntl',types.SimpleNamespace())
+s=importlib.util.spec_from_file_location('u',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+for values in [{},{'RELAY_OPEN_REGISTRATION':'1','RELAY_SECRET_FILE':'configured'},{'RELAY_APPROVALS_FILE':'configured','RELAY_SECRET_FILE':'configured'},{'RELAY_BUILD_KEY_FILE':'configured','RELAY_SECRET_FILE':'configured'},{'RELAY_ACCESS_FILE':'configured','RELAY_SECRET_FILE':'configured'}]:
+ try:m.check_admission_env(values)
+ except m.Refused:pass
+ else:raise AssertionError('Unsafe migration accepted')
+for values in [{'RELAY_ACCESS_FILE':'configured'},{'RELAY_SECRET_FILE':'configured'},{'RELAY_DATA_FILE':'configured'}]:m.check_admission_env(values)
+print('closed admission preflight passed')`;
+ const child=spawn(process.env.PYTHON||'python3',['-c',script,helper],{stdio:['ignore','pipe','pipe']});
+ let output='';child.stdout.on('data',x=>output+=x);child.stderr.on('data',x=>output+=x);
+ child.on('error',()=>{});const [code]=await once(child,'exit');assert.equal(code,0,output);assert.match(output,/closed admission preflight passed/);
+});
 const fake=`#!/usr/bin/env python3
 import json,os,pathlib,subprocess,sys,time
 area=pathlib.Path(os.environ['TEST_AREA']);state=json.loads((area/'state.json').read_text());args=sys.argv[1:];name=pathlib.Path(sys.argv[0]).name
@@ -29,7 +45,7 @@ if name=='cp':
  os.execv('/bin/cp',['/bin/cp',*args])
 if name=='systemctl':
  if args[0]=='cat':done('[Service]')
- if args[0]=='show':done(str(area/'install'))
+ if args[0]=='show':done(os.getppid() if 'MainPID' in args else str(area/'install'))
  if args[0]=='is-active':sys.exit(0)
  if args[0]=='restart':
   if state['failure']=='slow-restart':
@@ -61,7 +77,7 @@ if name=='docker':
   if op=='ps':done('synthetic-relay-id')
   if op=='exec':
    script=args[-1]
-   if 'dataFile:' in script:done({'dataFile':'/app/relay/accounts.json' if state['failure']=='data-in-app' else '/state/accounts.json'})
+   if 'dataFile:' in script:done({'dataFile':'/app/relay/accounts.json' if state['failure']=='data-in-app' else '/state/accounts.json','admission':{'RELAY_SECRET_FILE':'configured'}})
    if state['failure']=='health' and state['restarts']==1:sys.exit(11)
    sys.exit(0)
   if op=='up':
@@ -87,7 +103,7 @@ async function fixture(t,{mode='compose',failure='',longMount=false}={}){
  const install=join(area,'install'),previous=join(area,'releases/748f671'),bin=join(area,'tools')
  await Promise.all([mkdir(install),mkdir(join(previous,'relay'),{recursive:true}),mkdir(bin)])
  for(const dir of [install,join(previous,'relay')]){
-  for(const name of files)if(!['accounts.mjs','approvals.mjs'].includes(name)){
+  for(const name of files)if(!['accounts.mjs','access.mjs','access-api.mjs','access-cli.mjs'].includes(name)){
    await writeFile(join(dir,name),`old ${name}\n`,{mode:0o640});await chmod(join(dir,name),0o640)
   }
   await mkdir(join(dir,'node_modules'));await writeFile(join(dir,'node_modules','old-dependency'),'old\n')
@@ -106,7 +122,7 @@ async function fixture(t,{mode='compose',failure='',longMount=false}={}){
  await writeFile(join(area,'state.json'),JSON.stringify({failure,restarts:0,active:previous}))
  await writeFile(join(area,'commands.jsonl'),'')
  for(const name of ['docker','systemctl','npm','cp'])await writeFile(join(bin,name),fake,{mode:0o755})
- const env={...process.env,PATH:bin+':'+process.env.PATH,TEST_AREA:area,TEST_WS:ws,TEST_NODE:process.execPath}
+ const env={...process.env,PATH:bin+':'+process.env.PATH,TEST_AREA:area,TEST_WS:ws,TEST_NODE:process.execPath,RELAY_SECRET_FILE:join(area,'secret')}
  let url
  if(mode==='systemd'){
   const server=createServer(async(_req,res)=>{

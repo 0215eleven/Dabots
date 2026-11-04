@@ -1,5 +1,15 @@
 # 可选中继协议 v2（Happy 模式，2026-10-24）
 
+## 官方中转手机准入 v1（2026-11-04）
+
+以下准入层在原有端到端加密握手之前执行，不改变下面的加密、Bridge token、配对或 Bot 操作审批语义。官方客户端拒绝降级到旧开放中转；显式自建旧中转兼容路径独立保留。
+
+- 服务用 `RELAY_ACCESS_FILE` 保存一次性邀请码摘要、手机 Ed25519 公钥和电脑关联，安装包不包含准入凭证。CLI 与服务共享排他文件锁；旧审批/公开登记环境必须明确迁移。
+- 手机 HTTP 请求签名 `JSON.stringify(['dabots-phone-request-v1', relayOrigin, method, path, String(time), nonce, sha256hex(rawBody)])`。头为 `x-dabots-phone-key`、`x-dabots-time`、`x-dabots-nonce`、`x-dabots-signature`；时间窗口 60 秒，nonce 为随机 16 字节 canonical base64url，同一 key/nonce 不可重放，查询参数和浏览器 Origin 均被拒绝。`POST /v1/access/redeem` 消费一码；`GET /v1/access/status` 查询当前手机准入；`POST /v1/access/associate` 关联已验证的电脑二维码。邀请码只出现在签名兑换请求的 JSON 体中，不得进入 URL、诊断或普通列表。
+- 电脑收到 `{type:'challenge',access:1,version:3,nonce}`，用 Ed25519 签名 `['ds-bot-computer-v3',relayOrigin,nonce,computerId,edPublicKey,computerKey,serverId]`。未知电脑等待手机关联，二维码额外包含 `access:1,linkNonce,linkExpiresAt`；随机 32 字节 linkNonce 绑定本次完整注册、五分钟到期，每四分钟轮换。服务器验证手机签名、准入和当前 nonce 后持久化关联并在原连接上提升电脑。另一个有效手机也不能夺取仍有效的所有者。
+- 手机 WebSocket 先收到 `{type:'phone-challenge',access:1,nonce,computerId,computerKey,serverId}`。App 检查目标与已扫描/保存的完整身份一致，再签名 `['dabots-phone-connect-v1',relayOrigin,nonce,computerId,computerKey,serverId]`，提交 `{type:'authenticate',key,signature}`。服务验证准入和电脑关联后才打开流、发送 `connected`。凭证和签名不出现在 URL 中。后续仍进行原有 X25519/NaCl 加密握手。
+- 双向每帧都检查当前已提交授权；撤销手机关闭其电脑和手机连接，阻止旧签名、旧私钥重连。发生原子保存不确定错误则关闭授权。重启保留绑定及撤销，所有连接 nonce 重新生成。旧审批数据、公开电脑 ID、固定构建密钥和 Bridge 配对 token 都不能自行获得新中转权限。
+
 所有者已批准改用Happy式密钥封装，不再要求Noise NK；本协议不是Happy原协议或已审计协议。参考slopus/happy d6b85a0dda14c9582e1f083539fd11d99924022f的api/encryption.ts、libsodium.ts与分层方式。独立实现，未复制其账户、数据库、CLI控制面。MIT来源记录见下文。
 
 电脑长期Ed25519注册身份与X25519 box密钥保持分离；QR固定电脑box公钥、computerId、serverId、relay origin。手机每条物理连接生成临时box keypair及32字节随机会话seed；用NaCl box将seed和完整上下文封装给QR固定电脑公钥。上下文是固定字段顺序的JSON数组：协议域、relay origin、computerId、serverId、streamId、epoch。随机nonce24字节；外层只传版本、手机临时公钥、nonce、box密文。

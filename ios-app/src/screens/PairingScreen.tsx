@@ -17,9 +17,9 @@ import {
 } from "../components/UI";
 import { cache, Host, tokenStoreFor } from "../storage";
 import { parsePairing } from "../logic/pairing";
-import { matchPairing } from "../logic/build-match";
-import { approveWaitingComputer } from "../logic/relay-approve";
-import { relayAdminKey } from "../storage/admin-key";
+import { createRelayAccess } from "../logic/relay-access";
+import { relayPhoneKey } from "../storage/relay-key";
+import * as Crypto from "expo-crypto";
 import { useTheme } from "../theme";
 export function PairingScreen({
   slot,
@@ -72,11 +72,13 @@ export function PairingScreen({
         throw new Error(
           "Paste the complete pairing JSON from your host and enter a device name.",
         );
-      const proof = matchPairing(data);
-      // A computer waiting for the relay admin: when this phone is that admin, scanning approves it.
-      if (data.kind === "relay" && data.pending) {
-        setStatus("Approving this computer on the relay…");
-        await approveWaitingComputer(data.relay, data.computerId, { key: relayAdminKey });
+      // Bind this invited phone to the exact live computer registration before opening an encrypted stream.
+      if (data.kind === "relay" && data.access === 1) {
+        setStatus("Connecting this computer to your phone…");
+        const access = createRelayAccess({relay:data.relay,key:await relayPhoneKey(data.relay),randomBytes:length=>Crypto.getRandomBytes(length)});
+        if (attempt.current !== run) return;
+        if (data.linkExpiresAt! <= Date.now()) throw new Error("This computer code has expired or is invalid. Generate a new code on your computer.");
+        await access.associate({computerId:data.computerId,computerKey:data.computerKey,serverId:data.serverId,linkNonce:data.linkNonce!});
         if (attempt.current !== run) return;
         setStatus("");
       }
@@ -88,7 +90,7 @@ export function PairingScreen({
         data.kind === "relay"
           ? createMobileClient({
               baseUrl: "https://relay.invalid",
-              relay: { relay: data.relay, computerId: data.computerId, computerKey: data.computerKey, serverId: data.serverId },
+              relay: { relay: data.relay, computerId: data.computerId, computerKey: data.computerKey, serverId: data.serverId, requireAccess:data.access===1 },
               tokenStore: tokenStoreFor(slot),
               cache,
             })
@@ -105,7 +107,7 @@ export function PairingScreen({
         throw new Error(
           "The server identity does not match this pairing code. Generate a new code on your host.",
         );
-      const pairing = await client.pair(data.code, device.trim(), proof);
+      const pairing = await client.pair(data.code, device.trim());
       setRaw("");
       setStatus("Waiting for approval on your computer…");
       const deadline = Date.now() + 120000;
@@ -124,7 +126,7 @@ export function PairingScreen({
                 allowInsecure: data.kind === "direct" && __DEV__ && insecure,
                 slot,
                 ...(data.kind === "relay"
-                  ? { relay: { relay: data.relay, computerId: data.computerId, computerKey: data.computerKey } }
+                  ? { relay: { relay: data.relay, computerId: data.computerId, computerKey: data.computerKey, requireAccess:data.access===1 } }
                   : {}),
               },
               client,
@@ -194,8 +196,8 @@ export function PairingScreen({
       {onManageRelay && (
         <Card>
           <Label>{tr("Official relay")}</Label>
-          <Label muted>{tr("Become the relay admin or manage computer approvals before pairing.")}</Label>
-          <Button title={tr("Relay admin")} secondary disabled={busy} onPress={onManageRelay} />
+          <Label muted>{tr("Use an invitation to enroll this phone before scanning your computers.")}</Label>
+          <Button title={tr("Connection invitation")} secondary disabled={busy} onPress={onManageRelay} />
         </Card>
       )}
       <Card>

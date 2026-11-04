@@ -1,0 +1,31 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {generateKeyPairSync,randomBytes,randomUUID,createHash,sign} from 'node:crypto';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {WebSocket} from 'ws';
+import {createAccess} from '../../tools/relay/access.mjs';
+import {createRelay} from '../../tools/relay/server.mjs';
+import {createRelaySettings} from '../src/relay-settings.mjs';
+import {createMobileServer} from '../src/server.js';
+const origin='wss://fixture.example';
+const until=async check=>{const end=Date.now()+3000;while(Date.now()<end){if(check())return;await new Promise(r=>setTimeout(r,10));}throw Error('Timed out');};
+test('the desktop QR carries the live invitation link and survives phone association without a reconnect',async t=>{
+ const home=await mkdtemp(join(tmpdir(),'bridge-invitations-'));let settings,server,relay,access;
+ t.after(async()=>{await settings?.dispose();await server?.close();await relay?.close();await access?.close();await rm(home,{recursive:true,force:true});});
+ access=await createAccess({file:join(home,'access.json'),initialize:true});relay=await createRelay({origin,access});
+ class Socket extends WebSocket{constructor(url){super(String(url).replace(origin,relay.url.replace('http:','ws:')));}}
+ server=await createMobileServer({home:join(home,'bridge'),config:{devAllowInsecure:true},adapter:{capabilities:()=>({}),dispose:async()=>{}}});
+ settings=await createRelaySettings({home:join(home,'bridge'),server,Socket,officialRelay:origin});await settings.official();
+ await until(()=>['pending','denied'].includes(settings.snapshot().state));assert.equal(settings.snapshot().state,'pending');
+ const code=settings.pairing({automatic:true,leaseId:randomUUID()});assert.equal(code.access,1);assert.match(code.linkNonce,/^[A-Za-z0-9_-]{43}$/);assert.ok(code.linkExpiresAt>Date.now());assert.equal(code.build,undefined);
+ const phone=generateKeyPairSync('ed25519'),key=phone.publicKey.export({type:'spki',format:'der'}).subarray(-32).toString('base64url');
+ const [invite]=await access.issue({});await access.redeem(invite.code,key);
+ const body=JSON.stringify({computerId:code.computerId,computerKey:code.computerKey,serverId:code.serverId,linkNonce:code.linkNonce}),time=Date.now(),nonce=randomBytes(16).toString('base64url'),path='/v1/access/associate';
+ const signature=sign(null,Buffer.from(JSON.stringify(['dabots-phone-request-v1',origin,'POST',path,String(time),nonce,createHash('sha256').update(body).digest('hex')])),phone.privateKey).toString('base64url');
+ const response=await fetch(relay.url+path,{method:'POST',headers:{'content-type':'application/json','x-dabots-phone-key':key,'x-dabots-time':String(time),'x-dabots-nonce':nonce,'x-dabots-signature':signature},body});
+ assert.equal(response.status,200);await until(()=>settings.snapshot().ready);
+ assert.equal((await server.operator('status')).pairingLease.state,'available');
+ assert.equal(settings.pairingStatus().available,true);
+});

@@ -20,4 +20,7 @@ export function createRelayTransport(options: RelayHost & {
   randomBytes: (length: number) => Uint8Array;
   WebSocket?: typeof WebSocket;
   onStatus?: (status: RelayStatus) => void;
+  /** Require invitation admission; never fall back to an old open official relay. */
+  requireAccess?: boolean;
+  authenticate?: (challenge: RelayHost & {nonce:string}) => Promise<{key:string;signature:string}>;
 }): RelayTransport;

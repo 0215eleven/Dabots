@@ -11,7 +11,7 @@ export interface Host {
   /** Credential slot for this computer; absent for the host paired before multi-host support. */
   slot?: string;
   /** Reached through the owner's relay instead of a direct address. */
-  relay?: { relay: string; computerId: string; computerKey: string };
+  relay?: { relay: string; computerId: string; computerKey: string; requireAccess?:boolean };
 }
 export const cache: Cache = {
   async getMessages(server, conversation) {

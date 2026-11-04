@@ -9,13 +9,17 @@ Use Node.js 24 and an owner-configured HTTPS/WSS reverse proxy. Runtime settings
 include RELAY_ORIGIN, RELAY_SECRET_FILE, RELAY_HOST and RELAY_PORT. The registration
 secret belongs in an owner-readable file outside the checkout, never Git or chat.
 
-The official scan-and-go service can enable `RELAY_OPEN_REGISTRATION=1` without
-distributing a shared secret. Signed computer registration remains required.
+The official service uses an explicitly initialized `RELAY_ACCESS_FILE`. An offline
+operator command issues a one-use invitation for one phone public key; that phone
+can scan multiple computers. Every phone connection proves its key, and the server
+checks the computer association before forwarding. There is no relay-admin approval
+or embedded build-key credential. Old public/approval/build-key environment fails
+closed and requires an explicit stopped-service migration.
 Finite connection, registration, frame and byte quotas apply in every mode;
 `RELAY_LIMITS_JSON` can override positive integer ceilings. Exact IP and computer
 ID deny lists use `RELAY_BLOCKED_IPS` and `RELAY_BLOCKED_COMPUTERS`. See the quota
-table and code/config rollback instructions in the deployment guide before
-enabling public registration. This source change has not deployed the service.
+table and closed rollback instructions in the deployment guide. This source change
+has not deployed the service.
 
 See [deployment](DEPLOYMENT.md) and [protocol](PROTOCOL.md). Repository unit tests
 exercise the local service; they do not establish deployment or device acceptance.

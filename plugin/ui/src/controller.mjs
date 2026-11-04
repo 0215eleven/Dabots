@@ -1,6 +1,4 @@
-import { canPair, httpsOrigin, pairingContext, pairingMode, relayMode, relayOrigin, relayApprovalKeepsPairing, remoteErrorMessage } from './remote-model.mjs'
-// The official plugin's tag that lets the official app recognise it (absent in source builds).
-const matchTag = value => typeof value?.build === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value.build) ? { build: value.build } : {}
+import { canPair, httpsOrigin, pairingContext, pairingMode, relayMode, relayOrigin, relayAssociationKeepsPairing, remoteErrorMessage } from './remote-model.mjs'
 
 const RELAY_ID = /^[A-Za-z0-9_-]{22}$/, RELAY_KEY = /^[A-Za-z0-9_-]{43}$/
 
@@ -32,7 +30,7 @@ export function createDeviceController({ call, now = Date.now, uuid = () => cryp
       try {
         const status = await invoke('status', {})
         if (!disposed && issued === refreshEpoch) {
-          const changed = state.status !== null && pairingContext(status) !== pairingContext(state.status) && !relayApprovalKeepsPairing(state.status, status)
+          const changed = state.status !== null && pairingContext(status) !== pairingContext(state.status) && !relayAssociationKeepsPairing(state.status, status)
           if (changed) { pairingEpoch++; void cancelLease() }
           const consumed = leaseId && status.pairingLease?.leaseId === leaseId && ['claimed', 'paired'].includes(status.pairingLease.state)
           if (consumed) { pairingEpoch++; if (status.pairingLease.state === 'paired') leaseId = null }
@@ -60,13 +58,14 @@ export function createDeviceController({ call, now = Date.now, uuid = () => cryp
         const relay = relayOrigin(value.relay), relayStatus = state.status?.relay
         if (!RELAY_ID.test(value.computerId ?? '') || !RELAY_KEY.test(value.computerKey ?? '') || !value.code || !value.serverId || !(value.expiresAt > now())) throw Error('Bridge 返回的配对资料无效，请刷新后重试。')
         if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && pairingMode(state.status) === 'relay') && (!relayStatus || relayStatus.relay === relay && relayStatus.computerId === value.computerId) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
-          emit({ pairing: { v: 2, relay, computerId: value.computerId, computerKey: value.computerKey, serverId: value.serverId, code: value.code, expiresAt: value.expiresAt, ...(value.pending === true ? { pending: true } : {}), ...matchTag(value) } })
+          if(value.access===1&&(!RELAY_KEY.test(value.linkNonce??'')||!Number.isSafeInteger(value.linkExpiresAt)||value.linkExpiresAt<=now()))throw Error('Invalid relay association QR')
+          emit({ pairing: { v: 2, relay, computerId: value.computerId, computerKey: value.computerKey, serverId: value.serverId, code: value.code, expiresAt: value.expiresAt, ...(value.pending === true ? { pending: true } : {}), ...(value.access===1?{access:1,linkNonce:value.linkNonce,linkExpiresAt:value.linkExpiresAt}:{}) } })
         }
       } else if (method === 'pairing.create') {
         const url = httpsOrigin(value.url)
         if (!value.code || !value.serverId || !(value.expiresAt > now())) throw Error('Bridge 返回的配对资料无效，请刷新后重试。')
         if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && pairingMode(state.status) === 'direct') && (!state.status?.url || state.status.url === url) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
-          emit({ pairing: { url, code: value.code, serverId: value.serverId, expiresAt: value.expiresAt, ...matchTag(value) } })
+          emit({ pairing: { url, code: value.code, serverId: value.serverId, expiresAt: value.expiresAt } })
         }
       }
       emit({ confirmRevoke: null, confirmAgents: null })

@@ -10,8 +10,20 @@ import {randomBytes} from 'node:crypto'
 import {fileURLToPath} from 'node:url'
 import {WebSocket} from 'ws'
 import {createRelay} from '../server.mjs'
+import {createAccess} from '../access.mjs'
 
 async function freePort(){const s=createServer();s.listen(0,'127.0.0.1');await once(s,'listening');const p=s.address().port;await new Promise(r=>s.close(r));return p}
+async function accessFile(t){const dir=await mkdtemp(join(tmpdir(),'relay-bin-access-'));t.after(()=>rm(dir,{recursive:true,force:true}));const file=join(dir,'access.json');const access=await createAccess({file,initialize:true});await access.close();return file;}
+
+test('legacy public and approval/build-key configuration refuses startup instead of silently bypassing invitations',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'relay-closed-migration-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ await writeFile(join(dir,'secret'),randomBytes(32).toString('base64url'));await writeFile(join(dir,'build-key'),randomBytes(32).toString('base64url'));
+ for(const extra of [{RELAY_OPEN_REGISTRATION:'1'},{RELAY_APPROVALS_FILE:join(dir,'old-approvals.json')},{RELAY_BUILD_KEY_FILE:join(dir,'build-key')}]){
+  const child=spawn(process.execPath,[fileURLToPath(new URL('../bin.mjs',import.meta.url))],{env:{PATH:process.env.PATH,RELAY_ORIGIN:'wss://fixture.example',RELAY_SECRET_FILE:join(dir,'secret'),RELAY_PORT:String(await freePort()),...extra},stdio:['ignore','pipe','pipe']});
+  let output='';child.stdout.on('data',x=>output+=x);child.stderr.on('data',x=>output+=x);const timer=setTimeout(()=>child.kill(),500);await once(child,'exit');clearTimeout(timer);
+  assert.equal(output.includes('listening'),false);assert.match(output,/legacy|invitation|RELAY_ACCESS_FILE/i);
+ }
+});
 
 test('the service reads its secret from a file, logs no secret and stops on SIGTERM',async t=>{
   const dir=await mkdtemp(join(tmpdir(),'relay-bin-')),secret=randomBytes(32).toString('base64url'),port=await freePort()
@@ -53,7 +65,7 @@ test('invalid explicit proxy environment fails before listening',async t=>{
   await writeFile(join(dir,'secret'),randomBytes(32).toString('base64url'),{mode:0o600})
   const child=spawn(process.execPath,[fileURLToPath(new URL('../bin.mjs',import.meta.url))],{env:{PATH:process.env.PATH,RELAY_ORIGIN:'wss://relay.example',RELAY_SECRET_FILE:join(dir,'secret'),RELAY_TRUST_PROXY:'1',RELAY_TRUSTED_PROXY_IP:'127.0.0.0/8'},stdio:['ignore','pipe','pipe']})
   let output='';child.stdout.on('data',b=>{output+=b});child.stderr.on('data',b=>{output+=b})
-  const [code]=await once(child,'exit');assert.equal(code,1);assert.equal(output.includes('listening'),false)
+  const [code]=await once(child,'exit');assert.notEqual(code,0);assert.equal(output.includes('listening'),false)
   assert.match(output,/trustedProxyIp must be one IP literal/)
 })
 
@@ -65,15 +77,15 @@ test('public service environment rejects invalid quotas and ban lists before lis
   }
 })
 
-test('public service reads its finite quota overrides from environment without a shared secret',async t=>{
+test('invitation service reads its finite quota overrides from environment without a shared secret',async t=>{
   const port=await freePort()
-  const child=spawn(process.execPath,[fileURLToPath(new URL('../bin.mjs',import.meta.url))],{env:{PATH:process.env.PATH,RELAY_ORIGIN:'wss://relay.example',RELAY_OPEN_REGISTRATION:'1',RELAY_PORT:String(port),RELAY_TRUSTED_PROXY_IP:'127.0.0.1',RELAY_LIMITS_JSON:'{"connectionsPerMinute":1}'},stdio:['ignore','pipe','pipe']})
+  const child=spawn(process.execPath,[fileURLToPath(new URL('../bin.mjs',import.meta.url))],{env:{PATH:process.env.PATH,RELAY_ORIGIN:'wss://relay.example',RELAY_ACCESS_FILE:await accessFile(t),RELAY_PORT:String(port),RELAY_TRUSTED_PROXY_IP:'127.0.0.1',RELAY_LIMITS_JSON:'{"connectionsPerMinute":1}'},stdio:['ignore','pipe','pipe']})
   t.after(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill()})
   let output='';child.stdout.on('data',c=>{output+=c});child.stderr.on('data',c=>{output+=c})
   for(let i=0;i<100&&!output.includes('listening');i++)await new Promise(r=>setTimeout(r,50))
-  assert.equal(output.includes('with open registration'),true)
+  assert.equal(output.includes('with phone invitations'),true)
   for(const [i,expected] of [409,429].entries()){
-    const ws=new WebSocket(`ws://127.0.0.1:${port}/v1/phone?computer=missing`,{headers:{'x-real-ip':`198.51.100.${i+1}`}});ws.on('error',()=>{})
+    const ws=new WebSocket(`ws://127.0.0.1:${port}/v1/phone?computer=${'A'.repeat(22)}`,{headers:{'x-real-ip':`198.51.100.${i+1}`}});ws.on('error',()=>{})
     const [,response]=await once(ws,'unexpected-response');response.resume();ws.terminate();assert.equal(response.statusCode,expected)
   }
   child.kill('SIGTERM');await once(child,'exit')
@@ -81,15 +93,15 @@ test('public service reads its finite quota overrides from environment without a
 
 test('temporary diagnostic environment reaches the actual service without credentials',async t=>{
   const port=await freePort()
-  const child=spawn(process.execPath,[fileURLToPath(new URL('../bin.mjs',import.meta.url))],{env:{PATH:process.env.PATH,RELAY_ORIGIN:'wss://relay.example',RELAY_OPEN_REGISTRATION:'1',RELAY_DIAGNOSTICS:'1',RELAY_PORT:String(port)},stdio:['ignore','pipe','pipe']})
+  const child=spawn(process.execPath,[fileURLToPath(new URL('../bin.mjs',import.meta.url))],{env:{PATH:process.env.PATH,RELAY_ORIGIN:'wss://relay.example',RELAY_ACCESS_FILE:await accessFile(t),RELAY_DIAGNOSTICS:'1',RELAY_PORT:String(port)},stdio:['ignore','pipe','pipe']})
   t.after(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill()})
   let output='';child.stdout.on('data',chunk=>{output+=chunk});child.stderr.on('data',()=>{})
   for(let i=0;i<100&&!output.includes('listening');i++)await new Promise(r=>setTimeout(r,20))
   const socket=new WebSocket(`ws://127.0.0.1:${port}/v1/phone?computer=SENSITIVE_TEST_ONLY`);socket.on('error',()=>{})
-  const [,response]=await once(socket,'unexpected-response');response.resume();socket.terminate();assert.equal(response.statusCode,409)
+  const [,response]=await once(socket,'unexpected-response');response.resume();socket.terminate();assert.equal(response.statusCode,400)
   child.kill('SIGTERM');await once(child,'exit')
   const entries=output.split('\n').filter(line=>line.startsWith('{')).map(line=>JSON.parse(line))
   assert.equal(entries[0].event,'diagnostics_started')
-  assert.ok(entries.some(entry=>entry.event==='upgrade_rejected'&&entry.reason==='COMPUTER_OFFLINE'&&entry.status===409))
+  assert.ok(entries.some(entry=>entry.event==='upgrade_rejected'&&entry.reason==='INVALID_QUERY'&&entry.status===400))
   assert.equal(output.includes('SENSITIVE_TEST_ONLY'),false)
 })

@@ -1,9 +1,7 @@
 import {createHash,createPublicKey,sign,randomBytes} from 'node:crypto'
 import {WebSocket} from 'ws'
 import {acceptPhoneHandshake,createRpcPeer} from './relay-shared.mjs'
-import {buildTag} from './build-tag.mjs'
-export function createRelayConnector({relay,secret,identity,serverId,endpoint,name=null,buildKey=null,Socket=WebSocket,onStatus=()=>{}}){
- // The computer's name helps a relay admin recognise it among computers waiting for approval.
+export function createRelayConnector({relay,secret,identity,serverId,endpoint,name=null,requireAccess=false,Socket=WebSocket,onStatus=()=>{}}){
  const label=typeof name==='string'&&name.trim()?name.trim().split('').filter(char=>char.charCodeAt(0)>=32&&char.charCodeAt(0)!==127).join('').slice(0,64):null
  const url=new URL(relay)
  // The secret is optional: a relay with open registration accepts any computer that signs its key.
@@ -11,16 +9,20 @@ export function createRelayConnector({relay,secret,identity,serverId,endpoint,na
  const edPublicKey=createPublicKey(identity.edPrivateKey).export({type:'spki',format:'der'}).subarray(-32).toString('base64url')
  const computerId=createHash('sha256').update(Buffer.from(edPublicKey,'base64url')).digest().subarray(0,16).toString('base64url')
  const computerKey=Buffer.from(identity.xPublicKey).toString('base64url')
- let stopped=false,socket=null,reconnect=null,attempts=0,state='connecting',queued=0,requests=0
+ let stopped=false,socket=null,reconnect=null,attempts=0,state='connecting',queued=0,requests=0,access=0,linkNonce=null,linkExpiresAt=null
  const streams=new Map(),budget={used:0,maximum:32*1024*1024}
  let resolveReady,rejectReady
  const ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject});ready.catch(()=>{})
- const status=()=>({relay:url.origin,state,ready:state==='ready',computerId,computerKey})
+ const status=()=>({relay:url.origin,state,ready:state==='ready',computerId,computerKey,...(access?{access,linkNonce,linkExpiresAt}:{})})
+ const link=value=>{
+  if(value.access!==1||typeof value.linkNonce!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(value.linkNonce)||Buffer.from(value.linkNonce,'base64url').toString('base64url')!==value.linkNonce||!Number.isSafeInteger(value.linkExpiresAt)||value.linkExpiresAt<=Date.now())throw Error('Invalid relay link')
+  linkNonce=value.linkNonce;linkExpiresAt=value.linkExpiresAt
+ }
  const publish=value=>{state=value;onStatus(status())}
  function endStream(id,notify=true){const entry=streams.get(id);if(!entry)return;streams.delete(id);entry.closed=true;clearTimeout(entry.timer);entry.channel?.close();entry.rpc?.close();if(notify&&socket?.readyState===1)socket.send(JSON.stringify({type:'close',streamId:id}))}
  function connect(){
   if(stopped)return
-  publish('connecting');const ws=new Socket(`${url.origin}/v1/computer`);socket=ws
+  access=0;linkNonce=null;linkExpiresAt=null;publish('connecting');const ws=new Socket(`${url.origin}/v1/computer`);socket=ws
   let refusal=null
   const timeout=setTimeout(()=>ws.terminate(),15000);timeout.unref()
   ws.on('error',()=>{})
@@ -40,12 +42,15 @@ export function createRelayConnector({relay,secret,identity,serverId,endpoint,na
     try{const value=JSON.parse(data.toString())
      if(value.type==='challenge'&&state==='connecting'){
       if(typeof value.nonce!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(value.nonce))throw Error('Invalid challenge')
-      const payload=JSON.stringify(['ds-bot-computer-v2',url.origin,value.nonce,computerId,edPublicKey,computerKey])
-      ws.send(JSON.stringify({type:'register',nonce:value.nonce,computerId,edPublicKey,computerKey,signature:sign(null,Buffer.from(payload),identity.edPrivateKey).toString('base64url'),...(secret?{secret}:{}),...(label?{name:label}:{}),...(buildKey?{build:buildTag(buildKey,'relay',computerKey)}:{})}));return
+      if(requireAccess&&value.access!==1)throw Error('The official relay must support invitations')
+      access=value.access===1?1:0
+      if(access&&value.version!==3)throw Error('Unsupported relay admission protocol')
+      const payload=JSON.stringify(access?['ds-bot-computer-v3',url.origin,value.nonce,computerId,edPublicKey,computerKey,serverId]:['ds-bot-computer-v2',url.origin,value.nonce,computerId,edPublicKey,computerKey])
+      ws.send(JSON.stringify({type:'register',nonce:value.nonce,computerId,edPublicKey,computerKey,signature:sign(null,Buffer.from(payload),identity.edPrivateKey).toString('base64url'),...(access?{version:3,serverId}:{}),...(secret?{secret}:{}),...(label?{name:label}:{})}));return
      }
-     // An approving relay keeps a new computer waiting on this socket until its admin approves it.
-     if(value.type==='pending'&&value.computerId===computerId&&state==='connecting'){clearTimeout(timeout);publish('pending');return}
-     if(value.type==='registered'&&value.computerId===computerId&&(state==='connecting'||state==='pending')){clearTimeout(timeout);attempts=0;publish('ready');resolveReady();return}
+     if(value.type==='pending'&&access&&value.computerId===computerId&&state==='connecting'){link(value);clearTimeout(timeout);publish('pending');return}
+     if(value.type==='registered'&&value.computerId===computerId&&(state==='connecting'||state==='pending')){if(access)link(value);clearTimeout(timeout);attempts=0;publish('ready');resolveReady();return}
+     if(value.type==='link'&&access&&(state==='pending'||state==='ready')){link(value);publish(state);return}
      if(state!=='ready')throw Error('Relay not registered')
      if(value.type==='open'){
       if(typeof value.streamId!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(value.streamId)||streams.has(value.streamId)||streams.size>=32)throw Error('Invalid stream')
@@ -54,7 +59,7 @@ export function createRelayConnector({relay,secret,identity,serverId,endpoint,na
      }
      if(value.type==='close'){endStream(value.streamId,false);return}
      throw Error('Unknown relay control')
-    }catch{ws.close(4400,'INVALID_RELAY_CONTROL')}return
+    }catch{refusal='denied';ws.close(4400,'INVALID_RELAY_CONTROL')}return
    }
    if(data.length<16||data.length>1048576){ws.close(4400,'INVALID_RELAY_FRAME');return}
    const id=data.subarray(0,16).toString('base64url'),entry=streams.get(id);if(!entry)return
@@ -79,8 +84,8 @@ export function createRelayConnector({relay,secret,identity,serverId,endpoint,na
     entry.rpc.receive(value)
    }).catch(()=>endStream(id)).finally(()=>{entry.bytes-=data.length;queued-=data.length})
   })
-  ws.on('close',code=>{clearTimeout(timeout);if(socket!==ws)return;for(const id of streams.keys())endStream(id,false);socket=null;if(stopped)return;// 4401: the relay approves computers and this one waits for its admin.
-  const failure=code===4401?'pending':code===4429?'limited':code===4403?'denied':refusal??'offline';publish(failure);// A refusal or a newer registration of this computer elsewhere (4409) waits a minute before trying again.
+  ws.on('close',code=>{clearTimeout(timeout);if(socket!==ws)return;for(const id of streams.keys())endStream(id,false);socket=null;if(stopped)return;
+  const failure=code===4429?'limited':code===4403?'denied':refusal??'offline';publish(failure);// A refusal or a newer registration of this computer elsewhere (4409) waits a minute before trying again.
   reconnect=setTimeout(connect,failure==='limited'||failure==='denied'||failure==='pending'||code===4409?60000:Math.min(30000,500*2**Math.min(attempts++,6)));reconnect.unref()})
  }
  const idle=setInterval(()=>{for(const [id,entry] of streams)if(Date.now()-entry.last>300000)endStream(id)},10000);idle.unref()

@@ -2220,7 +2220,7 @@ function pairingContext(status) {
     ...mode === "relay" ? [status.relay?.relay, status.relay?.state, status.relay?.computerId, status.relay?.revision] : []
   ]);
 }
-function relayApprovalKeepsPairing(before, after) {
+function relayAssociationKeepsPairing(before, after) {
   const previous = before?.relay, next = after?.relay;
   if (pairingMode(before) !== "relay" || !canPair(before) || !canPair(after) || previous?.state !== "pending" || next?.state !== "ready" || !Number.isSafeInteger(previous.revision) || next.revision !== previous.revision + 1) return false;
   return pairingContext(before) === pairingContext({ ...after, relay: { ...next, state: previous.state, revision: previous.revision } });
@@ -2255,7 +2255,6 @@ function createOperatorClient({ root, fetchImpl = fetch, location: location2 = g
 }
 
 // src/controller.mjs
-var matchTag = (value) => typeof value?.build === "string" && /^[A-Za-z0-9_-]{43}$/.test(value.build) ? { build: value.build } : {};
 var RELAY_ID = /^[A-Za-z0-9_-]{22}$/;
 var RELAY_KEY = /^[A-Za-z0-9_-]{43}$/;
 function createDeviceController({ call, now = Date.now, uuid = () => crypto.randomUUID() }) {
@@ -2292,7 +2291,7 @@ function createDeviceController({ call, now = Date.now, uuid = () => crypto.rand
       try {
         const status = await invoke("status", {});
         if (!disposed && issued === refreshEpoch) {
-          const changed = state.status !== null && pairingContext(status) !== pairingContext(state.status) && !relayApprovalKeepsPairing(state.status, status);
+          const changed = state.status !== null && pairingContext(status) !== pairingContext(state.status) && !relayAssociationKeepsPairing(state.status, status);
           if (changed) {
             pairingEpoch++;
             void cancelLease();
@@ -2336,13 +2335,14 @@ function createDeviceController({ call, now = Date.now, uuid = () => crypto.rand
         const relay = relayOrigin(value.relay), relayStatus = state.status?.relay;
         if (!RELAY_ID.test(value.computerId ?? "") || !RELAY_KEY.test(value.computerKey ?? "") || !value.code || !value.serverId || !(value.expiresAt > now())) throw Error("Bridge 返回的配对资料无效，请刷新后重试。");
         if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && pairingMode(state.status) === "relay") && (!relayStatus || relayStatus.relay === relay && relayStatus.computerId === value.computerId) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
-          emit({ pairing: { v: 2, relay, computerId: value.computerId, computerKey: value.computerKey, serverId: value.serverId, code: value.code, expiresAt: value.expiresAt, ...value.pending === true ? { pending: true } : {}, ...matchTag(value) } });
+          if (value.access === 1 && (!RELAY_KEY.test(value.linkNonce ?? "") || !Number.isSafeInteger(value.linkExpiresAt) || value.linkExpiresAt <= now())) throw Error("Invalid relay association QR");
+          emit({ pairing: { v: 2, relay, computerId: value.computerId, computerKey: value.computerKey, serverId: value.serverId, code: value.code, expiresAt: value.expiresAt, ...value.pending === true ? { pending: true } : {}, ...value.access === 1 ? { access: 1, linkNonce: value.linkNonce, linkExpiresAt: value.linkExpiresAt } : {} } });
         }
       } else if (method === "pairing.create") {
         const url = httpsOrigin(value.url);
         if (!value.code || !value.serverId || !(value.expiresAt > now())) throw Error("Bridge 返回的配对资料无效，请刷新后重试。");
         if (pairingIssued === pairingEpoch && (!state.status || canPair(state.status) && pairingMode(state.status) === "direct") && (!state.status?.url || state.status.url === url) && (!state.status?.serverId || state.status.serverId === value.serverId)) {
-          emit({ pairing: { url, code: value.code, serverId: value.serverId, expiresAt: value.expiresAt, ...matchTag(value) } });
+          emit({ pairing: { url, code: value.code, serverId: value.serverId, expiresAt: value.expiresAt } });
         }
       }
       emit({ confirmRevoke: null, confirmAgents: null });
@@ -2788,7 +2788,7 @@ function RelayPanel({ state, controller }) {
     (0, import_react2.createElement)("h3", null, "让手机接着聊"),
     state.status?.reason && state.status.reason !== "OFFICIAL_AVAILABLE" && !state.status.enabled ? (0, import_react2.createElement)("p", { className: "dsma-error", role: "alert" }, remoteErrorMessage(state.status.reason)) : null,
     (0, import_react2.createElement)("p", null, "电脑保持在线，连接就绪后用 Dabots 手机端扫码即可。"),
-    (0, import_react2.createElement)("p", { className: "dsma-remote-status", role: "status", "aria-live": "polite" }, ready ? "连接已就绪，可以扫码" : connecting ? "正在连接官方服务…" : official && relay.state === "pending" ? "这台电脑还没被批准。用管理员的 Dabots 手机扫下方二维码，会自动批准并连接。" : official && relay.state === "limited" ? "官方服务当前额度已满，将在一分钟后重试；也可以切换隧道连接。" : official && relay.state === "denied" ? "官方服务拒绝了本次连接，请稍后重试或切换隧道连接。" : official && relay.state === "offline" ? "暂时无法连接，正在自动重连" : "无需填写地址、密钥或注册表单"),
+    (0, import_react2.createElement)("p", { className: "dsma-remote-status", role: "status", "aria-live": "polite" }, ready ? "连接已就绪，可以扫码" : connecting ? "正在连接官方服务…" : official && relay.state === "pending" ? "请先在 Dabots 手机中绑定邀请码，再扫下方二维码连接这台电脑。" : official && relay.state === "limited" ? "官方服务当前额度已满，将在一分钟后重试；也可以切换隧道连接。" : official && relay.state === "denied" ? "官方服务拒绝了本次连接，请稍后重试或切换隧道连接。" : official && relay.state === "offline" ? "暂时无法连接，正在自动重连" : "无需填写地址、密钥或注册表单"),
     !ready && relay?.state !== "pending" ? (0, import_react2.createElement)("button", { type: "button", className: "dsma-primary", disabled: state.busy, onClick: () => controller.useOfficial() }, connecting ? "正在连接…" : official ? "重试连接" : "官方登录并连接") : null,
     (0, import_react2.createElement)("p", { className: "dsma-small" }, "官方服务只转发手机与电脑之间的加密数据。")
   );

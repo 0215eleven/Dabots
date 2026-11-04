@@ -5,7 +5,7 @@ import { runInNewContext } from 'node:vm';
 import { URL, URLSearchParams, fileURLToPath } from 'node:url';
 const require=createRequire(import.meta.url);
 const {build}=require('esbuild');
-const compiled=await build({entryPoints:[fileURLToPath(new URL('../src/network/client.ts',import.meta.url))],bundle:true,format:'cjs',platform:'node',write:false,external:['expo','expo-crypto','react-native']});
+const compiled=await build({entryPoints:[fileURLToPath(new URL('../src/network/client.ts',import.meta.url))],bundle:true,format:'cjs',platform:'node',write:false,external:['expo','expo-crypto','expo-secure-store','react-native']});
 const pin='sha256:'+'a'.repeat(64);
 const credentials={serverId:'computer',deviceId:'phone',accessToken:'fixture-access',refreshToken:'fixture-refresh',expiresAt:Date.now()+3600000,serverUrl:'https://192.168.2.3:8788',tlsPin:pin};
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -18,9 +18,9 @@ function fixture(platform='android',available=true,origin=credentials.serverUrl)
   connect:async(origin:string,pin:string,id:string,url:string)=>{socketId=id;sockets.push({origin,pin,url});},send:async(_id:string,text:string)=>{auth=text;},close:async()=>{},
  };
  const module={exports:{} as {createMobileClient:(options:unknown)=>any}};
- runInNewContext(compiled.outputFiles[0].text,{module,exports:module.exports,TextEncoder,TextDecoder,WebSocket:class{},Headers,Response,Blob,ArrayBuffer,Uint8Array,URL,URLSearchParams,AbortController,AbortSignal,setTimeout,clearTimeout,btoa,
+ runInNewContext(compiled.outputFiles[0].text,{module,exports:module.exports,process:{env:{}},TextEncoder,TextDecoder,WebSocket:class{},Headers,Response,Blob,ArrayBuffer,Uint8Array,URL,URLSearchParams,AbortController,AbortSignal,setTimeout,clearTimeout,btoa,
   fetch:async(url:string)=>{assert.equal(url,'file:///private/attachment-fixture');return new Response('attachment-bytes');},
-  require:(name:string)=>name==='expo'?{requireOptionalNativeModule:()=>available?transport:null}:name==='expo-crypto'?{getRandomBytes:(n:number)=>new Uint8Array(n).fill(7)}:{Platform:{OS:platform}},
+  require:(name:string)=>name==='expo'?{requireOptionalNativeModule:()=>available?transport:null}:name==='expo-crypto'?{getRandomBytes:(n:number)=>new Uint8Array(n).fill(7)}:name==='expo-secure-store'?{getItemAsync:async()=>null,setItemAsync:async()=>{},WHEN_UNLOCKED_THIS_DEVICE_ONLY:'device-only'}:{Platform:{OS:platform}},
  });
  const tokenStore={get:async()=>({...credentials,serverUrl:origin}),set:async()=>{},clear:async()=>{}};
  return{createRelay:(relay:unknown)=>module.exports.createMobileClient({baseUrl:'https://relay.invalid',tokenStore,relay}),create:()=>module.exports.createMobileClient({baseUrl:origin,tokenStore,tlsPin:pin}),sent,sockets,removed,emit:(type:string,data?:string)=>handler({id:socketId,type,data}),auth:()=>auth};

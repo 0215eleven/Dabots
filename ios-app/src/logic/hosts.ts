@@ -7,7 +7,7 @@ export interface SavedHost {
   tlsPin?: string;
   slot?: string;
   /** Reached through the owner's relay instead of a direct address. */
-  relay?: { relay: string; computerId: string; computerKey: string };
+  relay?: { relay: string; computerId: string; computerKey: string; requireAccess?:boolean };
 }
 
 export const hostKey = (host: SavedHost) => host.slot || "";

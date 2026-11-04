@@ -1,4 +1,4 @@
-// Imports the unchanged shipped phone SDK. No replacement transport or phone code.
+// The legacy custom self-hosted transport remains compatible without an official downgrade.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { WebSocket } from 'ws'
 import { createRelay } from '../../tools/relay/server.mjs'
+import { createAccess } from '../../tools/relay/access.mjs'
 import { createMobileServer } from '../src/server.js'
 import { createRelaySettings } from '../src/relay-settings.mjs'
 // Source builds carry no official relay; these tests supply one as a release build would.
@@ -20,7 +21,7 @@ const until = async check => {
  throw Error('Timed out')
 }
 
-test('unchanged phone SDK with iOS default Origin pairs, refreshes, reconnects and revokes', { timeout: 20000 }, async t => {
+test('custom self-hosted relay with iOS default Origin pairs, refreshes, reconnects and revokes', { timeout: 20000 }, async t => {
  const home = await mkdtemp(join(tmpdir(), 'official-phone-sdk-'))
  let relay = await createRelay({ origin: OFFICIAL_RELAY, openRegistration: true })
  class LocalSocket extends WebSocket { constructor(url) { super(String(url).replace(OFFICIAL_RELAY, relay.url.replace('http:', 'ws:'))) } }
@@ -28,10 +29,10 @@ test('unchanged phone SDK with iOS default Origin pairs, refreshes, reconnects a
  const server = await createMobileServer({ home, config: {}, managedRemote: true, adapter: {
   capabilities: () => ({ send: true, stream: true, agents: true }), state: async () => ({ session: 'unchanged-team' }), dispose: async () => {},
  } })
- const settings = await createRelaySettings({ home, server, Socket: LocalSocket, officialRelay: OFFICIAL_RELAY })
+ const settings = await createRelaySettings({ home, server, Socket: LocalSocket, officialRelay: null, defaultRelay: OFFICIAL_RELAY })
  const transports = [], clients = []
  t.after(async () => { clients.forEach(c => c.dispose()); transports.forEach(c => c.dispose()); await settings.dispose(); await relay.close(); await server.close(); await rm(home, { recursive: true, force: true }) })
- await settings.official()
+ await settings.select({ mode: 'relay' })
  assert.throws(() => settings.pairing({ automatic: true }), { code: 'RELAY_NOT_READY' })
  await until(() => settings.snapshot().ready)
  const ownerQr = settings.pairing({ automatic: true, leaseId: randomUUID() })
@@ -79,10 +80,11 @@ test('unchanged phone SDK with iOS default Origin pairs, refreshes, reconnects a
 test('actual official registration quota and denied registration never expose a QR', async t => {
  const root = await mkdtemp(join(tmpdir(), 'official-limits-'))
  const { mkdir } = await import('node:fs/promises')
- const relay = await createRelay({ origin: OFFICIAL_RELAY, openRegistration: true, limits: { maxComputers: 1 } })
+ const access = await createAccess({ file: join(root, 'access.json'), initialize: true })
+ const relay = await createRelay({ origin: OFFICIAL_RELAY, access, limits: { maxComputers: 1, maxPendingComputers: 1 } })
  class LocalSocket extends WebSocket { constructor(url) { super(String(url).replace(OFFICIAL_RELAY, relay.url.replace('http:', 'ws:'))) } }
  const connections = [], servers = []
- t.after(async () => { for (const s of connections) await s.dispose(); for (const s of servers) await s.close(); await relay.close(); await rm(root, { recursive: true, force: true }) })
+ t.after(async () => { for (const s of connections) await s.dispose(); for (const s of servers) await s.close(); await relay.close(); await access.close(); await rm(root, { recursive: true, force: true }) })
  for (let i = 0; i < 2; i++) {
   const home = join(root, String(i)); await mkdir(home)
   const server = await createMobileServer({ home, config: {}, managedRemote: true, adapter: { dispose: async () => {} } })
@@ -90,7 +92,7 @@ test('actual official registration quota and denied registration never expose a 
   const settings = await createRelaySettings({ home, server, Socket: LocalSocket, officialRelay: OFFICIAL_RELAY })
   connections.push(settings)
   await settings.official()
-  await until(() => settings.snapshot().state === (i === 0 ? 'ready' : 'limited'))
+  await until(() => settings.snapshot().state === (i === 0 ? 'pending' : 'limited'))
  }
  assert.equal(connections[1].pairingStatus().available, false)
  assert.throws(() => connections[1].pairing({ automatic: true }), { code: 'RELAY_NOT_READY' })

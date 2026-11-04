@@ -28,7 +28,7 @@ export function RelayPanel({ state, controller }) {
     h('h3', null, '让手机接着聊'),
     state.status?.reason && state.status.reason !== 'OFFICIAL_AVAILABLE' && !state.status.enabled ? h('p', { className: 'dsma-error', role: 'alert' }, remoteErrorMessage(state.status.reason)) : null,
     h('p', null, '电脑保持在线，连接就绪后用 Dabots 手机端扫码即可。'),
-    h('p', { className: 'dsma-remote-status', role: 'status', 'aria-live': 'polite' }, ready ? '连接已就绪，可以扫码' : connecting ? '正在连接官方服务…' : official && relay.state === 'pending' ? '这台电脑还没被批准。用管理员的 Dabots 手机扫下方二维码，会自动批准并连接。' : official && relay.state === 'limited' ? '官方服务当前额度已满，将在一分钟后重试；也可以切换隧道连接。' : official && relay.state === 'denied' ? '官方服务拒绝了本次连接，请稍后重试或切换隧道连接。' : official && relay.state === 'offline' ? '暂时无法连接，正在自动重连' : '无需填写地址、密钥或注册表单'),
+    h('p', { className: 'dsma-remote-status', role: 'status', 'aria-live': 'polite' }, ready ? '连接已就绪，可以扫码' : connecting ? '正在连接官方服务…' : official && relay.state === 'pending' ? '请先在 Dabots 手机中绑定邀请码，再扫下方二维码连接这台电脑。' : official && relay.state === 'limited' ? '官方服务当前额度已满，将在一分钟后重试；也可以切换隧道连接。' : official && relay.state === 'denied' ? '官方服务拒绝了本次连接，请稍后重试或切换隧道连接。' : official && relay.state === 'offline' ? '暂时无法连接，正在自动重连' : '无需填写地址、密钥或注册表单'),
     !ready && relay?.state !== 'pending' ? h('button', { type: 'button', className: 'dsma-primary', disabled: state.busy, onClick: () => controller.useOfficial() }, connecting ? '正在连接…' : official ? '重试连接' : '官方登录并连接') : null,
     h('p', { className: 'dsma-small' }, '官方服务只转发手机与电脑之间的加密数据。'))
 }

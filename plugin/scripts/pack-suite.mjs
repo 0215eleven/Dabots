@@ -44,14 +44,11 @@ try{
   await stageEngine({engineDir,target:stage})
   await cp(new URL('plugin/docs/',root),join(stage,'docs'),{recursive:true})
   const bridge=await stageBridge({bridgeDir,target:stage})
-  // Official release packages name the maintainers' relay and carry the build key that matches
-  // them with the official app; source builds leave both unset.
+  // The relay address is public routing information, never an admission credential.
   const officialRelay=process.env.DABOTS_OFFICIAL_RELAY?.trim()||null
-  const buildKey=process.env.DABOTS_BUILD_KEY?.trim()||null
   if(officialRelay&&!/^wss:\/\/[a-z0-9.-]+(:\d{1,5})?$/i.test(officialRelay))throw Error('DABOTS_OFFICIAL_RELAY must be a bare wss:// origin')
-  if(buildKey&&!/^[A-Za-z0-9_-]{32,256}$/.test(buildKey))throw Error('DABOTS_BUILD_KEY must be 32 to 256 base64url characters')
-  if(officialRelay||buildKey){
-    await writeFile(join(stage,'bridge','src','official.mjs'),`// Written by pack-suite for an official release package.\nexport const OFFICIAL_RELAY = ${JSON.stringify(officialRelay)}\nexport const BUILD_KEY = ${JSON.stringify(buildKey)}\n`)
+  if(officialRelay){
+    await writeFile(join(stage,'bridge','src','official.mjs'),`// Written by pack-suite for an official release package.\nexport const OFFICIAL_RELAY = ${JSON.stringify(officialRelay)}\n`)
   }
   const suite={revision:SUITE_REVISION,dev:args.dev,source:{repository:'0215eleven/Dabots',commit,dirty:Boolean(dirty)},
     engine:{version:engine.version,source:engineSource,digest:engineDigest,agents:contract.agents},bridge:{version:bridge.version},

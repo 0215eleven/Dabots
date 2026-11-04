@@ -18,7 +18,7 @@ export default function Pairing() {
         slot={session.pairingSlot}
         onConnected={async (host, client) => { await session.connected(host, client); router.replace("/"); }}
         onCancel={session.host ? () => router.back() : undefined}
-        onManageRelay={officialRelay() ? () => router.push("/relay-admin") : undefined}
+        onManageRelay={officialRelay() ? () => router.push("/relay-access") : undefined}
       />
     </View>
   );
