@@ -170,7 +170,7 @@ export function ChatAttachmentPanel({
   // the camera any more, and the glass behind the card must never be resized.
   // The card already rides the keyboard's lift, so the camera takes the room
   // that is left above it.
-  const [keyboardInset] = useState(() => Math.max(0, (Keyboard.metrics()?.height ?? 0) - keyboardOffset));
+  const [keyboardInset] = useState(() => Math.max(0, (Keyboard.metrics?.()?.height ?? 0) - keyboardOffset));
   const cameraHeight = Math.min(height * 0.58, height - insets.top - anchor.bottom - keyboardInset - CAMERA_TOP_GAP);
   // The card keeps the plus's left edge while it is the options list, and
   // centres itself once it is the camera.

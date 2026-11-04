@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto'
+import {deflateSync,crc32} from 'node:zlib'
 import assert from 'node:assert/strict'
 import { launchFixture } from './fixture-host.mjs'
 import { writeFile } from 'node:fs/promises'
@@ -25,6 +27,7 @@ try {
   client = new MobileClient({ baseUrl: urls.bridgeUrl, allowInsecure: true, tokenStore: tokens, WebSocket: TrackedWebSocket, reconnectDelayMs: 20 })
   const operator = async (endpoint, payload) => { const response = await fetch(urls.operatorUrl, { method: 'POST', headers: { 'x-fixture': 'bridge-test-only' }, body: JSON.stringify({ endpoint, payload }) }); assert.equal(response.status, 200); return response.json() }
   assert.equal((await client.info()).capabilities.groups, true)
+  assert.equal((await client.info()).capabilities.attachments, true, 'repository engine must expose actual DSH attachment admission')
   check('group capability requires the reviewed group contract')
   const pairing = await operator('pairing.create'), claim = await client.pair(pairing.code, 'Synthetic group client')
   await operator('pairing.approve', { requestId: claim.requestId })
@@ -235,6 +238,25 @@ try {
     assert.equal(team.rooms.some(row => row.id === group.id), false); assert.equal(team.bots.some(row => row.id === made.id), false)
   }
   check('Bot and group management round-trips through the real DS Bot channel')
+  async function attachmentRoundTrip(conversationId,sessionId,label){
+    const file=await client.upload({conversationId,sessionId,name:'synthetic-'+label+'.txt',mediaType:'text/plain',body:Buffer.from('Dabots synthetic attachment bytes')})
+    assert.equal(file.size,33);assert.ok(file.receiptId)
+    const request={conversationId,sessionId,requestId:'attachment_'+label,text:'Synthetic file intake',attachments:[file]}
+    const receipt=await client.submit(request);assert.equal(receipt.accepted,true);assert.deepEqual(await client.submit(request),receipt)
+    await waitFor(async()=>{const rows=(await client.messages(conversationId)).messages;assert.ok(rows.some(row=>row.requestId===request.requestId&&row.attachments?.some(item=>item.name==='synthetic-'+label+'.txt'&&item.id==='sha256:'+createHash('sha256').update('Dabots synthetic attachment bytes').digest('hex'))))})
+    check(label+' file reaches durable public Session history')
+    const chunk=(type,data)=>{const tag=Buffer.from(type),size=Buffer.alloc(4),crc=Buffer.alloc(4);size.writeUInt32BE(data.length);crc.writeUInt32BE(crc32(Buffer.concat([tag,data])));return Buffer.concat([size,tag,data,crc])}
+    const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(1,0);ihdr.writeUInt32BE(1,4);ihdr[8]=8;ihdr[9]=6;const png=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('IDAT',deflateSync(Buffer.from([0,255,0,0,255]))),chunk('IEND',Buffer.alloc(0))])
+    const image=await client.upload({conversationId,sessionId,name:'synthetic-'+label+'.png',mediaType:'image/png',body:png})
+    const imageRequest={conversationId,sessionId,requestId:'image_'+label,text:'Synthetic image intake',attachments:[image]}
+    assert.equal((await client.submit(imageRequest)).accepted,true)
+    await waitFor(async()=>{const rows=(await client.messages(conversationId)).messages;assert.ok(rows.some(row=>row.requestId===imageRequest.requestId&&row.attachments?.some(item=>item.type==='image')))})
+    check(label+' file and image use real DSH admission/history with stable retry')
+  }
+  const attachmentBot=(await client.conversations()).conversations.find(row=>row.kind==='bot')
+  await attachmentRoundTrip(attachmentBot.id,attachmentBot.sessionId,'bot')
+  await attachmentRoundTrip(room.id,room.sessionId,'group')
+
   {
     // The team's DSH Agent: refused until the owner allows this phone, then opened,
     // chatted with in plain text, and closed again when the grant is removed.
@@ -273,6 +295,7 @@ try {
       assert.equal(rows.find(c=>c.id===second.conversationId).name,secondName,'a sibling Session title is unchanged')
     }finally{reconnected.dispose()}
     check('Agent manual title survives a new SDK connection and automatic first-prompt naming without retitling another Session')
+    await attachmentRoundTrip(opened.conversationId,opened.sessionId,'agent')
     // A Bot Session cannot be addressed as the Agent.
     const forged = `agent:${opened.agentId}:${agentState.bots[0].sessionId}`
     assert.equal((await api(urls.bridgeUrl, `conversations/${encodeURIComponent(forged)}/target`, session.accessToken)).status, 404)

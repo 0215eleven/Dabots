@@ -118,6 +118,7 @@ export function install(rt) {
         case 'bridge.submit':
         case 'bridge.agent-open':
         case 'bridge.agent-new':
+        case 'bridge.upload-check':
         case 'bridge.agent-rename':
           return await mobileBridge(endpoint, body, signal)
         case 'state':

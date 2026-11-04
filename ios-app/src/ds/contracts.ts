@@ -103,7 +103,7 @@ export interface DsModelOptions {
 export interface DsHostQueue {
     conversationId: string;
     sessionId: string;
-    items: Array<{id: string; requestId?: string; target: 'next-turn' | 'next-step'; text: string}>;
+    items: Array<{id: string; requestId?: string; target: 'next-turn' | 'next-step'; text: string; attachments?: Attachment[]}>;
 }
 export interface DsCapabilities {
     editDraft: boolean;

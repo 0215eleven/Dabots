@@ -42,9 +42,9 @@ export function mutationProblem(error: unknown) {
     return { retry: true, message: error instanceof Error ? error.message : String(error) };
 }
 /** One send attempt. Persistence ambiguity refers to the original pending intent, never a new send. */
-export async function sendScreenMessage(core: DsCore, conversationId: string, text: string) {
+export async function sendScreenMessage(core: DsCore, conversationId: string, text: string, attachments: import('@ds-bot/mobile-sdk').Attachment[] = []) {
     try {
-        return { queued: await core.send(conversationId, { text }), existing: null, problem: null };
+        return { queued: await core.send(conversationId, { text, ...(attachments.length?{attachments}:{}) }), existing: null, problem: null };
     }
     catch (error) {
         const problem = mutationProblem(error);

@@ -9,7 +9,7 @@ test('classic Agent composer uses the same measured keyboard dock and preserves 
  let sent=0;
  const react={createElement:(type:any,props:any,...children:any[])=>({type,props:{...props,children}}),useMemo:(fn:any)=>fn(),useCallback:(fn:any)=>fn,useRef:(value:any)=>({current:value}),useState:(value:any)=>[value,()=>{}]};
  const chat={messages:[],outgoing:[],draft:'Line one\nLine two',status:'connected',setDraft:(value:string)=>drafts.push(value),send:()=>{sent++}};
- const mocks:any={react,'react-native':{View:'View'},'react-native-reanimated':{default:{View:'AnimatedView'}},'expo-glass-effect':{isLiquidGlassAvailable:()=>false},'heroui-native/hooks':{useThemeColor:()=>[]},'react-native-keyboard-controller':{KeyboardGestureArea:'KeyboardArea'},'react-native-safe-area-context':{useSafeAreaInsets:()=>({top:59,bottom:34})},'../chat/useChat':{useChat:()=>chat},'../session/SessionProvider':{useSession:()=>({host:{serverId:'test'},workspace:{team:{bots:[],rooms:[]},online:true}})},'./adapters/chat-model':{chatTarget:()=>({}),pendingChatMessages:()=>({messages:[],waiting:[]}),toChatMessages:()=>[],outboxStatuses:()=>[]},'@legacy/features/chat/components/chat-composer':{ChatComposer:'Composer'},'@legacy/features/chat/components/chat-message-list':{ChatMessageList:'List'},'@legacy/features/chat/components/use-chat-motion':{useChatMotion:()=>motion},'@legacy/shared/lib/use-reduced-transparency':{useReducedTransparency:()=>false}};
+ const mocks:any={'@/features/chat/components/chat-attachment-panel':{ChatAttachmentPanel:'Panel'},'../ds/use-attachments':{useAttachments:()=>({items:[],uploading:false,clear(){}})},'../i18n':{useI18n:()=>({tr:(text:string)=>text})},'heroui-native':{Button:{},Typography:{}},react,'react-native':{View:'View'},'react-native-reanimated':{default:{View:'AnimatedView'}},'expo-glass-effect':{isLiquidGlassAvailable:()=>false},'heroui-native/hooks':{useThemeColor:()=>[]},'react-native-keyboard-controller':{KeyboardGestureArea:'KeyboardArea'},'react-native-safe-area-context':{useSafeAreaInsets:()=>({top:59,bottom:34})},'../chat/useChat':{useChat:()=>chat},'../session/SessionProvider':{useSession:()=>({host:{serverId:'test'},workspace:{team:{bots:[],rooms:[]},online:true}})},'./adapters/chat-model':{chatTarget:()=>({}),pendingChatMessages:()=>({messages:[],waiting:[]}),toChatMessages:()=>[],outboxStatuses:()=>[]},'@legacy/features/chat/components/chat-composer':{ChatComposer:'Composer'},'@legacy/features/chat/components/chat-message-list':{ChatMessageList:'List'},'@legacy/features/chat/components/use-chat-motion':{useChatMotion:()=>motion},'@legacy/shared/lib/use-reduced-transparency':{useReducedTransparency:()=>false}};
  const code=transformSync(readFileSync(new URL('../src/openbot/chat-screen.tsx',import.meta.url),'utf8'),{loader:'tsx',format:'cjs',jsx:'transform'}).code,module={exports:{} as any};
  // esbuild's default export interop expects an ES-module marker for this mock.
  mocks['react-native-reanimated'].__esModule=true;
@@ -20,4 +20,13 @@ test('classic Agent composer uses the same measured keyboard dock and preserves 
  assert.ok(dock,'composer must consume its actual motion style');
  dock.props.onLayout({nativeEvent:{layout:{height:132}}});assert.deepEqual(sizes,[132]);
  const composer=nodes(dock).find(n=>n.type==='Composer');assert.equal(composer.props.bottomInset,34);assert.equal(composer.props.draft,'Line one\nLine two');composer.props.onSend('Changed\ntext');assert.deepEqual(drafts,['Changed\ntext']);assert.equal(sent,1);
+ assert.equal(composer.props.attachments,undefined,'old desktop capabilities keep the attachment control hidden');
+ const progress={value:1},anchor={left:16,bottom:34,size:40},selected={items:[],menuAnchor:anchor,menuOpen:true,menuProgress:progress};
+ mocks['../ds/use-attachments'].useAttachments=()=>selected;
+ mocks['../session/SessionProvider'].useSession=()=>({workspace:{team:{bots:[],rooms:[],mobileCapabilities:{attachments:true}},online:true},foreground:true});
+ const enabled=nodes(module.exports.OpenBotChat({conversation:{id:'agent:a:s',kind:'agent',name:'My Agent'}}));
+ const enabledComposer=enabled.find(n=>n.type==='Composer'),panel=enabled.find(n=>n.type==='Panel');
+ assert.equal(enabledComposer.props.attachments,selected);
+ assert.equal(enabledComposer.props.menuProgress,progress);assert.equal(enabledComposer.props.menuOpen,true);
+ assert.equal(panel.props.progress,progress);assert.equal(panel.props.anchor,anchor);
 });

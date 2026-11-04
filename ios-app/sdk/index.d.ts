@@ -283,7 +283,8 @@ export class MobileClient {
   rememberAcceptedSubmission(submission: Submission, receipt: SubmissionReceipt): Promise<void>;
   cancel(conversationId: string): Promise<Record<string, unknown>>;
   action<T = Record<string, unknown>>(endpoint: string, payload?: Record<string, unknown>, options?: { signal?: AbortSignal }): Promise<T>;
-  upload(options: { conversationId: string; sessionId: string; name: string; mediaType: string; body: BodyInit }): Promise<Attachment>;
+  upload(options: { conversationId: string; sessionId: string; name: string; mediaType: string; body: BodyInit; signal?: AbortSignal }): Promise<Attachment>;
+  removeUpload(receiptId: string): Promise<{removed:boolean}>;
   transcribe(options: { name: string; mediaType: string; body: BodyInit; signal?: AbortSignal }): Promise<{ text: string; [key: string]: unknown }>;
   devices(): Promise<{ devices: Device[] }>;
   revokeDevice(deviceId: string): Promise<Record<string, unknown>>;

@@ -45,7 +45,8 @@
     "THIRD_PARTY_RELAY_NOTICES.txt",
     "src/relay-settings.mjs",
     "src/official.mjs",
-    "src/named-tunnel.mjs"
+    "src/named-tunnel.mjs",
+    "src/uploads.mjs"
   ],
   "scripts": {
     "test": "node --test test/*.test.mjs",

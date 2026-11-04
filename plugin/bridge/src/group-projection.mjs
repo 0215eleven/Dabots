@@ -1,3 +1,4 @@
+import {attachmentsOf} from './projection.js'
 // The public room Session is a relay. Its own assistant prose is never a member reply.
 const textOf = blocks => (Array.isArray(blocks) ? blocks : []).filter(block => block?.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n')
 export function projectGroupRecords(records, { sessionId, members, calls = new Map(), redact = value => value }) {
@@ -27,7 +28,8 @@ export function projectGroupRecords(records, { sessionId, members, calls = new M
     const source = data.source ?? {}
     let text = textOf(data.content)
     if (source.kind === 'user') {
-      if (text) rows.push({ ...base, role: 'user', text: redact(text), ...(typeof source.rpcId === 'string' ? { requestId: source.rpcId } : {}) })
+      const attachments=attachmentsOf(data.content,redact)
+      if (text||attachments.length) rows.push({ ...base, role: 'user', text: redact(text), ...(attachments.length?{attachments}:{}), ...(typeof source.rpcId === 'string' ? { requestId: source.rpcId } : {}) })
     } else if (source.kind === 'bot' && source.role === 'post' && source.form === 'relay' && source.roomId === sessionId
       && allowed.has(source.senderSessionId) && !['failed', 'resumed', 'stopped', 'done', 'again'].some(key => source[key] !== undefined)) {
       text = text.replace(/^\[Group post from [^\]]*\]\n?/, '')

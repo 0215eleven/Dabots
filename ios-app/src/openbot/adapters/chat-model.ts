@@ -33,7 +33,7 @@ export function toChatMessages(messages: readonly Message[], bots: readonly Bot[
     const bot = named?.id ? bots.find((entry) => entry.id === named.id) : undefined;
     const createdAt = iso(message.createdAt);
     const row: ChatBubbleMessage = {
-      id: message.id, kind: "message", author, body: message.text, streaming: Boolean(message.pending),
+      id: message.id, kind: "message", author, body: [message.text,...(message.attachments??[]).map(file=>file.name)].filter(Boolean).join("\n"), streaming: Boolean(message.pending),
       ...(createdAt ? { createdAt } : {}),
       ...(author === "agent" && named?.id ? { speaker: { kind: "agent" as const, id: named.id, name: bot?.name ?? named.name ?? named.id } } : {}),
     };
@@ -49,7 +49,7 @@ export function pendingChatMessages(outgoing: readonly OutboxItem[], echoed: Rea
   for (const item of [...outgoing].sort((a, b) => a.createdAt - b.createdAt)) {
     if (echoed.has(item.requestId)) continue;
     // Accepted by the host: the transcript row is about to arrive; draw it as a normal sent message.
-    messages.push({ id: outboxRowId(item.requestId), kind: "message", author: "user", body: item.text, streaming: false, createdAt: new Date(item.createdAt).toISOString() });
+    messages.push({ id: outboxRowId(item.requestId), kind: "message", author: "user", body: item.text || item.attachments.map(file=>file.name).join("\n"), streaming: false, createdAt: new Date(item.createdAt).toISOString() });
     if (item.state !== "sent") waiting.push(item);
   }
   return { messages, waiting };

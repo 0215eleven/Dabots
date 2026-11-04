@@ -38,7 +38,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// packages/mobile-sdk/node_modules/tweetnacl/nacl-fast.js
+// ios-app/sdk/node_modules/tweetnacl/nacl-fast.js
 var require_nacl_fast = __commonJS({
   "ios-app/sdk/node_modules/tweetnacl/nacl-fast.js"(exports, module) {
     (function(nacl2) {
@@ -2262,7 +2262,7 @@ var require_nacl_fast = __commonJS({
   }
 });
 
-// packages/mobile-sdk/node_modules/@noble/hashes/utils.js
+// ios-app/sdk/node_modules/@noble/hashes/utils.js
 /*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 function isBytes(a) {
   return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
@@ -2328,7 +2328,7 @@ var oidNist = (suffix) => ({
   oid: Uint8Array.from([6, 9, 96, 134, 72, 1, 101, 3, 4, 2, suffix])
 });
 
-// packages/mobile-sdk/node_modules/@noble/hashes/hmac.js
+// ios-app/sdk/node_modules/@noble/hashes/hmac.js
 var _HMAC = class {
   oHash;
   iHash;
@@ -2399,7 +2399,7 @@ var _HMAC = class {
 var hmac = (hash, key, message) => new _HMAC(hash, key).update(message).digest();
 hmac.create = (hash, key) => new _HMAC(hash, key);
 
-// packages/mobile-sdk/node_modules/@noble/hashes/hkdf.js
+// ios-app/sdk/node_modules/@noble/hashes/hkdf.js
 function extract(hash, ikm, salt) {
   ahash(hash);
   if (salt === void 0)
@@ -2436,7 +2436,7 @@ function expand(hash, prk, info, length = 32) {
 }
 var hkdf = (hash, ikm, salt, info, length) => expand(hash, extract(hash, ikm, salt), info, length);
 
-// packages/mobile-sdk/node_modules/@noble/hashes/_md.js
+// ios-app/sdk/node_modules/@noble/hashes/_md.js
 function Chi(a, b, c) {
   return a & b ^ ~a & c;
 }
@@ -2549,7 +2549,7 @@ var SHA256_IV = /* @__PURE__ */ Uint32Array.from([
   1541459225
 ]);
 
-// packages/mobile-sdk/node_modules/@noble/hashes/sha2.js
+// ios-app/sdk/node_modules/@noble/hashes/sha2.js
 var SHA256_K = /* @__PURE__ */ Uint32Array.from([
   1116352408,
   1899447441,
@@ -2699,7 +2699,7 @@ var sha256 = /* @__PURE__ */ createHasher(
   /* @__PURE__ */ oidNist(1)
 );
 
-// packages/mobile-sdk/node_modules/@stablelib/base64/lib/base64.js
+// ios-app/sdk/node_modules/@stablelib/base64/lib/base64.js
 var INVALID_BYTE = 256;
 var Coder = class {
   _paddingCharacter;
@@ -2871,7 +2871,7 @@ var URLSafeCoder = class extends Coder {
 };
 var urlSafeCoder = new URLSafeCoder();
 
-// packages/mobile-sdk/vendor/happy-envelope.js
+// ios-app/sdk/vendor/happy-envelope.js
 var import_tweetnacl = __toESM(require_nacl_fast(), 1);
 function randomBytesFrom(randomBytes, size) {
   if (typeof randomBytes !== "function") throw new Error("Secure randomness is required.");
@@ -2899,7 +2899,7 @@ function open(data, key) {
   return plain;
 }
 
-// packages/mobile-sdk/relay-crypto.js
+// ios-app/sdk/relay-crypto.js
 var utf8 = new TextEncoder();
 var text = new TextDecoder("utf-8", { fatal: true });
 var bytes = (value) => utf8.encode(JSON.stringify(value));
@@ -2986,16 +2986,17 @@ function acceptPhoneHandshake({ offer, computerSecret, context, randomBytes }) {
   }
 }
 
-// packages/mobile-sdk/relay-rpc.js
+// ios-app/sdk/relay-rpc.js
 var encoder = new TextEncoder();
 var decoder = new TextDecoder("utf-8", { fatal: true });
 var MAX_BODY = 8 * 1024 * 1024;
 var CHUNK = 32768;
 var MAX_PENDING = 32;
-var routes = [["GET", /^info$/], ["POST", /^pairings(?:\/complete)?$/], ["POST", /^auth\/refresh$/], ["GET", /^(?:state|conversations|devices)$/], ["GET", /^conversations\/[^/]+\/(?:messages|target)$/], ["POST", /^conversations\/[^/]+\/cancel$/], ["POST", /^(?:submissions|actions|read-markers|uploads|transcriptions)$/], ["GET", /^(?:submissions|attachments)\/[^/]+$/], ["DELETE", /^devices\/[^/]+$/]];
+var routes = [["GET", /^info$/], ["POST", /^pairings(?:\/complete)?$/], ["POST", /^auth\/refresh$/], ["GET", /^(?:state|conversations|devices)$/], ["GET", /^conversations\/[^/]+\/(?:messages|target)$/], ["POST", /^conversations\/[^/]+\/cancel$/], ["POST", /^(?:submissions|actions|read-markers|uploads|transcriptions)$/], ["GET", /^(?:submissions|attachments)\/[^/]+$/], ["DELETE", /^(?:devices|uploads)\/[^/]+$/]];
 function validateRelayRequest({ method = "GET", path, headers = {} }) {
-  if (typeof path !== "string" || path.length > 8192 || !path.startsWith("/mobile/v1/") || /[\\#\u0000-\u0020]/.test(path) || /%(?:2f|5c|25)/i.test(path)) throw Error("Invalid relay path.");
+  if (typeof path !== "string" || path.length > 8192 || !path.startsWith("/mobile/v1/") || /[\\#\u0000-\u0020]/.test(path)) throw Error("Invalid relay path.");
   const [pathname] = path.split("?");
+  if (/%(?:2f|5c|25)/i.test(pathname)) throw Error("Invalid relay path.");
   const segments = pathname.split("/");
   for (const segment of segments) {
     const plain = decodeURIComponent(segment);

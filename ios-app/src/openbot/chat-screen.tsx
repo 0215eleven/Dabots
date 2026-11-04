@@ -1,3 +1,7 @@
+import {ChatAttachmentPanel} from '@/features/chat/components/chat-attachment-panel';
+import {useAttachments} from '../ds/use-attachments';
+import {Button,Typography} from 'heroui-native';
+import {useI18n} from '../i18n';
 // DS Bot Mobile screen assembled from OpenBot chat components (PolyForm Noncommercial 1.0.0, see ./LICENSE).
 // The data comes from this app's session, stream and outbox; none of OpenBot's connection code is used.
 import { isLiquidGlassAvailable } from "expo-glass-effect";
@@ -23,8 +27,11 @@ const NO_MESSAGES: never[] = [];
 
 export function OpenBotChat({ conversation }: { conversation: Conversation }) {
   const insets = useSafeAreaInsets();
-  const { host, workspace, foreground: appActive } = useSession();
+  const { client, host, workspace, foreground: appActive } = useSession();
   const chat = useChat(conversation.id);
+  const selected=useAttachments(),{tr}=useI18n(),sending=useRef(false);
+  const [attachmentError,setAttachmentError]=useState('');
+  const attachmentEnabled=workspace.team.mobileCapabilities?.attachments===true;
   const reducedTransparency = useReducedTransparency();
   const [foreground, muted, fieldBackground, raised, action, actionForeground, background] = useThemeColor([
     "foreground", "muted", "default", "surface-tertiary", "accent", "accent-foreground", "background",
@@ -67,11 +74,12 @@ export function OpenBotChat({ conversation }: { conversation: Conversation }) {
   const canSend = chat.status !== "unauthorized";
   const sentRef = useRef(0);
 
-  const send = useCallback((text: string) => {
+  const send = useCallback(async (text: string) => {
+    if(sending.current)return; sending.current=true; setAttachmentError('');
     chat.setDraft(text);
     sentRef.current++;
     setReplyTarget(null);
-    void chat.send();
+    try { const files=selected.items.length ? await selected.upload(client!,conversation.id) : []; if(await chat.send(files,text))selected.clear(); } catch(error){setAttachmentError(error instanceof Error?error.message:String(error));setSendRetryVersion(value=>value+1)} finally{sending.current=false}
   }, [chat]);
 
   return (
@@ -111,7 +119,9 @@ export function OpenBotChat({ conversation }: { conversation: Conversation }) {
           outboxStatuses={statuses}
         />
         <Animated.View style={[{position:"absolute",left:0,right:0,bottom:0},motion.composerStyle]} onLayout={motion.onComposerLayout}>
-        <ChatComposer
+        {selected.uploading?<Button onPress={selected.cancelUpload}><Button.Label>{tr('Cancel upload')}</Button.Label></Button>:null}
+        {attachmentError?<Typography.Paragraph accessibilityRole="alert">{tr(attachmentError)}</Typography.Paragraph>:null}
+        <ChatComposer attachments={attachmentEnabled?selected:undefined} menuProgress={selected.menuProgress} menuOpen={selected.menuOpen}
           sendRetryVersion={sendRetryVersion}
           replyTarget={replyTarget}
           replyFocusVersion={0}
@@ -135,6 +145,7 @@ export function OpenBotChat({ conversation }: { conversation: Conversation }) {
         />
         </Animated.View>
       </KeyboardGestureArea>
+      {attachmentEnabled&&selected.menuAnchor?<ChatAttachmentPanel anchor={selected.menuAnchor} appActive={appActive} attachments={selected} fallbackBackground={fieldBackground} foreground={foreground} keyboardHeight={motion.keyboardHeight} keyboardOffset={keyboardOffset} liquidGlassAvailable={liquidGlassAvailable} onClose={selected.closeMenu} progress={selected.menuProgress}/>:null}
     </View>
   );
 }

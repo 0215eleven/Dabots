@@ -77,6 +77,15 @@ test('a stale or hidden target cannot be submitted through a Bot conversation', 
   assert.equal(submitted.length, 0)
 })
 
+test('attachment admission independently bounds file count, bytes and text parts', async () => {
+  const { call, submitted } = channel()
+  const part = { type: 'file-upload', name: 'synthetic.txt', mediaType: 'text/plain', data: 'b2s=' }
+  for (const content of [Array(5).fill(part), [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }], [{ ...part, name: '../outside.txt' }], [{ ...part, data: Buffer.alloc(2097153).toString('base64') }]]) {
+    assert.equal((await call('bridge.submit', message({ content }))).error.code, 'bot/invalid')
+  }
+  assert.equal(submitted.length, 0)
+})
+
 test('a rotated Bot session is rechecked after capability admission', async () => {
   const { call, submitted } = channel({ prepare: async ({ move }) => move() })
   assert.equal((await call('bridge.submit', message())).error.code, 'bot/stale')

@@ -223,5 +223,12 @@
   "Use up to 80 characters on one line.": "最多 80 个字符，保持一行。",
   "Use a nonempty, single-line name of up to 80 characters.": "请输入 1 至 80 个字符的单行名称。",
   "Could not confirm the conversation name was saved. Please try again.": "未能确认对话名称已保存，请重试。",
-  "This Agent conversation is no longer available.": "这条 Agent 对话已不可用。"
+  "This Agent conversation is no longer available.": "这条 Agent 对话已不可用。",
+  "Cancel upload": "取消上传",
+  "Choose up to 4 attachments, at most 4 MiB in total.": "最多选择 4 个附件，合计不超过 4 MiB。",
+  "Choose PNG/JPEG/WebP or a supported text, PDF or Office document.": "请选择 PNG、JPEG、WebP 图片，或文本、PDF、Office 文档。",
+  "Each attachment must contain 1 byte to 2 MiB.": "每个附件需为 1 字节至 2 MiB。",
+  "The computer did not confirm this attachment.": "电脑未能确认此附件，请重试。",
+  "The selected file changed. Select it again.": "所选文件已变化，请重新选择。",
+  "The model refused this attachment. For images, select a vision-capable model; otherwise reselect the file.": "模型拒绝了此附件。图片请使用支持视觉的模型，其他文件请重新选择。"
 }

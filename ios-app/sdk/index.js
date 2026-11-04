@@ -450,10 +450,11 @@ export class MobileClient {
   }
   cancel(conversationId) { return this.#request(`/conversations/${encodeURIComponent(requireString(conversationId, 'Conversation'))}/cancel`, { method: 'POST', json: {} }); }
   action(endpoint, payload = {}, { signal } = {}) { return this.#request('/actions', { method: 'POST', json: { endpoint, payload }, signal }); }
-  upload({ conversationId, sessionId, name, mediaType, body }) {
+  upload({ conversationId, sessionId, name, mediaType, body, signal }) {
     for (const [key, value] of Object.entries({ conversationId, sessionId, name, mediaType })) requireString(value, key);
-    return this.#request(`/uploads?${new URLSearchParams({ conversationId, sessionId, name, mediaType })}`, { method: 'POST', body, mediaType });
+    return this.#request(`/uploads?${new URLSearchParams({ conversationId, sessionId, name, mediaType })}`, { method: 'POST', body, mediaType, signal });
   }
+  removeUpload(receiptId) { return this.#request(`/uploads/${encodeURIComponent(requireString(receiptId,'Upload'))}`,{method:'DELETE'}); }
   transcribe({ name, mediaType, body, signal }) {
     requireString(name, 'File name');
     requireString(mediaType, 'Media type');

@@ -1,3 +1,4 @@
+import {createUploads,validateUpload,UPLOAD_LIMITS} from './uploads.mjs'
 import { createServer as createHttpServer } from 'node:http'
 import { createServer as createHttpsServer } from 'node:https'
 import { readFile } from 'node:fs/promises'
@@ -74,6 +75,8 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
   } })
   // A reader of the owner's grant: the adapter calls it again before reaching the
   // host and before releasing Agent text, so a removal takes effect mid-request.
+  const uploads = await createUploads(home, auth)
+  let uploading = 0
   const grant = deviceId => () => ({ agents: auth.agentsAllowed(deviceId) })
   const allowedOrigins = new Set(config.allowedOrigins ?? [])
   if (publicUrl) allowedOrigins.add(publicUrl)
@@ -134,7 +137,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
     required(body.sessionId, 'sessionId')
     if (typeof body.text !== 'string' || body.text.length > 100_000) fail(400, 'INVALID_REQUEST', 'text must contain at most 100000 characters.')
     const attachments = body.attachments ?? []
-    if (!Array.isArray(attachments) || attachments.length > 8) fail(400, 'INVALID_ATTACHMENTS', 'A message supports at most 8 attachments.')
+    if (!Array.isArray(attachments) || attachments.length > UPLOAD_LIMITS.maxFiles) fail(400, 'INVALID_ATTACHMENTS', 'A message supports at most 4 attachments.')
     const receiptIds = attachments.map(item => required(typeof item === 'string' ? item : item?.receiptId, 'receiptId'))
     const payload = { conversationId: body.conversationId, sessionId: body.sessionId, requestId: body.requestId, text: body.text, attachments: receiptIds.map(receiptId => ({ receiptId })) }
     const hash = digest(JSON.stringify(payload))
@@ -150,6 +153,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
       const upload = auth.data.uploads[receiptId]
       if (!upload || upload.deviceId !== device.id || upload.conversationId !== body.conversationId || upload.sessionId !== body.sessionId || upload.expiresAt <= Date.now()) fail(409, 'UPLOAD_EXPIRED', 'Upload this attachment again for the selected conversation.')
     }
+    const uploadParts = await uploads.resolve(receiptIds, {deviceId:device.id,conversationId:body.conversationId,sessionId:body.sessionId})
     if (Object.keys(auth.data.submissions).length >= 100_000) fail(507, 'LEDGER_FULL', 'The message receipt store is full. Contact the server operator.')
     const receipt = { requestId: body.requestId, conversationId: body.conversationId, sessionId: body.sessionId, status: 'unknown', createdAt: Date.now() }
     auth.data.submissions[key] = { hash, receipt }
@@ -158,10 +162,11 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         await auth.save()
         assertActive()
         // The same device request must also stay stable in DSH after a bridge restart.
-        const result = await adapter.submit({ ...payload, requestId: `${device.id}_${body.requestId}` }, signal, grant(device.id))
+        const result = await adapter.submit({ ...payload, uploadParts, requestId: `${device.id}_${body.requestId}` }, signal, grant(device.id))
         if (result?.accepted !== true) fail(503, 'ADMISSION_UNCONFIRMED', 'The host has not confirmed this message.')
         Object.assign(receipt, { accepted: result.accepted === true, status: 'accepted' })
         await auth.save()
+        for (const id of receiptIds) await uploads.remove(id,device.id).catch(()=>{})
         return receipt
       } catch (error) {
         if (error.status >= 400 && error.status < 500) {
@@ -231,6 +236,24 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
           result = forDevice(await adapter.history(parts[1], { cursor: url.searchParams.get('cursor') ?? undefined, limit }, signal, grant(device.id)), device.id)
         } else if (parts[0] === 'conversations' && parts.length === 3 && method === 'GET' && parts[2] === 'target') result = await adapter.target(parts[1], signal, grant(device.id))
         else if (parts[0] === 'conversations' && parts.length === 3 && method === 'POST' && parts[2] === 'cancel') result = await adapter.cancel(parts[1], signal, grant(device.id))
+        else if (method === 'POST' && path === `${PREFIX}/uploads`) {
+          if (adapter.capabilities?.().attachments !== true) fail(501, 'UNSUPPORTED', 'Update the desktop plugin to send attachments.')
+          if (uploading >= 4) fail(429, 'UPLOAD_BUSY', 'Wait for current uploads to finish.')
+          const conversationId=required(url.searchParams.get('conversationId'),'conversationId'),sessionId=required(url.searchParams.get('sessionId'),'sessionId'),name=required(url.searchParams.get('name'),'name',255),mediaType=required(url.searchParams.get('mediaType'),'mediaType')
+          validateUpload(name,mediaType,1)
+          await adapter.target(conversationId,signal,grant(device.id));assertActive()
+          if (uploading >= 4) fail(429,'UPLOAD_BUSY','Wait for current uploads to finish.')
+          uploading++
+          try {
+            const bytes=await readBody(request,UPLOAD_LIMITS.maxBytes)
+            validateUpload(name,mediaType,bytes.length);assertActive()
+            await adapter.upload({conversationId,sessionId,name,mediaType,bytes},signal,grant(device.id));assertActive()
+            result=await uploads.put({deviceId:device.id,conversationId,sessionId,name,mediaType,bytes})
+            try { assertActive() } catch (error) { await uploads.remove(result.receiptId,device.id); throw error }
+          } finally { uploading-- }
+        } else if (method === 'DELETE' && parts[0] === 'uploads' && parts.length === 2) {
+          await uploads.remove(parts[1],device.id);result={removed:true}
+        }
         else if (method === 'POST' && path === `${PREFIX}/submissions`) {
           if (adapter.capabilities?.().send !== true) fail(501, 'STABLE_SUBMIT_REQUIRED', 'The upstream reliable submit extension is unavailable.')
           const body = await jsonBody(request)
@@ -426,6 +449,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         await new Promise(resolve => server.close(resolve))
         await Promise.allSettled(submissions.values())
         await Promise.allSettled(recoveries.values())
+        await uploads.close()
         await auth.close()
       })()
       return closing

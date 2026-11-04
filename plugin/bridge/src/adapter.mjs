@@ -25,7 +25,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
   let description = {}
   const shutdown = new AbortController()
   // This allowlist is entirely internal. No mobile-supplied endpoint reaches it.
-  const allowed = new Set(['state', 'bridge.describe', 'bridge.submit', 'bridge.redact', 'bridge.agent-open', 'bridge.agent-new', 'bridge.agent-rename', ...MOBILE_ACTIONS])
+  const allowed = new Set(['state', 'bridge.describe', 'bridge.submit', 'bridge.redact', 'bridge.agent-open', 'bridge.agent-new', 'bridge.agent-rename', 'bridge.upload-check', ...MOBILE_ACTIONS])
   async function call(endpoint, payload = {}, signal = AbortSignal.timeout(30_000)) {
     if (disposed) throw error(503, 'DISPOSED', 'The bridge has stopped.')
     if (!allowed.has(endpoint)) throw error(403, 'ACTION_NOT_ALLOWED', 'Unsupported team operation.')
@@ -36,8 +36,8 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     const result = await response.json()
     if (result?.ok !== true) {
       const code = result?.error?.code ?? 'TEAM_REFUSED'
-      const status = ({ 'bot/not-found': 501, 'bot/invalid': 400, 'bot/stale': 409, 'bot/read-only': 409 })[code] ?? 503
-      throw error(status, code, 'The existing team could not confirm the operation.')
+      const status = ({ 'bot/attachment-invalid': 422, 'bot/not-found': 501, 'bot/invalid': 400, 'bot/stale': 409, 'bot/read-only': 409 })[code] ?? 503
+      throw error(status, code, code === 'bot/attachment-invalid' ? 'The model refused this attachment. For images, select a vision-capable model; otherwise reselect the file.' : 'The existing team could not confirm the operation.')
     }
     return result.value
   }
@@ -125,8 +125,8 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     if (!fixtureText && (description.version !== 1 || description.redactedText !== true)) throw error(501, 'REDACTED_PROJECTION_REQUIRED', 'A Dabots-owned redacted transcript is required.')
   }
   const options = (item, sessionId) => ({ sessionId, kind: item.kind, hiddenTurns: item.hiddenTurns[sessionId] ?? [], redact })
-  // Only plain human and assistant text is released: no tools, reasoning, paths,
-  // attachment metadata, secret requests or raw Session projection objects.
+  // Release conversation text and bounded attachment labels, never raw content,
+  // host paths, tools, reasoning, secret requests or Session projection objects.
   async function primeGroupCalls(records, item, sessionId, signal, calls) {
     const projectCalls = rows => projectGroupRecords(rows.filter(row => row.event?.type === 'tool/call'), { sessionId, members: item.members, calls, redact })
     projectCalls(records)
@@ -147,17 +147,18 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     if (item.kind === 'room') await primeGroupCalls(records, item, sessionId, signal, calls)
     const filtered = records.filter(record => ['user/message', 'assistant/message'].includes(record.event?.type))
     const projected = (item.kind === 'room' ? projectGroupRecords(records, { sessionId, members: item.members, calls, redact }) : projectRecords(filtered, options(item, sessionId))).filter(row => ['user', 'assistant'].includes(row.role)).map(row => ({
-      id: row.id, sessionId, seq: row.seq, createdAt: row.createdAt, role: row.role, text: row.text,
+      id: row.id, sessionId, seq: row.seq, createdAt: row.createdAt, role: row.role, text: row.text || row.attachments?.map(a => `[${a.type}: ${a.name}]`).join('\n') || '',
       ...(row.requestId ? { requestId: row.requestId } : {}),
+      ...(row.attachments?.length ? { attachments: row.attachments.slice(0,10).map(a => ({id:a.id,type:a.type,name:a.name,size:a.size})) } : {}),
       ...(row.author ? { author: row.author } : {}),
       ...(row.groupReplyId ? { groupReplyId: row.groupReplyId } : {}),
     })).filter(row => row.text.length > 0)
     if (!fixtureText && projected.length) {
-      for (let offset = 0; offset < projected.length; offset += 50) {
-        const batch = projected.slice(offset, offset + 50)
-        const result = await call('bridge.redact', { conversationId: channelId(item), expectedSessionId: item.sessionId, ...(item.kind === 'room' ? { expectedMembers: item.members } : {}), texts: batch.flatMap(row => [row.text, row.author?.name ?? '']) }, signal)
-        if (!Array.isArray(result.texts) || result.texts.length !== batch.length * 2 || result.texts.some(text => typeof text !== 'string')) throw error(503, 'REDACTION_UNAVAILABLE', 'The host redaction result is invalid.')
-        batch.forEach((row, index) => { row.text = result.texts[index * 2]; if (row.author) row.author.name = result.texts[index * 2 + 1] })
+      for (let offset = 0; offset < projected.length; offset += 10) {
+        const batch = projected.slice(offset, offset + 10)
+        const result = await call('bridge.redact', { conversationId: channelId(item), expectedSessionId: item.sessionId, ...(item.kind === 'room' ? { expectedMembers: item.members } : {}), texts: batch.flatMap(row => [row.text, row.author?.name ?? '', ...(row.attachments??[]).map(item=>item.name)]) }, signal)
+        if (!Array.isArray(result.texts) || result.texts.length !== batch.reduce((n,row)=>n+2+(row.attachments?.length??0),0) || result.texts.some(text => typeof text !== 'string')) throw error(503, 'REDACTION_UNAVAILABLE', 'The host redaction result is invalid.')
+        let index=0;batch.forEach(row => { row.text=result.texts[index++];const author=result.texts[index++];if(row.author)row.author.name=author;for(const item of row.attachments??[])item.name=result.texts[index++] })
       }
     }
     return projected
@@ -271,8 +272,8 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
         ? 'Text chat is available through the Dabots-owned bridge contract.'
         : 'This Dabots version does not provide the required mobile chat interfaces. Pairing and team summaries are available; chat controls must remain disabled.' }),
     capabilities: () => ({ discovery: true, pairing: true, conversations: true, history: fixtureText || (description.version === 1 && description.redactedText === true), stream: fixtureText || (description.version === 1 && description.redactedText === true),
-      send: description.version === 1 && description.stableRequestId === true, attachments: false, cancel: false,
-      actions: [], images: false, files: false, transcription: false, attachmentDownloads: [], audioStreaming: false,
+      send: description.version === 1 && description.stableRequestId === true, attachments: description.attachments === 1, uploadLimits: description.attachments === 1 ? {maxBytes:2097152,maxFiles:4,maxTotalBytes:4194304} : null, cancel: false,
+      actions: [], images: description.attachments === 1, files: description.attachments === 1, transcription: false, attachmentDownloads: [], audioStreaming: false,
       approvals: false, groups: description.groups === true && description.groupProjection === 1,
       // Host support only; each phone still needs the owner's grant (see state.agentAccess).
       agents: agentsSupported(), notifications: false, browser: false, settings: false, secrets: false,
@@ -315,13 +316,13 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     },
     async target(id, signal, access) { const item = await target(id, signal, access); return { conversationId: id, sessionId: item.sessionId, revision: item.revision, kind: item.kind } },
     history,
-    async submit({ conversationId, sessionId, requestId, text, attachments }, signal, access) {
+    async submit({ conversationId, sessionId, requestId, text, attachments, uploadParts = [] }, signal, access) {
       if (description.version !== 1 || description.stableRequestId !== true) throw error(501, 'STABLE_SUBMIT_REQUIRED', 'DS Bot 0.1.7 needs the reviewed bridge submit extension for reliable sending.')
       const item = await target(conversationId, signal, access)
       if (item.sessionId !== sessionId || item.readOnly) throw error(409, 'TARGET_CHANGED', 'Refresh the writable conversation target.')
-      if (attachments?.length || !text?.trim() || text.includes('dsh-session:')) throw error(400, 'INVALID_CONTENT', 'Only plain text without Session references is supported.')
+      if ((attachments?.length && (description.attachments !== 1 || uploadParts.length !== attachments.length)) || (!text?.trim() && !uploadParts.length) || text.includes('dsh-session:')) throw error(400, 'INVALID_CONTENT', 'Only plain text without Session references is supported.')
       requireGrant(item, access)
-      const result = await call('bridge.submit', { version: 1, conversationId: channelId(item), expectedSessionId: sessionId, ...(item.kind === 'room' ? { expectedMembers: item.members } : {}), requestId, content: [{ type: 'text', text }] }, signal)
+      const result = await call('bridge.submit', { version: 1, conversationId: channelId(item), expectedSessionId: sessionId, ...(item.kind === 'room' ? { expectedMembers: item.members } : {}), requestId, content: [...(text.trim() ? [{ type: 'text', text }] : []), ...uploadParts] }, signal)
       if (result?.accepted !== true || result.sessionId !== sessionId || result.requestId !== requestId) throw error(503, 'ADMISSION_UNCONFIRMED', 'The upstream admission receipt is unconfirmed.')
       return result
     },
@@ -365,7 +366,13 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
         }
       }
     },
-    upload: unsupported, transcribe: unsupported, attachment: unsupported,
+    async upload({ conversationId, sessionId, name, mediaType, bytes }, signal, access) {
+      if (description.attachments !== 1) return unsupported()
+      const item = await target(conversationId, signal, access)
+      if (item.sessionId !== sessionId || item.readOnly) throw error(409, 'TARGET_CHANGED', 'Refresh the writable conversation target.')
+      await call('bridge.upload-check', { conversationId: channelId(item), expectedSessionId: sessionId, part: { type: mediaType.startsWith('image/') ? 'image' : 'file-upload', name, mediaType, data: bytes.toString('base64') } }, signal)
+      requireGrant(item, access)
+    }, transcribe: unsupported, attachment: unsupported,
     async action(name, payload, signal, access) {
       if (name === 'agent-rename' && !agentActions().includes(name)) throw error(403, 'ACTION_NOT_ALLOWED', 'Agent renaming requires an updated desktop plugin.')
       if (AGENT_ACTIONS.includes(name)) return agentAction(name, payload, signal, access)

@@ -2,10 +2,10 @@
 import {encode,decode} from '@stablelib/base64';
 const encoder=new TextEncoder(),decoder=new TextDecoder('utf-8',{fatal:true});
 const MAX_BODY=8*1024*1024,CHUNK=32768,MAX_PENDING=32;
-const routes=[['GET',/^info$/],['POST',/^pairings(?:\/complete)?$/],['POST',/^auth\/refresh$/],['GET',/^(?:state|conversations|devices)$/],['GET',/^conversations\/[^/]+\/(?:messages|target)$/],['POST',/^conversations\/[^/]+\/cancel$/],['POST',/^(?:submissions|actions|read-markers|uploads|transcriptions)$/],['GET',/^(?:submissions|attachments)\/[^/]+$/],['DELETE',/^devices\/[^/]+$/]];
+const routes=[['GET',/^info$/],['POST',/^pairings(?:\/complete)?$/],['POST',/^auth\/refresh$/],['GET',/^(?:state|conversations|devices)$/],['GET',/^conversations\/[^/]+\/(?:messages|target)$/],['POST',/^conversations\/[^/]+\/cancel$/],['POST',/^(?:submissions|actions|read-markers|uploads|transcriptions)$/],['GET',/^(?:submissions|attachments)\/[^/]+$/],['DELETE',/^(?:devices|uploads)\/[^/]+$/]];
 export function validateRelayRequest({method='GET',path,headers={}}){
- if(typeof path!=='string'||path.length>8192||!path.startsWith('/mobile/v1/')||/[\\#\u0000-\u0020]/.test(path)||/%(?:2f|5c|25)/i.test(path))throw Error('Invalid relay path.');
- const [pathname]=path.split('?');const segments=pathname.split('/');
+ if(typeof path!=='string'||path.length>8192||!path.startsWith('/mobile/v1/')||/[\\#\u0000-\u0020]/.test(path))throw Error('Invalid relay path.');
+ const [pathname]=path.split('?');if(/%(?:2f|5c|25)/i.test(pathname))throw Error('Invalid relay path.');const segments=pathname.split('/');
  for(const segment of segments){const plain=decodeURIComponent(segment);if(plain==='.'||plain==='..')throw Error('Invalid relay path.');}
  const url=new URL(path,'https://bridge.invalid');
  if(!routes.some(([verb,pattern])=>verb===method&&pattern.test(url.pathname.slice(11))))throw Error('Relay endpoint denied.');

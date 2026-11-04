@@ -20,7 +20,8 @@ export function enableFixture(client:MobileClient,seed:TeamState,source:Conversa
  const control:FixtureControl={team,calls:[],menus:new Map(),lose(action){lose=action}};fixtureControl=control;
  Object.assign(globalThis,{__DS_TEST_FIXTURE__:control});
  return {...client,
- info:async()=>({serverId,capabilities:{history:true,stream:true,send:true,cancel:true,agents:true,actions:['create-bot','update-bot','duplicate-bot','delete-bot','create-room','update-room','delete-room','set-flags','set-prefs','set-main','efforts','agent-open','agent-rename']}}),
+ info:async()=>({serverId,capabilities:{history:true,stream:true,send:true,cancel:true,agents:true,attachments:true,images:true,files:true,actions:['create-bot','update-bot','duplicate-bot','delete-bot','create-room','update-room','delete-room','set-flags','set-prefs','set-main','efforts','agent-open','agent-rename']}}),
+ upload:async({name,mediaType,body}:any)=>({receiptId:'fixture-upload-'+(++next),name,mediaType,type:mediaType.startsWith('image/')?'image':'file',size:body.byteLength}),removeUpload:async()=>({removed:true}),
  state:async()=>structuredClone(team),conversations:async()=>({conversations:structuredClone(conversations)}),
  action:async(action:string,body:Record<string,unknown>={})=>{
   control.calls.push({action,body:structuredClone(body)});

@@ -34,7 +34,7 @@ function storedCall(value) {
   return event?.data ? { ...event.data, seq: event.seq, time: event.time, hidden: event.hidden } : event
 }
 
-const attachmentsOf = (content, redact = text => text) => (Array.isArray(content) ? content : []).flatMap(block => {
+export const attachmentsOf = (content, redact = text => text) => (Array.isArray(content) ? content : []).flatMap(block => {
   const ref = block?.type === 'image' || block?.type === 'file' ? block.attachment : undefined
   if (typeof ref?.attachmentId !== 'string') return []
   return [{ id: ref.attachmentId, type: block.type, name: String(redact(ref.name ?? (block.type === 'image' ? 'Image' : 'File'))), size: ref.bytes,

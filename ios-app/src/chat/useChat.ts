@@ -107,15 +107,18 @@ export function useChat(id: string) {
     if (serverId) void cache.setDraft(serverId, id, text).catch(() => {});
   }, [serverId, id]);
 
-  const send = useCallback(async () => {
+  const send = useCallback(async (attachments: import('@ds-bot/mobile-sdk').Attachment[] = [], submittedText?: string) => {
     if (!outbox) return false;
-    const text = draftRef.current;
-    if (!text.trim()) return false;
-    draftRef.current = "";
-    setDraftState("");
-    if (serverId) void cache.setDraft(serverId, id, "").catch(() => {});
-    const item = await outbox.enqueue({ conversationId: id, text });
-    if (!item) { draftRef.current = text; setDraftState(text); return false; }
+    const text = submittedText ?? draftRef.current;
+    if (!text.trim() && !attachments.length) return false;
+    const item = await outbox.enqueue({ conversationId: id, text, attachments });
+    if (!item) return false;
+    // An upload can take time. Preserve edits made after Send was pressed.
+    if (draftRef.current === text) {
+      draftRef.current = "";
+      setDraftState("");
+      if (serverId) void cache.setDraft(serverId, id, "").catch(() => {});
+    }
     return true;
   }, [outbox, serverId, id]);
 

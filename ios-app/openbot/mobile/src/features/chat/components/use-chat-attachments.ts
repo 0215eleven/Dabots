@@ -6,11 +6,14 @@ import {
   isSupportedAttachmentNameFor,
 } from "@openbot/contracts/attachment-files";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
-import { MOBILE_ATTACHMENT_BYTES, type RemoteFileUpload } from "@openbot/team-client/remote-peer";
+import type { RemoteFileUpload } from "@openbot/team-client/remote-peer";
+// Preserve the upstream local-copy default without loading its unused transport.
+const MOBILE_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { useMemo, useRef, useState } from "react";
+import {Platform} from "react-native";
 import { attachmentSizeBucket } from "@/features/analytics/events";
 import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
@@ -53,9 +56,11 @@ export function useChatAttachments(
   persist?: (items: ChatAttachment[]) => Promise<void>,
   /** What the receiving host accepts. Read on each selection, because it loads with the connection. */
   support?: () => AttachmentSupport,
+  limits: {bytes?:number;count?:number} = {},
 ) {
   const { t, errorMessage } = useText();
-  const limitMessage = () => t("mobile.chat.attachment.limit", { limit: INPUT_LIMITS.attachments });
+  const maxBytes=limits.bytes??MOBILE_ATTACHMENT_BYTES,maxItems=limits.count??INPUT_LIMITS.attachments;
+  const limitMessage = () => t("mobile.chat.attachment.limit", { limit: maxItems });
   // The plus's rect while the attachment card is open, and null while it is
   // not: one value, so the card can never be open without an anchor to grow
   // out of and collapse back into.
@@ -113,7 +118,7 @@ export function useChatAttachments(
     const size =
       Math.floor((input.base64.length * 3) / 4) -
       (input.base64.endsWith("==") ? 2 : input.base64.endsWith("=") ? 1 : 0);
-    if (size > MOBILE_ATTACHMENT_BYTES) throw new Error(t("mobile.chat.attachment.tooLarge", { name: input.name }));
+    if (size > maxBytes) throw new Error(t("mobile.chat.attachment.tooLarge", { name: input.name }));
     const dimensions = input.mimeType.startsWith("image/") ? imageDimensions(input.base64) : null;
     return {
       ...input,
@@ -131,22 +136,28 @@ export function useChatAttachments(
     });
   }
   function add(input: RemoteFileUpload & { uri?: string }) {
-    if (itemsRef.current.length >= INPUT_LIMITS.attachments) throw new Error(limitMessage());
+    if (itemsRef.current.length >= maxItems) throw new Error(limitMessage());
     const item = prepare(input);
     const saved = persistItems([...itemsRef.current, item]);
     trackSelected(item.size);
     return saved;
   }
   async function readFile(uri: string, name: string): Promise<RemoteFileUpload & { uri: string }> {
+    if(Platform.OS==='web'){
+      if(!uri.startsWith('blob:')&&!uri.startsWith('data:'))throw Error('Choose a local file.');
+      const safeName=name.replace(/[/\\]/gu,'_');assertSupported(safeName);
+      const blob=await(await fetch(uri)).blob();if(blob.size>maxBytes)throw new Error(t('mobile.chat.attachment.tooLarge',{name:safeName}));
+      return{name:safeName,mimeType:attachmentMimeTypeForName(safeName),base64:base64(new Uint8Array(await blob.arrayBuffer())),uri};
+    }
     const file = new File(uri);
     const safeName = name.replace(/[/\\]/gu, "_");
     // Check before reading: a rejected file should not be copied into memory first.
-    if (file.size > MOBILE_ATTACHMENT_BYTES) throw new Error(t("mobile.chat.attachment.tooLarge", { name: safeName }));
+    if (file.size > maxBytes) throw new Error(t("mobile.chat.attachment.tooLarge", { name: safeName }));
     assertSupported(safeName);
     return { name: safeName, mimeType: attachmentMimeTypeForName(safeName), base64: await readFileBase64(file), uri };
   }
   async function addFile(uri: string, name: string) {
-    if (itemsRef.current.length >= INPUT_LIMITS.attachments) throw new Error(limitMessage());
+    if (itemsRef.current.length >= maxItems) throw new Error(limitMessage());
     await add(await readFile(uri, name));
   }
   function photoName(asset: ImagePicker.ImagePickerAsset) {
@@ -192,7 +203,7 @@ export function useChatAttachments(
   // for the caller's error path to unwind.
   async function requestCamera(): Promise<boolean> {
     try {
-      if (itemsRef.current.length >= INPUT_LIMITS.attachments) throw new Error(limitMessage());
+      if (itemsRef.current.length >= maxItems) throw new Error(limitMessage());
       if (!(await ImagePicker.requestCameraPermissionsAsync()).granted)
         throw new Error(t("mobile.chat.attachment.cameraPermission"));
     } catch (error) {
@@ -213,13 +224,13 @@ export function useChatAttachments(
     return true;
   }
   async function choosePhotos() {
-    if (itemsRef.current.length >= INPUT_LIMITS.attachments) throw new Error(limitMessage());
+    if (itemsRef.current.length >= maxItems) throw new Error(limitMessage());
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
       quality: 1,
       preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
-      selectionLimit: INPUT_LIMITS.attachments - itemsRef.current.length,
+      selectionLimit: maxItems - itemsRef.current.length,
     });
     if (result.canceled)
       mobileAnalytics.track("attachment_action", { action: "select", result: "cancelled", attachment_count: 0 });
@@ -277,7 +288,7 @@ export function useChatAttachments(
       }
       for (const file of files) {
         try {
-          if (itemsRef.current.length >= INPUT_LIMITS.attachments) throw new Error(limitMessage());
+          if (itemsRef.current.length >= maxItems) throw new Error(limitMessage());
           // The caller deletes the copy after this read, so the item keeps the bytes, not the address.
           const { name, mimeType, base64 } = await readFile(file.uri, file.name);
           await add({ name, mimeType, base64 });
