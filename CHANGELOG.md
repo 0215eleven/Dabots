@@ -1,5 +1,10 @@
 # Dabots changelog
 
+## Desktop plugin 0.2.0-pro.2
+
+- Bump the composed desktop plugin version from 0.2.0-pro.1 and refresh its package documentation. The production engine remains 0.2.0; installed package/row IDs and stored pairings are unchanged.
+- Publish the desktop TGZ from the latest main with its exact source commit and SHA-256 metadata. This desktop release does not rebuild the iOS app.
+
 ## Unreleased: 0.1.10-pro.1
 
 - Rename the product and current repository to Dabots. Preserve ds-bot package/module IDs, app.dsbot.mobile, the dsbot scheme, stored credentials and original third-party notices. New delivery filenames use Dabots; historical tags and assets are unchanged.
