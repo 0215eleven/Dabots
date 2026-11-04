@@ -1,10 +1,9 @@
 import type { AnchoredEndSpaceConfig, LegendListRef } from "@legendapp/list/react-native";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, type LayoutChangeEvent, type NativeScrollEvent } from "react-native";
-import { useKeyboardHandler } from "react-native-keyboard-controller";
+import { type LayoutChangeEvent, type NativeScrollEvent } from "react-native";
+import { useChatKeyboard } from "@ds/use-chat-keyboard";
 import {
   cancelAnimation,
-  Easing,
   ReduceMotion,
   useAnimatedReaction,
   useAnimatedStyle,
@@ -45,71 +44,7 @@ export function useChatMotion(
 ) {
   const listRef = useRef<LegendListRef>(null);
   const reducedMotion = useReducedMotion();
-  const keyboardHeight = useSharedValue(0);
-  // 0 while the keyboard is down, 1 while it is fully up, and every value
-  // between during an interactive dismissal. The composer reads this to size
-  // itself, so a swipe drives the shape change frame by frame.
-  const keyboardProgress = useSharedValue(0);
-  const keyboardDismissed = useSharedValue(false);
-  // Track opening and interactive frames. Once dismissal starts, finish the
-  // return independently so a missing completion cannot retain keyboard space.
-  useKeyboardHandler(
-    {
-      onStart: (event) => {
-        "worklet";
-        if (event.height > 0) {
-          cancelAnimation(keyboardHeight);
-          cancelAnimation(keyboardProgress);
-          keyboardDismissed.set(false);
-        } else {
-          // Complete the return from the destination event. An interrupted iOS
-          // dismissal can omit its final frame; subsequent drag frames must not
-          // cancel this animation and leave the composer above an absent keyboard.
-          keyboardDismissed.set(true);
-          const timing = {
-            duration: Math.max(0, event.duration),
-            easing: Easing.out(Easing.cubic),
-            reduceMotion: ReduceMotion.System,
-          };
-          keyboardHeight.set(withTiming(0, timing));
-          keyboardProgress.set(withTiming(0, timing));
-        }
-      },
-      onMove: (event) => {
-        "worklet";
-        if (keyboardDismissed.get()) return;
-        keyboardHeight.set(event.progress === 0 ? 0 : event.height);
-        keyboardProgress.set(event.progress);
-      },
-      onInteractive: (event) => {
-        "worklet";
-        if (keyboardDismissed.get()) return;
-        keyboardHeight.set(event.progress === 0 ? 0 : event.height);
-        keyboardProgress.set(event.progress);
-      },
-      onEnd: (event) => {
-        "worklet";
-        if (event.height <= 0 || event.progress === 0) {
-          keyboardDismissed.set(true);
-          keyboardHeight.set(0);
-          keyboardProgress.set(0);
-        } else if (!keyboardDismissed.get()) {
-          keyboardHeight.set(event.height);
-          keyboardProgress.set(event.progress);
-        }
-      },
-    },
-    [keyboardHeight, keyboardProgress, keyboardDismissed],
-  );
-  useEffect(() => {
-    // A native picker or interrupted dismissal can omit the controller's final frame.
-    const subscription = Keyboard.addListener("keyboardDidHide", () => {
-      keyboardDismissed.set(true);
-      keyboardHeight.set(0);
-      keyboardProgress.set(0);
-    });
-    return () => subscription.remove();
-  }, [keyboardHeight, keyboardProgress, keyboardDismissed]);
+  const { keyboardHeight, keyboardProgress } = useChatKeyboard();
   const composerStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: -Math.max(0, keyboardHeight.get() - keyboardOffset) }],
   }));

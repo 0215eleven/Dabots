@@ -4,6 +4,7 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { useThemeColor } from "heroui-native/hooks";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
+import Animated from "react-native-reanimated";
 import { KeyboardGestureArea } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Conversation } from "@ds-bot/mobile-sdk";
@@ -109,6 +110,7 @@ export function OpenBotChat({ conversation }: { conversation: Conversation }) {
           onRetryHistory={() => void chat.loadOlder()}
           outboxStatuses={statuses}
         />
+        <Animated.View style={[{position:"absolute",left:0,right:0,bottom:0},motion.composerStyle]} onLayout={motion.onComposerLayout}>
         <ChatComposer
           sendRetryVersion={sendRetryVersion}
           replyTarget={replyTarget}
@@ -131,6 +133,7 @@ export function OpenBotChat({ conversation }: { conversation: Conversation }) {
           onStop={chat.running ? () => void chat.stop() : undefined}
           keyboardProgress={motion.keyboardProgress}
         />
+        </Animated.View>
       </KeyboardGestureArea>
     </View>
   );
