@@ -5,6 +5,7 @@ import {mkdtemp,readFile,writeFile,rename,mkdir,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import fsPromises from 'node:fs/promises';
+import fs from 'node:fs';
 import {syncBuiltinESMExports} from 'node:module';
 import {createAccess} from '../access.mjs';
 
@@ -22,18 +23,84 @@ async function fixture(t,options={}){
 // Exercise the supported-platform durability path on Windows too. Real file writes and
 // rename remain intact; only the directory handle is replaced to control its sync result.
 async function withDirectorySync(dir,sync,operation){
- const directory=await fsPromises.realpath(dir),originalOpen=fsPromises.open,platform=Object.getOwnPropertyDescriptor(process,'platform');
- fsPromises.open=async(path,flags,...rest)=>path===directory&&flags==='r'?{sync,close:async()=>{}}:originalOpen(path,flags,...rest);
+ const directory=await fsPromises.realpath(dir),originals={openSync:fs.openSync,fsyncSync:fs.fsyncSync,closeSync:fs.closeSync},platform=Object.getOwnPropertyDescriptor(process,'platform'),fakeDirectory=-12345;
+ fs.openSync=(path,flags,...rest)=>path===directory&&flags==='r'?fakeDirectory:originals.openSync(path,flags,...rest);
+ fs.fsyncSync=fd=>fd===fakeDirectory?sync():originals.fsyncSync(fd);
+ fs.closeSync=fd=>fd===fakeDirectory?undefined:originals.closeSync(fd);
  Object.defineProperty(process,'platform',{...platform,value:'linux'});syncBuiltinESMExports();
  try{return await operation();}
- finally{fsPromises.open=originalOpen;Object.defineProperty(process,'platform',platform);syncBuiltinESMExports();}
+ finally{Object.assign(fs,originals);Object.defineProperty(process,'platform',platform);syncBuiltinESMExports();}
 }
+
+async function withPausedTempSync(operation){
+ const originalOpen=fsPromises.open,entered=Promise.withResolvers(),resume=Promise.withResolvers();let paused=false;
+ fsPromises.open=async(...args)=>{
+  const handle=await originalOpen(...args);
+  if(!paused&&String(args[0]).endsWith('.tmp')){
+   paused=true;const originalSync=handle.sync.bind(handle);
+   handle.sync=async()=>{await originalSync();entered.resolve();await resume.promise;};
+  }
+  return handle;
+ };
+ syncBuiltinESMExports();
+ try{return await operation({entered:entered.promise,resume:()=>resume.resolve()});}
+ finally{resume.resolve();fsPromises.open=originalOpen;syncBuiltinESMExports();}
+}
+
+test('association rechecks queued and in-flight link context and retains guard refusal without poisoning',async t=>{
+ for(const stage of ['queued','flushing'])for(const change of ['expired','replaced'])await t.test(stage+' '+change,async t=>{
+  const {access,file}=await fixture(t),first=key();const [invite]=await access.issue();await access.redeem(invite.code,first);
+  const desk={phoneKey:first,computerId:id(),computerKey:key(),serverId:'fixture'};
+  const refusal=Object.assign(Error('INVALID_LINK'),{status:409,code:'INVALID_LINK'});
+  const expectedRegistration={nonce:'fixture-link'};
+  let currentRegistration=expectedRegistration,time=1000,calls=0;
+  const validate=()=>{calls++;if(currentRegistration!==expectedRegistration||time>=1100)throw refusal;};
+  await withPausedTempSync(async({entered,resume})=>{
+   const preceding=stage==='queued'?access.issue():null;
+   if(preceding)await entered;
+   const pending=access.associate(desk,{validate});
+   const rejected=assert.rejects(pending,error=>error===refusal);
+   if(!preceding)await entered;
+   if(change==='expired')time=1100;else currentRegistration={nonce:'replacement-link'};
+   resume();await preceding;await rejected;
+  });
+  assert.equal(calls,stage==='queued'?1:2);
+  assert.equal(access.owner(desk.computerId),null);assert.equal(access.isPhone(first),true);
+  assert.equal(JSON.parse(await readFile(file,'utf8')).computers.length,0);
+  currentRegistration=expectedRegistration;time=1050;await access.associate(desk,{validate});
+  assert.equal(access.allows(first,desk.computerId,desk.computerKey,desk.serverId),true);
+ });
+});
+
+test('association rejects asynchronous guards before persisting any authority',async t=>{
+ const {access,file}=await fixture(t),first=key();const [invite]=await access.issue();await access.redeem(invite.code,first);
+ const desk={phoneKey:first,computerId:id(),computerKey:key(),serverId:'fixture'};
+ let calls=0;
+ for(const validate of [async()=>true,()=>Promise.resolve(true),()=>Promise.reject(Error('fixture async refusal')),()=>++calls===1?undefined:Promise.reject(Error('fixture late async refusal'))]){
+  await assert.rejects(access.associate(desk,{validate}),{code:'INVALID_ASSOCIATION_GUARD'});
+  assert.equal(access.owner(desk.computerId),null);assert.equal(JSON.parse(await readFile(file,'utf8')).computers.length,0);
+ }
+ await access.associate(desk);assert.equal(access.isPhone(first),true);
+});
+
+test('final association guard, metadata commit and publication have no JavaScript interleaving',async t=>{
+ const {access,dir}=await fixture(t),first=key();const [invite]=await access.issue();await access.redeem(invite.code,first);
+ const desk={phoneKey:first,computerId:id(),computerKey:key(),serverId:'fixture'};
+ let calls=0,microtaskOwner,context='live',synced=0;
+ await withDirectorySync(dir,()=>{synced++;assert.equal(context,'live');assert.equal(access.owner(desk.computerId),null);},async()=>{
+  await access.associate(desk,{validate:()=>{
+   calls++;assert.equal(context,'live');
+   if(calls===2)queueMicrotask(()=>{context='replaced';microtaskOwner=access.owner(desk.computerId);});
+  }});
+ });
+ assert.equal(calls,2);assert.equal(synced,1);assert.equal(microtaskOwner?.phoneKey,first);
+});
 
 test('supported platforms publish enrollment only after the directory commit completes',async t=>{
  const {access,dir}=await fixture(t),first=key();
  const [invite]=await access.issue();
  let synced=0;
- await withDirectorySync(dir,async()=>{synced++;assert.equal(access.isPhone(first),false);},async()=>{
+ await withDirectorySync(dir,()=>{synced++;assert.equal(access.isPhone(first),false);},async()=>{
   await access.redeem(invite.code,first);
  });
  assert.equal(synced,1,'the containing directory must be synced after rename');
@@ -47,7 +114,7 @@ test('a failed directory commit poisons authorization and queued writes without 
   const desk={phoneKey:first,computerId:id(),computerKey:key(),serverId:'fixture'};await access.associate(desk);
   let notifications=0;access.onRevoke(()=>notifications++);
   let directoryCalls=0;
-  await withDirectorySync(dir,async()=>{directoryCalls++;throw Object.assign(Error('fixture fsync failed'),{code:'EIO'});},async()=>{
+  await withDirectorySync(dir,()=>{directoryCalls++;throw Object.assign(Error('fixture fsync failed'),{code:'EIO'});},async()=>{
    const mutation=action==='enroll'?access.redeem(spare.code,second):access.revokePhone(phoneId(first));
    const queued=access.issue();
    const results=await Promise.allSettled([mutation,queued]);

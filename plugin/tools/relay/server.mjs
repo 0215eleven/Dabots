@@ -115,8 +115,9 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
  });
  const accessApi=access?createAccessApi({access,origin:publicUrl.origin,limit:allowRequest,associate:async(phoneKey,input)=>{
   const link=links.get(input.computerId);
-  if(!link||link.ws.readyState!==WebSocket.OPEN||link.expiresAt<=Date.now()||input.linkNonce!==link.linkNonce||input.computerKey!==link.computerKey||input.serverId!==link.serverId)throw Object.assign(Error('INVALID_LINK'),{status:409,code:'INVALID_LINK'});
-  await access.associate({phoneKey,computerId:link.id,computerKey:link.computerKey,serverId:link.serverId});
+  const validate=()=>{if(!link||links.get(link.id)!==link||link.ws.readyState!==WebSocket.OPEN||link.expiresAt<=Date.now()||input.linkNonce!==link.linkNonce||input.computerKey!==link.computerKey||input.serverId!==link.serverId)throw Object.assign(Error('INVALID_LINK'),{status:409,code:'INVALID_LINK'});};
+  validate();
+  await access.associate({phoneKey,computerId:link.id,computerKey:link.computerKey,serverId:link.serverId},{validate});
   if(links.get(link.id)===link)waiting.get(link.id)?.();
  }}):null;
  const accountApi=accounts?createAccountApi({accounts,origin:publicUrl.origin,online:id=>computers.get(id)?.ws.readyState===WebSocket.OPEN,limit:allowRequest}):null;

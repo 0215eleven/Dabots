@@ -9,6 +9,8 @@ import json
 import os
 from pathlib import Path
 import posixpath
+import re
+import shlex
 import shutil
 import signal
 import stat
@@ -21,13 +23,15 @@ from urllib.parse import urlsplit
 import uuid
 
 FILES = ("bin.mjs", "server.mjs", "accounts.mjs", "access.mjs", "access-api.mjs", "access-cli.mjs", "package.json", "package-lock.json")
+POLICY = "admission-policy.json"
+ADMISSION_KEYS = ("RELAY_ACCESS_FILE", "RELAY_SECRET_FILE", "RELAY_DATA_FILE", "RELAY_OPEN_REGISTRATION", "RELAY_APPROVALS_FILE", "RELAY_BUILD_KEY_FILE", "RELAY_REGISTRATION")
 SOURCE = Path(__file__).resolve().parent.parent
 VERSION_CHECK = "const [a,b]=process.versions.node.split('.').map(Number);if(a<22||(a===22&&b<12))process.exit(2);"
 VALIDATE = "import('./server.mjs').then(()=>import('./accounts.mjs')).then(()=>import('./access.mjs')).then(()=>import('./access-api.mjs')).catch(()=>process.exit(1))"
 BUILD = VERSION_CHECK + "require('node:child_process').execFileSync('npm',['ci','--omit=dev','--ignore-scripts','--no-audit','--no-fund','--userconfig=/dev/null'],{stdio:'inherit'});" + VALIDATE
 RUNTIME = VERSION_CHECK + """const fs=require('node:fs'),p=require('node:path');let data=process.env.RELAY_ACCESS_FILE||process.env.RELAY_DATA_FILE||null;
 if(data){let probe=p.resolve(data),tail=[];while(!fs.existsSync(probe)){tail.unshift(p.basename(probe));const parent=p.dirname(probe);if(parent===probe)break;probe=parent;}data=p.join(fs.realpathSync(probe),...tail);}
-const admission={};for(const key of ['RELAY_ACCESS_FILE','RELAY_SECRET_FILE','RELAY_DATA_FILE','RELAY_OPEN_REGISTRATION','RELAY_APPROVALS_FILE','RELAY_BUILD_KEY_FILE'])if(process.env[key])admission[key]=process.env[key];
+const admission={};for(const key of ['RELAY_ACCESS_FILE','RELAY_SECRET_FILE','RELAY_DATA_FILE','RELAY_OPEN_REGISTRATION','RELAY_APPROVALS_FILE','RELAY_BUILD_KEY_FILE','RELAY_REGISTRATION'])admission[key]=process.env[key]||'';
 process.stdout.write(JSON.stringify({dataFile:data,admission}));"""
 HEALTH = """const h=process.env.RELAY_HOST||'127.0.0.1';const host=['0.0.0.0','::'].includes(h)?'127.0.0.1':h;
 fetch('http://'+(host.includes(':')?'['+host+']':host)+':'+(process.env.RELAY_PORT||8790)+'/healthz',{signal:AbortSignal.timeout(2000)})
@@ -48,6 +52,63 @@ def check_admission_env(values):
         raise Refused("Invitation access cannot mix with legacy admission")
     if not any(values.get(key) for key in ("RELAY_ACCESS_FILE", "RELAY_SECRET_FILE", "RELAY_DATA_FILE")):
         raise Refused("Cannot verify closed admission for the installed service")
+
+
+def admission_snapshot(values):
+    if not isinstance(values, dict):
+        raise Refused("Cannot verify admission environment")
+    result = {key: values.get(key, "") for key in ADMISSION_KEYS}
+    if any(not isinstance(value, str) or len(value) > 4096 for value in result.values()):
+        raise Refused("Cannot verify admission environment")
+    check_admission_env(result)
+    return result
+
+
+def match_admission(values, expected):
+    if admission_snapshot(values) != expected:
+        raise Refused("Pending restart admission differs from the running service; review it separately")
+
+
+def compose_restart_admission(command, service, expected):
+    # Compose resolves env_file/interpolation internally; never print the result.
+    try:
+        resolved = json.loads(run([*command, "config", "--format", "json"], label="Restart admission validation"))["services"][service]
+        entry = resolved.get("command")
+        if isinstance(entry, str):
+            entry = shlex.split(entry)
+        if entry != ["node", "bin.mjs"] or resolved.get("entrypoint"):
+            raise Refused("Automatic updates require the documented node bin.mjs entrypoint")
+        match_admission(resolved.get("environment", {}), expected)
+    except (KeyError, TypeError, ValueError) as error:
+        raise Refused("Cannot verify resolved Compose restart admission") from error
+
+
+def systemd_restart_admission(service, entrypoint, expected):
+    def show(prop):
+        return run(["systemctl", "show", "-p", prop, "--value", service], label="Systemd restart admission validation")
+    # EnvironmentFile expansion is not available through show; refuse this layout
+    # rather than infer the next process environment from the currently running one.
+    if show("EnvironmentFiles"):
+        raise Refused("Automatic systemd updates do not support EnvironmentFile; use a reviewed stopped migration")
+    try:
+        values = dict(item.split("=", 1) for item in shlex.split(show("Environment")))
+        match_admission(values, expected)
+        entry = show("ExecStart")
+        arguments = re.findall(r"argv\[\]=([^;]+);", entry)
+        argv = shlex.split(arguments[0].strip()) if len(arguments) == 1 else []
+        if len(argv) != 2 or Path(argv[0]).name not in ("node", "nodejs") or Path(argv[1]) != entrypoint:
+            raise Refused("Automatic updates require the documented direct node bin.mjs entrypoint")
+    except (ValueError, TypeError) as error:
+        raise Refused("Cannot verify systemd restart admission") from error
+
+
+def write_policy(directory, environment):
+    # Contains selected configuration paths/modes only, never credential contents.
+    path = directory / POLICY
+    if (path.exists() or path.is_symlink()) and not plain_file(path):
+        raise Refused("Installed admission policy must be a regular file")
+    atomic_bytes(path, (json.dumps({"version": 1, "environment": environment}, sort_keys=True) + "\n").encode(), directory.stat())
+    os.chmod(path, 0o644)
 
 
 SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
@@ -228,7 +289,8 @@ class Compose:
         volumes = json.loads(run(["docker", "image", "inspect", "--format", "{{json .Config.Volumes}}", self.image], label="Relay image volume check")) or {}
         reject_code_overlays(mounts=[{"Destination": target} for target in volumes])
         runtime = json.loads(run(self.command("exec", "-T", self.service, "node", "-e", RUNTIME), label="Relay runtime check"))
-        check_admission_env(runtime.get("admission", {}))
+        self.admission = admission_snapshot(runtime.get("admission", {}))
+        compose_restart_admission(self.command(), self.service, self.admission)
         data = runtime.get("dataFile")
         if data and (data == "/app" or data.startswith("/app/")):
             raise Refused("Mutable Relay data is inside the code release; use a separate persistent mount before updating")
@@ -264,12 +326,20 @@ class Compose:
 
     def healthy(self, release):
         self.verify(release)
+        runtime = json.loads(run(self.command("exec", "-T", self.service, "node", "-e", RUNTIME), label="Candidate admission check"))
+        match_admission(runtime.get("admission", {}), self.admission)
         run(self.command("exec", "-T", self.service, "node", "-e", HEALTH), label="Relay health check", timeout=10)
         return True
 
     def restart(self):
         # Let the daemon operation finish before recovering; killing its CLI does not cancel it.
         run(self.command("up", "-d", "--no-deps", "--force-recreate", "--no-build", "--pull", "never", self.service), label="Relay service restart", timeout=None)
+
+    def stop(self):
+        run(self.command("stop", self.service), label="Relay service stop", timeout=None)
+        state = json.loads(run(["docker", "inspect", "--format", "{{json .State}}", self.container()], label="Relay stopped-state check"))
+        if state.get("Running") is not False:
+            raise Refused("Cannot confirm Relay stopped; previous configuration was not restored")
 
     def update(self):
         directory = Path(tempfile.mkdtemp(prefix=".relay-update-", dir=self.base))
@@ -304,6 +374,7 @@ class Compose:
             elif dependencies.exists():
                 shutil.rmtree(dependencies)
             shutil.copytree(build / "node_modules", dependencies, symlinks=True)
+            write_policy(relay, self.admission)
             mount = self.definition["volumes"][self.index]
             if self.parts:
                 self.parts[0] = str(release)
@@ -317,6 +388,7 @@ class Compose:
             try:
                 copy_file(candidate, check, self.metadata)
                 run(["docker", "compose", "-f", str(check), "config", "--quiet"], label="Candidate Compose validation")
+                compose_restart_admission(["docker", "compose", "-f", str(check)], self.service, self.admission)
             finally:
                 check.unlink(missing_ok=True)
             self.changed = True
@@ -329,13 +401,11 @@ class Compose:
             if self.changed:
                 try:
                     with rollback_signals_ignored():
+                        self.stop()
                         atomic_bytes(self.file, self.original, self.metadata)
-                        self.restart()
-                        if not wait_health(lambda: self.healthy(self.previous), self.args.health_attempts):
-                            raise Refused("Previous Relay health could not be confirmed")
                 except BaseException as rollback_error:
-                    raise Refused(f"Update failed; original Compose restore/restart could not be confirmed. Backup: {backup}") from rollback_error
-                raise Refused(f"Update failed; original Compose and Relay release restored. Backup: {backup}") from error
+                    raise Refused(f"Update failed; stop/restore could not be confirmed. Do not restart; inspect manually. Backup: {backup}") from rollback_error
+                raise Refused(f"Update failed; original Compose restored, Relay left stopped. Review closed admission before manual recovery. Backup: {backup}") from error
             if release and release.exists():
                 shutil.rmtree(release)
             raise
@@ -352,18 +422,19 @@ class Systemd:
         if not pid.isdecimal() or int(pid) < 2:
             raise Refused("A running Relay process is required to verify admission before update")
         try:
-            selected = {"RELAY_ACCESS_FILE", "RELAY_SECRET_FILE", "RELAY_DATA_FILE", "RELAY_OPEN_REGISTRATION", "RELAY_APPROVALS_FILE", "RELAY_BUILD_KEY_FILE"}
+            selected = set(ADMISSION_KEYS)
             admission = {}
             for entry in Path(f"/proc/{pid}/environ").read_bytes().split(b"\0"):
                 key, separator, value = entry.partition(b"=")
                 if separator and key.decode("ascii", "ignore") in selected:
                     admission[key.decode("ascii")] = value.decode("utf-8", "strict")
-            check_admission_env(admission)
+            self.admission = admission_snapshot(admission)
         except (OSError, UnicodeError) as error:
             raise Refused("Cannot verify installed Relay admission; no update performed") from error
         self.base = Path(run(["systemctl", "show", "-p", "WorkingDirectory", "--value", self.service], label="Service directory lookup"))
         if not self.base.is_absolute() or self.base.is_symlink() or not plain_file(self.base / "server.mjs"):
             raise Refused("Systemd WorkingDirectory must contain regular Relay source files")
+        systemd_restart_admission(self.service, self.base / "bin.mjs", self.admission)
         self.node = shutil.which("node")
         if not self.node:
             raise Refused("Node.js is required for the systemd update")
@@ -385,6 +456,12 @@ class Systemd:
     def restart(self):
         run(["systemctl", "restart", self.service], label="Relay service restart", timeout=None)
 
+    def stop(self):
+        run(["systemctl", "stop", self.service], label="Relay service stop", timeout=None)
+        state = run(["systemctl", "show", "-p", "ActiveState", "--value", self.service], label="Relay stopped-state check")
+        if state not in ("inactive", "failed"):
+            raise Refused("Cannot confirm Relay stopped; previous code was not restored")
+
     def update(self):
         directory = Path(tempfile.mkdtemp(prefix=".relay-update-", dir=self.base.parent))
         backup = directory / "previous"
@@ -396,7 +473,7 @@ class Systemd:
             def install(build):
                 run([self.node, "-e", BUILD], cwd=build, label="Candidate dependency and import validation", timeout=600)
             build = prepare(directory, install)
-            for name in FILES:
+            for name in (*FILES, POLICY):
                 path = self.base / name
                 if path.exists() or path.is_symlink():
                     if not plain_file(path):
@@ -406,6 +483,9 @@ class Systemd:
             dependencies = self.base / "node_modules"
             if dependencies.is_symlink() or (dependencies.exists() and not dependencies.is_dir()):
                 raise Refused("Existing node_modules must be a regular directory")
+            systemd_restart_admission(self.service, self.base / "bin.mjs", self.admission)
+            # Never expose a partially replaced entrypoint to service auto-restart.
+            self.stop()
             changed = True
             for name in FILES:
                 current = self.base / name
@@ -420,6 +500,7 @@ class Systemd:
             if dependencies.exists():
                 os.replace(dependencies, backup / "node_modules")
             os.replace(build / "node_modules", dependencies)
+            write_policy(self.base, self.admission)
             self.restart()
             if not wait_health(self.healthy, self.args.health_attempts):
                 raise Refused("Candidate Relay health verification failed")
@@ -428,7 +509,8 @@ class Systemd:
             if changed:
                 try:
                     with rollback_signals_ignored():
-                        for name in FILES:
+                        self.stop()
+                        for name in (*FILES, POLICY):
                             current = self.base / name
                             if name in had:
                                 atomic_bytes(current, (backup / name).read_bytes(), (backup / name).stat())
@@ -441,12 +523,9 @@ class Systemd:
                             os.replace(backup / "node_modules", self.base / "node_modules")
                         elif not had_dependencies and dependencies.exists():
                             shutil.rmtree(dependencies)
-                        self.restart()
-                        if not wait_health(self.healthy, self.args.health_attempts):
-                            raise Refused("Previous Relay health could not be confirmed")
                 except BaseException as rollback_error:
-                    raise Refused(f"Update failed; previous code restore/restart could not be confirmed. Backup: {backup}") from rollback_error
-                raise Refused(f"Update failed; previous code and Relay service restored. Backup: {backup}") from error
+                    raise Refused(f"Update failed; stop/restore could not be confirmed. Do not restart; inspect manually. Backup: {backup}") from rollback_error
+                raise Refused(f"Update failed; previous code restored, Relay left stopped. Review closed admission before manual recovery. Backup: {backup}") from error
             raise
 
 

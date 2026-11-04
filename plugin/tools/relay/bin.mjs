@@ -2,7 +2,7 @@
 // Official service: explicitly initialized RELAY_ACCESS_FILE, phone invitations only.
 // Secret/account self-hosted service remains separate. Unsafe legacy official
 // settings fail closed; never silently downgrade to public computer registration.
-import {readFileSync} from 'node:fs';
+import {readFileSync,lstatSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 import {createRelay} from './server.mjs';
 import {createAccounts} from './accounts.mjs';
@@ -10,6 +10,21 @@ import {createAccess} from './access.mjs';
 const env=process.env;
 let relay,access;
 try{
+ // Updates install this immutable admission snapshot next to the entrypoint.
+ // Validate the process's real environment, including absent/empty variables;
+ // a changed env_file or unit drop-in cannot silently select a different mode.
+ const policyFile=new URL('./admission-policy.json',import.meta.url);
+ let policy,policyPresent=false;
+ try{
+  const info=lstatSync(policyFile);
+  if(!info.isFile()||info.size>32768)throw Error();
+  policy=JSON.parse(readFileSync(policyFile,'utf8'));policyPresent=true;
+ }catch(error){if(error.code!=='ENOENT')throw Error('Installed admission policy is invalid.');}
+ if(policyPresent){
+  const keys=['RELAY_ACCESS_FILE','RELAY_SECRET_FILE','RELAY_DATA_FILE','RELAY_OPEN_REGISTRATION','RELAY_APPROVALS_FILE','RELAY_BUILD_KEY_FILE','RELAY_REGISTRATION'];
+  if(!policy||typeof policy!=='object'||Array.isArray(policy)||Object.keys(policy).length!==2||policy.version!==1||!policy.environment||typeof policy.environment!=='object'||Array.isArray(policy.environment)||Object.keys(policy.environment).length!==keys.length||keys.some(key=>!Object.hasOwn(policy.environment,key)||typeof policy.environment[key]!=='string'||policy.environment[key].length>4096))throw Error('Installed admission policy is invalid.');
+  if(keys.some(key=>(env[key]??'')!==policy.environment[key]))throw Error('Restart environment differs from the installed admission policy.');
+ }
  if(env.RELAY_OPEN_REGISTRATION==='1'||env.RELAY_APPROVALS_FILE||env.RELAY_BUILD_KEY_FILE)throw Error('Legacy public/approval/build-key admission is disabled. Migrate explicitly to RELAY_ACCESS_FILE phone invitations.');
  if(!env.RELAY_ORIGIN||(!env.RELAY_SECRET_FILE&&!env.RELAY_DATA_FILE&&!env.RELAY_ACCESS_FILE))throw Error('Set RELAY_ORIGIN and RELAY_ACCESS_FILE for phone invitations, or a private self-hosted secret/account configuration.');
  if(env.RELAY_ACCESS_FILE&&(env.RELAY_SECRET_FILE||env.RELAY_DATA_FILE))throw Error('Phone invitations cannot mix with legacy secret/account admission.');

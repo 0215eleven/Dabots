@@ -40,7 +40,8 @@ async function fixture(t,options={}){
   assert.equal(challenge.access,1);
   ws.send(JSON.stringify({type:'register',nonce:challenge.nonce,version:3,computerId,edPublicKey:keys.key,computerKey,serverId,signature:sign(null,msg('ds-bot-computer-v3',origin,challenge.nonce,computerId,keys.key,computerKey,serverId),keys.privateKey).toString('base64url')}));
   const reply=await new Promise((resolve,reject)=>{ws.once('message',resolve);ws.once('close',code=>reject(Error(`Registration refused: ${code}`)));});const pending=JSON.parse(reply);
-  assert.equal(pending.type,existing?'registered':'pending');assert.match(pending.linkNonce,/^[A-Za-z0-9_-]{43}$/);
+  const owner=access.owner(computerId);
+  assert.equal(pending.type,owner&&access.isPhone(owner.phoneKey)?'registered':'pending');assert.match(pending.linkNonce,/^[A-Za-z0-9_-]{43}$/);
   t.after(()=>ws.terminate());
   return {keys,ws,computerId,computerKey,serverId,linkNonce:pending.linkNonce};
  };
@@ -139,6 +140,36 @@ test('a recorded phone connection signature cannot be replayed on a fresh socket
  const first=await f.connect(phone,computer);assert.equal(JSON.parse((await once(first,'message'))[0]).type,'connected');
  const replay=await f.connect(phone,computer,{reuseSignature:first.proof});assert.equal((await once(replay,'close'))[0],4403);
  assert.equal(first.readyState,WebSocket.OPEN);
+});
+
+test('an association delayed at persistence cannot consume the previous registration QR',async t=>{
+ const f=await fixture(t),phone=f.phone();await phone.enroll();const old=await f.computer();
+ let release,entered;const hold=new Promise(resolve=>release=resolve),started=new Promise(resolve=>entered=resolve);
+ const associate=f.access.associate.bind(f.access);
+ t.mock.method(f.access,'associate',async(...args)=>{entered();await hold;return associate(...args);});
+ const pending=phone.call('POST','/v1/access/associate',{computerId:old.computerId,computerKey:old.computerKey,serverId:old.serverId,linkNonce:old.linkNonce});
+ await started;
+ try{
+  const closed=once(old.ws,'close');old.ws.close();await closed;
+  const fresh=await f.computer(old);assert.notEqual(fresh.linkNonce,old.linkNonce);
+ }finally{release();}
+ const result=await pending;assert.equal(result.status,409);assert.equal(result.body.code,'INVALID_LINK');
+ assert.equal(f.access.owner(old.computerId),null);
+});
+
+test('a queued pre-revocation QR cannot transfer a computer after its owner is revoked',async t=>{
+ const f=await fixture(t),owner=f.phone(),replacement=f.phone(),enrolled=await owner.enroll();await replacement.enroll();const old=await f.computer();
+ const input={computerId:old.computerId,computerKey:old.computerKey,serverId:old.serverId,linkNonce:old.linkNonce};
+ await owner.call('POST','/v1/access/associate',input);
+ let release,entered;const hold=new Promise(resolve=>release=resolve),started=new Promise(resolve=>entered=resolve);
+ const associate=f.access.associate.bind(f.access);let first=true;
+ t.mock.method(f.access,'associate',async(...args)=>{if(first){first=false;entered();await hold;}return associate(...args);});
+ const pending=replacement.call('POST','/v1/access/associate',input);await started;
+ try{const closed=once(old.ws,'close');await f.access.revokePhone(enrolled.phoneId);await closed;}finally{release();}
+ assert.equal((await pending).status,409);assert.equal(f.access.owner(old.computerId).phoneKey,owner.key);
+ const fresh=await f.computer(old),promoted=once(fresh.ws,'message');
+ assert.equal((await replacement.call('POST','/v1/access/associate',{...input,linkNonce:fresh.linkNonce})).status,200);
+ assert.equal(JSON.parse((await promoted)[0]).type,'registered');
 });
 
 test('a phone cannot associate a QR after its server-side expiry',async t=>{

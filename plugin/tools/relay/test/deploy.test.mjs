@@ -45,15 +45,18 @@ if name=='cp':
  os.execv('/bin/cp',['/bin/cp',*args])
 if name=='systemctl':
  if args[0]=='cat':done('[Service]')
- if args[0]=='show':done(os.getppid() if 'MainPID' in args else str(area/'install'))
+ if args[0]=='show':
+  prop=args[args.index('-p')+1]
+  done({'MainPID':str(os.getppid()),'WorkingDirectory':str(area/'install'),'Environment':f'RELAY_SECRET_FILE={area}/secret','EnvironmentFiles':'','ExecStart':f'{{ path={os.environ["TEST_NODE"]} ; argv[]={os.environ["TEST_NODE"]} {area}/install/bin.mjs ; ignore_errors=no ; }}','ActiveState':'inactive' if state.get('stopped') else 'active'}[prop])
  if args[0]=='is-active':sys.exit(0)
+ if args[0]=='stop':state['stopped']=True;save();sys.exit(0)
  if args[0]=='restart':
   if state['failure']=='slow-restart':
    assert not state.get('in_progress'), 'overlapping restarts'
    state['in_progress']=True;save()
    if state['restarts']==0:(area/'restart-entered').write_text('ready');time.sleep(0.5)
    state['in_progress']=False
-  state['restarts']+=1;save()
+  state['restarts']+=1;state['stopped']=False;save()
   if state['failure']=='restart-always' or (state['failure']=='restart' and state['restarts']==1):sys.exit(9)
   sys.exit(0)
 if name=='docker':
@@ -63,7 +66,7 @@ if name=='docker':
  if args[0]=='inspect':
   field=args[2]
   if field=='{{.Image}}':done('sha256:testimage')
-  if field=='{{json .State}}':done({'Running':True,'Paused':state['failure']=='paused'})
+  if field=='{{json .State}}':done({'Running':not state.get('stopped',False),'Paused':state['failure']=='paused'})
   if field=='{{.Config.WorkingDir}}':done('/app/relay')
   if field=='{{json .Mounts}}':done([{'Type':'bind','Destination':'/app','Source':state['active']},*([{'Type':'bind','Destination':'/state','Source':str(area/'state')}] if state['failure']!='unmounted-data' else []),*([{'Type':'volume','Destination':'/app/relay','Source':'synthetic-legacy-code'}] if state['failure']=='actual-overlay' else [])])
  if args[0]=='run':
@@ -73,13 +76,15 @@ if name=='docker':
   config=pathlib.Path(args[args.index('-f')+1]);op=args[args.index('-f')+2]
   if op=='config':
    if state['failure']=='config' and config.name.startswith('.compose-check'):sys.exit(10)
+   if '--format' in args:done(json.loads(config.read_text()))
    sys.exit(0)
   if op=='ps':done('synthetic-relay-id')
   if op=='exec':
    script=args[-1]
-   if 'dataFile:' in script:done({'dataFile':'/app/relay/accounts.json' if state['failure']=='data-in-app' else '/state/accounts.json','admission':{'RELAY_SECRET_FILE':'configured'}})
+   if 'dataFile:' in script:done({'dataFile':'/app/relay/accounts.json' if state['failure']=='data-in-app' else '/state/accounts.json','admission':json.loads(config.read_text())['services']['relay']['environment']})
    if state['failure']=='health' and state['restarts']==1:sys.exit(11)
    sys.exit(0)
+  if op=='stop':state['stopped']=True;save();sys.exit(0)
   if op=='up':
    assert args[-1]=='relay' and '--no-deps' in args and '--no-build' in args and '--force-recreate' in args
    assert args[-3:-1]==['--pull','never']
@@ -88,7 +93,7 @@ if name=='docker':
     state['in_progress']=True;save()
     if state['restarts']==0:(area/'restart-entered').write_text('ready');time.sleep(0.5)
     state['in_progress']=False
-   state['restarts']+=1
+   state['restarts']+=1;state['stopped']=False
    if state['failure']=='restart-always' or (state['failure']=='restart' and state['restarts']==1):save();sys.exit(9)
    if not (state['failure']=='stale-mount' and state['restarts']==1):
     value=json.loads(config.read_text())['services']['relay']['volumes'][0]
@@ -171,14 +176,12 @@ for(const longMount of [false,true])test(`Compose updates only Relay, preserving
  await f.unchanged()
 })
 
-for(const failure of ['npm','copy','config','restart','health','stale-mount','restart-always'])test(`Compose ${failure} failure preserves/restores original bytes and only restarts Relay`,onlyLinux,async t=>{
+for(const failure of ['npm','copy','config','restart','health','stale-mount','restart-always'])test(`Compose ${failure} failure preserves/restores original bytes without restarting restored code`,onlyLinux,async t=>{
  const f=await fixture(t,{failure});const result=await f.execute();assert.equal(result.code,1,result.output)
  assert.equal(await readFile(join(f.area,'compose.json'),'utf8'),f.original)
  const state=JSON.parse(await readFile(join(f.area,'state.json'),'utf8'))
  if(['npm','copy','config'].includes(failure))assert.equal(state.restarts,0)
- else assert.equal(state.restarts,2)
- if(failure==='restart-always')assert.match(result.output,/could not be confirmed/)
- else if(['restart','health','stale-mount'].includes(failure))assert.match(result.output,/release restored/)
+ else {assert.equal(state.restarts,1);assert.equal(state.stopped,true);assert.match(result.output,/left stopped/)}
  await f.unchanged()
 })
 
@@ -248,9 +251,9 @@ for(const failure of ['', 'npm','restart','health','restart-always','file-copy']
  assert.equal(await readFile(join(f.install,'server.mjs'),'utf8'),failure?'old server.mjs\n':await readFile(join(root,'server.mjs'),'utf8'))
  assert.equal((await stat(join(f.install,'server.mjs'))).mode&0o777,0o640)
  if(failure==='npm')assert.equal(state.restarts,0)
- else if(failure)assert.equal(state.restarts,failure==='file-copy'?1:2)
+ else if(failure){assert.equal(state.restarts,failure==='file-copy'?0:1);assert.equal(state.stopped,true)}
  else assert.equal(state.restarts,1)
- if(failure==='restart-always')assert.match(result.output,/could not be confirmed/)
+ if(failure&&failure!=='npm')assert.match(result.output,/left stopped/)
  if(failure==='health')assert.equal(await readFile(join(f.install,'accounts.json'),'utf8'),'runtime data version 2\n')
  if(failure)assert.equal(await readFile(join(f.install,'node_modules/old-dependency'),'utf8'),'old\n')
  assert.equal((await f.commands()).some(c=>c.includes('daemon-reload')||c.includes('enable')),false)
@@ -264,7 +267,7 @@ for(const mode of ['compose','systemd'])test(`${mode} terminal interruption roll
  const result=await f.execute([],injection);assert.equal(result.code,1,result.output);assert.match(result.output,/restored/)
  assert.equal(await readFile(join(f.area,'compose.json'),'utf8'),f.original)
  assert.equal(await readFile(join(f.install,'server.mjs'),'utf8'),'old server.mjs\n')
- const state=JSON.parse(await readFile(join(f.area,'state.json'),'utf8'));assert.equal(state.restarts,1)
+ const state=JSON.parse(await readFile(join(f.area,'state.json'),'utf8'));assert.equal(state.restarts,0);assert.equal(state.stopped,true)
  await f.unchanged()
 })
 
@@ -272,7 +275,7 @@ for(const mode of ['compose','systemd'])test(`${mode} waits for an in-progress r
  const f=await fixture(t,{mode,failure:'slow-restart'});const kind=mode==='compose'?'Compose':'Systemd'
  const injection=`import signal,threading,time,pathlib\noriginal=m.${kind}.restart\nfirst=True\ndef restart(self):\n global first\n if first:\n  first=False\n  def interrupt():\n   marker=pathlib.Path(os.environ['TEST_AREA'])/'restart-entered'\n   while not marker.exists():time.sleep(0.01)\n   os.kill(os.getpid(),signal.SIGTERM)\n  threading.Thread(target=interrupt,daemon=True).start()\n return original(self)\nm.${kind}.restart=restart`
  const result=await f.execute([],injection);assert.equal(result.code,1,result.output);assert.match(result.output,/restored/)
- const state=JSON.parse(await readFile(join(f.area,'state.json'),'utf8'));assert.equal(state.restarts,2);assert.equal(state.in_progress,false)
+ const state=JSON.parse(await readFile(join(f.area,'state.json'),'utf8'));assert.equal(state.restarts,1);assert.equal(state.in_progress,false);assert.equal(state.stopped,true)
  assert.equal(await readFile(join(f.area,'compose.json'),'utf8'),f.original)
  assert.equal(await readFile(join(f.install,'server.mjs'),'utf8'),'old server.mjs\n')
  await f.unchanged()

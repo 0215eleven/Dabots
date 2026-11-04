@@ -1,6 +1,7 @@
 // Offline, single-writer phone enrollment store. The relay holds this lock for its lifetime.
 import {createHash,randomBytes} from 'node:crypto';
-import {open,readFile,rename,rm,realpath,lstat} from 'node:fs/promises';
+import {open,readFile,rm,realpath,lstat} from 'node:fs/promises';
+import {renameSync,openSync,fsyncSync,closeSync} from 'node:fs';
 import {resolve,dirname,basename,join} from 'node:path';
 
 const fail=(status,code)=>Object.assign(new Error(code),{status,code});
@@ -10,6 +11,16 @@ const phoneId=key=>createHash('sha256').update(Buffer.from(key,'base64url')).dig
 const validServer=value=>typeof value==='string'&&value.length>=1&&value.length<=128&&!/[\u0000-\u001f\u007f]/.test(value);
 const timestamp=value=>Number.isSafeInteger(value)&&value>=0;
 const shape=(value,keys)=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
+function checkAssociationGuard(guard){
+ if(guard===undefined)return;
+ if(typeof guard!=='function')throw fail(400,'INVALID_ASSOCIATION_GUARD');
+ const result=guard();
+ if(result!==null&&(typeof result==='object'||typeof result==='function')&&typeof result.then==='function'){
+  // An accidentally async trusted guard must neither authorize nor leave an unhandled rejection.
+  Promise.resolve(result).catch(()=>{});throw fail(400,'INVALID_ASSOCIATION_GUARD');
+ }
+ if(result===false)throw fail(409,'INVALID_LINK');
+}
 function validate(data){
  const invalid=()=>{throw fail(500,'INVALID_ACCESS_STORE');};
  if(!shape(data,['version','kind','invites','phones','computers'])||data.version!==1||data.kind!=='dabots-phone-access'||!['invites','phones','computers'].every(k=>Array.isArray(data[k])&&data[k].length<=4096))invalid();
@@ -45,29 +56,34 @@ export async function createAccess({file,initialize=false,now=Date.now}){
   try{const saved=JSON.parse(await readFile(lockFile,'utf8'));if(saved.token===token)await rm(lockFile);}
   catch(error){if(error.code!=='ENOENT')throw fail(500,'ACCESS_LOCK_RELEASE_FAILED');}
  }
- async function save(candidate){
+ async function save(candidate,guard,publish){
   const temporary=file+'.'+process.pid+'.'+randomBytes(12).toString('hex')+'.tmp';
-  let handle,directory,replaced=false;
+  let handle,directory=null,replaced=false,guardRefused=false;
   try{
    handle=await open(temporary,'wx',0o600);
    await handle.writeFile(JSON.stringify(candidate)+'\n');await handle.sync();await handle.close();handle=null;
-   await rename(temporary,file);
+   try{checkAssociationGuard(guard);}catch(error){guardRefused=true;throw error;}
+   // No await between final live-context validation, durable metadata commit, and
+   // publication: another JS callback cannot replace/expire the registration mid-commit.
+   renameSync(temporary,file);
    replaced=true;
    // POSIX needs the containing directory synced to persist the renamed entry.
    // Node cannot open/sync directory handles on Windows; its power-loss durability
    // remains unverified. Do not silently ignore fsync failures on supported platforms.
    if(process.platform!=='win32'){
-    directory=await open(dirname(file),'r');await directory.sync();await directory.close();directory=null;
+    directory=openSync(dirname(file),'r');fsyncSync(directory);closeSync(directory);directory=null;
    }
-  }catch{
+   publish?.();
+  }catch(error){
    // After rename, disk may already contain the candidate. Continuing from the old
    // in-memory state could resurrect a revoked phone or overwrite a spent invite.
    if(replaced){poisoned=true;throw fail(503,'ACCESS_STORE_UNCERTAIN');}
+   if(guardRefused)throw error;
    throw fail(500,'ACCESS_WRITE_FAILED');
   }
   finally{
    if(handle)await handle.close().catch(()=>{});
-   if(directory)await directory.close().catch(()=>{});
+   if(directory!==null){try{closeSync(directory);}catch{}}
    await rm(temporary,{force:true}).catch(()=>{});
   }
  }
@@ -88,12 +104,14 @@ export async function createAccess({file,initialize=false,now=Date.now}){
  }catch(error){await unlock();throw error;}
  let queue=Promise.resolve(),closed=false,closing;
  const listeners=new Set();
- function mutate(operation,afterCommit){
+ function mutate(operation,afterCommit,guard){
   if(poisoned)return Promise.reject(fail(503,'ACCESS_STORE_UNCERTAIN'));
   if(closed)return Promise.reject(fail(503,'ACCESS_CLOSED'));
   const result=queue.then(async()=>{
    if(poisoned)throw fail(503,'ACCESS_STORE_UNCERTAIN');
-   const candidate=structuredClone(data);const value=operation(candidate);validate(candidate);await save(candidate);data=candidate;afterCommit?.(value);return value;
+   checkAssociationGuard(guard);
+   const candidate=structuredClone(data);const value=operation(candidate);validate(candidate);
+   await save(candidate,guard,()=>{data=candidate;afterCommit?.(value);});return value;
   });
   queue=result.catch(()=>{});return result;
  }
@@ -120,8 +138,9 @@ export async function createAccess({file,initialize=false,now=Date.now}){
    return {enrolled:true,phoneId:id};
   });},
   isPhone(key){return !closed&&!poisoned&&data.phones.some(p=>p.key===key&&p.revokedAt===null);},
-  // Only call after validating the live computer's fresh QR nonce and full identity tuple.
-  associate({phoneKey,computerId,computerKey,serverId}){return mutate(candidate=>{
+  // Network callers supply a trusted synchronous live registration/QR guard. It runs
+  // when this mutation starts and once more after temp flush, immediately before commit.
+  associate({phoneKey,computerId,computerKey,serverId},{validate:guard}={}){return mutate(candidate=>{
    if(!encoded(phoneKey,32)||!encoded(computerId,16)||!encoded(computerKey,32)||!validServer(serverId))throw fail(400,'INVALID_ASSOCIATION');
    const phone=candidate.phones.find(p=>p.key===phoneKey&&p.revokedAt===null);
    if(!phone)throw fail(403,'PHONE_REQUIRED');
@@ -135,7 +154,7 @@ export async function createAccess({file,initialize=false,now=Date.now}){
     candidate.computers.push({id:computerId,phoneId:phone.id,computerKey,serverId,associatedAt:now()});
    }
    return {associated:true};
-  });},
+  },undefined,guard);},
   owner(computerId){
    if(closed||poisoned)return null;
    const computer=data.computers.find(c=>c.id===computerId);if(!computer)return null;
