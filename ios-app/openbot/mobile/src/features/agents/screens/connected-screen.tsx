@@ -3,7 +3,7 @@ import { useDsText } from '@ds/text';
 import type { ChannelSummary } from '@openbot/contracts/ipc';
 import { router, Stack } from 'expo-router';
 import { Typography } from 'heroui-native';
-import { memo, useMemo, useState, useLayoutEffect } from 'react';
+import { memo, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import PlusIcon from 'lucide-react-native/icons/plus';
 import { type MenuAction, MenuView } from '@/shared/components/menu-view';
@@ -216,16 +216,18 @@ export function ConnectedScreen() {
     const [savedView, setHomeView] = useHomeView();
     const homeView: HomeView = savedView === 'agent' && !computers.agentsAvailable ? 'list' : savedView;
     const [creatingAgent, setCreatingAgent] = useState(false), [agentError, setAgentError] = useState('');
+    const creatingAgentRef = useRef(false);
     const createAgent = async () => {
         const client = computers.client;
-        if (!client || creatingAgent) return;
+        if (!client || creatingAgentRef.current || computers.switching || !online || !view?.capabilities.agents || view.readOnly) return;
+        creatingAgentRef.current = true;
         setCreatingAgent(true); setAgentError('');
         try {
             const result = await client.action<{ conversationId?: string }>('agent-open', {});
             await computers.workspace.refresh({ fresh: true });
             if (result?.conversationId) router.push({ pathname: '/legacy-agent/[id]', params: { id: dsId(activeServer.id, 'conversation', result.conversationId) } });
         } catch (error) { setAgentError(error instanceof Error ? error.message : String(error)); }
-        finally { setCreatingAgent(false); }
+        finally { creatingAgentRef.current = false; setCreatingAgent(false); }
     };
     // New also starts a DSH Agent conversation when this computer offers Agents to this phone.
     const newActions: MenuAction[] = [...createActions, ...(computers.agentsAvailable && view?.capabilities.agents ? [{ id: 'agent', title: tr('New DSH Agent'), image: 'apple.terminal' as const }] : [])];
@@ -237,8 +239,8 @@ export function ConnectedScreen() {
     return <ComputerTagContext.Provider value={tags}><View className="flex-1 bg-background">
   <Stack.Screen options={{ headerShown: false }}/>
   {/* The list pads both safe-area edges itself; UIKit must not add them again. Settings and New float at the bottom corners. */}
-  {homeView === 'agent' ? <AgentListView agents={view?.agents ?? []} canCreate={view?.capabilities.agents === true && online} creating={creatingAgent} error={agentError} header={chips} topInset={insets.top + 6} bottomInset={insets.bottom + 24 + 60} sideInsets={{ left: insets.left, right: insets.right }}
-    onOpen={agent => router.push({ pathname: '/legacy-agent/[id]', params: { id: agent.id } })} onCreate={() => void createAgent()}/>
+  {homeView === 'agent' ? <AgentListView agents={view?.agents ?? []} canCreate={view?.capabilities.agents === true && online} error={agentError} header={chips} topInset={insets.top + 6} bottomInset={insets.bottom + 24 + 60} sideInsets={{ left: insets.left, right: insets.right }}
+    onOpen={agent => router.push({ pathname: '/legacy-agent/[id]', params: { id: agent.id } })} onRename={online&&!view?.readOnly&&view?.capabilities.actions.includes('agent-rename')?agent=>router.push({pathname:'/agent-name',params:{id:agent.id}}):undefined}/>
   : homeView === 'office' ? <OfficeView agents={shownAgents} rooms={shownGroups} work={view?.work ?? {}} header={chips} topInset={insets.top + 6} bottomInset={insets.bottom + 24 + 60} sideInsets={{ left: insets.left, right: insets.right }}
     onOpenBot={agent => router.push({ pathname: '/chat/[agentId]', params: { agentId: agent.id } })} onOpenRoom={room => router.push({ pathname: '/channel/[channelId]', params: { channelId: room.id, serverId: activeServer.id } })}/>
   : <Animated.FlatList data={listed} key={activeServer.id} keyExtractor={item => item.id} onScroll={scroll.onScroll} onLayout={listReveal.onLayout} itemLayoutAnimation={LinearTransition.duration(240).reduceMotion(reducedMotion ? ReduceMotion.Always : ReduceMotion.System)} contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24 + 60, paddingLeft: insets.left, paddingRight: insets.right }} ItemSeparatorComponent={RowSeparator} renderItem={({ item, index }) => item.peer ? <PeerChatRow row={item.peer} online={peers[item.peer.serverId]?.online === true} onOpen={row => void openPeer(row)}/> : <TransitioningChatRow agent={item.agent} channel={item.channel} serverId={activeServer.id} channelAgents={channelAgents} index={index} reveal={listReveal} collapsed={false}/>} ListHeaderComponent={<>
@@ -258,7 +260,7 @@ export function ConnectedScreen() {
     <EllipsisIcon size={22} color={foreground} strokeWidth={2} accessible={false}/>
    </IconButton>
    <ViewSwitch value={homeView} agents={computers.agentsAvailable} onChange={setHomeView}/>
-   {newActions.length > 1 ? computers.switching ? <IconButton label={tr('New chat')} disabled>{plus}</IconButton> : <MenuView actions={newActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
+   {homeView === 'agent' ? <IconButton label={tr(creatingAgent?'Creating Agent…':'New DSH Agent')} disabled={creatingAgent||computers.switching||!online||!view?.capabilities.agents||!!view?.readOnly} onPress={()=>void createAgent()}>{plus}</IconButton> : newActions.length > 1 ? computers.switching ? <IconButton label={tr('New chat')} disabled>{plus}</IconButton> : <MenuView actions={newActions} onPressAction={({ nativeEvent }) => create(nativeEvent.event)}><IconButton label={tr('New chat')}>{plus}</IconButton></MenuView>
        : newActions.length === 1 ? <IconButton label={newActions[0].title} disabled={computers.switching} onPress={() => create(newActions[0].id ?? 'bot')}>{plus}</IconButton> : <View style={{ width: 44 }}/>}
   </View>
  </View></ComputerTagContext.Provider>;

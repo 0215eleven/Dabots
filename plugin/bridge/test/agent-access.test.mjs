@@ -11,7 +11,7 @@ const allowed = { agents: true }, denied = { agents: false }
 const signal = () => AbortSignal.timeout(5000)
 
 async function fixture(t, { description = contract, open = { agentId: agent.id, sessionId: 'agent-session' }, gate } = {}) {
-  const calls = [], reads = []
+  const calls = [], reads = [], titles = new Map()
   const state = { revision: 1, bots: [{ id: 'chief', name: 'Chief', sessionId: 'bot-session', parts: [] }], rooms: [], agents: [structuredClone(agent)] }
   const adapter = createAdapter({
     connection: { createSharedFetchHandler: () => ({ fetch: async request => {
@@ -23,10 +23,11 @@ async function fixture(t, { description = contract, open = { agentId: agent.id, 
       if (endpoint === 'bridge.submit') return Response.json({ ok: true, value: { accepted: true, requestId: payload.requestId, sessionId: payload.expectedSessionId } })
       if (endpoint === 'bridge.agent-open') return Response.json({ ok: true, value: open })
       if (endpoint === 'bridge.agent-new') { state.agents[0].sessions.push('agent-new'); return Response.json({ ok: true, value: { agentId: payload.agentId, sessionId: 'agent-new' } }) }
+      if (endpoint === 'bridge.agent-rename') { titles.set(payload.sessionId,payload.title); return Response.json({ok:true,value:{title:payload.title,seq:9}}) }
       throw new Error(`Unexpected host call: ${endpoint}`)
     } }) },
     sessionController: {
-      list: async () => ({ items: [{ sessionId: 'agent-session', updatedAt: 100, running: true }] }),
+      list: async () => ({ items: [{ sessionId: 'agent-session', updatedAt: 100, running: true, projections:{kind:'sequenced',asOfSeq:9,values:{title:titles.get('agent-session')??'Existing user title'}} }] }),
       async *follow(args) {
         reads.push(args.address.sessionId)
         yield { type: 'snapshot', cursor: 3, records: [
@@ -63,6 +64,23 @@ test('the host Agent contract is advertised, but nothing about the Agent reaches
   }
   assert.equal(calls.some(call => ['bridge.submit', 'bridge.agent-open', 'bridge.agent-new'].includes(call.endpoint)), false)
   assert.deepEqual(reads, [])
+})
+
+test('Agent title projection and rename are session-scoped, redacted and capability-gated',async t=>{
+ const older=await fixture(t)
+ assert.equal(older.adapter.capabilities().actions.includes('agent-rename'),false)
+ const {adapter,calls}=await fixture(t,{description:{...contract,agentRename:1}})
+ assert.equal(adapter.capabilities().actions.includes('agent-rename'),true)
+ assert.equal((await adapter.conversations(signal(),allowed)).conversations.find(c=>c.id===conversationId).name,'Existing user title')
+ const payload={agentId:agent.id,sessionId:'agent-session',title:'  My synthetic-known title  '}
+ const result=await adapter.action('agent-rename',payload,signal(),allowed)
+ assert.equal(result.title,'My [redacted] title')
+ const rows=(await adapter.conversations(signal(),allowed)).conversations
+ assert.equal(rows.find(c=>c.id===conversationId).name,'My [redacted] title')
+ assert.equal(rows.find(c=>c.id==='chief').name,'Chief')
+ for(const p of [{...payload,sessionId:'bot-session'},{...payload,agentId:'other'},{...payload,title:' '},{...payload,title:'x\ny'},{...payload,title:'x'.repeat(81)},{...payload,workspaceId:'foreign'}])await assert.rejects(adapter.action('agent-rename',p,signal(),allowed))
+ await assert.rejects(adapter.action('agent-rename',payload,signal(),denied),{code:'AGENT_ACCESS_REQUIRED'})
+ assert.equal(calls.filter(c=>c.endpoint==='bridge.agent-rename').length,1)
 })
 
 test('older or partial host contracts never enable the Agent, even for a granted phone', async t => {

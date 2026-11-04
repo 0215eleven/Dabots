@@ -118,6 +118,7 @@ export function install(rt) {
         case 'bridge.submit':
         case 'bridge.agent-open':
         case 'bridge.agent-new':
+        case 'bridge.agent-rename':
           return await mobileBridge(endpoint, body, signal)
         case 'state':
           if (typeof body.locale === 'string' && /^[a-z]{2,3}(-[\w-]+)?$/i.test(body.locale)) uiLocale = body.locale

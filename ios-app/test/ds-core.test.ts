@@ -82,6 +82,23 @@ test('list projections keep Bot, group, conversation and granted DSH Agent sourc
     f.team.agentAccess = true;
     assert.equal(f.core.read().agents.length, 1);
 });
+
+test('Agent title editing requires a live writable grant and the explicit desktop rename contract', () => {
+    const f = fixture();
+    f.team.agentAccess = true;
+    f.team.mobileCapabilities = { agents: true, actions: ['agent-rename'] };
+    assert.ok(f.core.capabilities().actions.includes('agent-rename'));
+    f.setOnline(false);
+    assert.equal(f.core.capabilities().actions.includes('agent-rename'), false);
+    f.setOnline(true); f.setSource('cache');
+    assert.equal(f.core.capabilities().actions.includes('agent-rename'), false);
+    f.setSource('live'); f.team.readOnly = 'locked';
+    assert.equal(f.core.capabilities().actions.includes('agent-rename'), false);
+    f.team.readOnly = null; f.team.agentAccess = false;
+    assert.equal(f.core.capabilities().actions.includes('agent-rename'), false);
+    f.team.agentAccess = true; f.team.mobileCapabilities = { agents: true };
+    assert.equal(f.core.capabilities().actions.includes('agent-rename'), false);
+});
 test('attributed transcript preserves source IDs, tool/reasoning details, statuses and group speaker', () => {
     const f = fixture();
     const row = { ...f.messages[0], reasoning: 'thinking', pending: true, tool: { callId: 'call', name: 'read', state: 'running' as const } };

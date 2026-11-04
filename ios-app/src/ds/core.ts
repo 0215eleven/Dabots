@@ -81,7 +81,10 @@ export function createDsCore(options: DsCoreOptions): DsCore {
         const snapshot = current(), trusted = snapshot.source === 'live' && options.isOnline();
         const writable = trusted && !snapshot.team.readOnly;
         const actions = trusted ? DS_ACTIONS.filter(a => mobileActionAllowed(snapshot.team.mobileCapabilities, a) && (writable || ['queue', 'efforts', 'room-progress'].includes(a))) : [];
-        return { editDraft: !snapshot.accessDenied && !snapshot.team.readOnly && (snapshot.source === 'cache' || snapshot.team.mobileCapabilities?.send === true), actions, send: !!outbox && writable && snapshot.team.mobileCapabilities?.send === true, history: trusted && snapshot.team.mobileCapabilities?.history === true, stream: trusted && snapshot.team.mobileCapabilities?.stream === true, cancel: writable && mobileCancelAllowed(snapshot.team.mobileCapabilities), modelSelection: actions.includes('efforts') && actions.includes('update-bot'), agents: trusted && snapshot.team.agentAccess === true, providerConfiguration: false as const, accounts: false as const, unsupported: DS_UNSUPPORTED };
+        // Agent naming is separate from team management. Old `agents` flags alone
+        // must not offer an operation their desktop Bridge does not implement.
+        const rename = writable && snapshot.team.agentAccess === true && Array.isArray(snapshot.team.mobileCapabilities?.actions) && snapshot.team.mobileCapabilities.actions.includes('agent-rename') ? ['agent-rename'] : [];
+        return { editDraft: !snapshot.accessDenied && !snapshot.team.readOnly && (snapshot.source === 'cache' || snapshot.team.mobileCapabilities?.send === true), actions: [...actions, ...rename], send: !!outbox && writable && snapshot.team.mobileCapabilities?.send === true, history: trusted && snapshot.team.mobileCapabilities?.history === true, stream: trusted && snapshot.team.mobileCapabilities?.stream === true, cancel: writable && mobileCancelAllowed(snapshot.team.mobileCapabilities), modelSelection: actions.includes('efforts') && actions.includes('update-bot'), agents: trusted && snapshot.team.agentAccess === true, providerConfiguration: false as const, accounts: false as const, unsupported: DS_UNSUPPORTED };
     }
     function textGrant(kind: 'send' | 'history' | 'stream') {
         const snapshot = live(kind === 'send');

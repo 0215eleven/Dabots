@@ -17,11 +17,12 @@ async function api(base, path, token, body) {
   return { status: response.status, value: await response.json() }
 }
 let passed = 0, client, sdkStream
+const tokens = new MemoryTokenStore()
 const check = name => { passed++; console.log(`PASS ${name}`) }
 try {
   fixture = await launchFixture()
   const urls = fixture.urls
-  client = new MobileClient({ baseUrl: urls.bridgeUrl, allowInsecure: true, tokenStore: new MemoryTokenStore(), WebSocket: TrackedWebSocket, reconnectDelayMs: 20 })
+  client = new MobileClient({ baseUrl: urls.bridgeUrl, allowInsecure: true, tokenStore: tokens, WebSocket: TrackedWebSocket, reconnectDelayMs: 20 })
   const operator = async (endpoint, payload) => { const response = await fetch(urls.operatorUrl, { method: 'POST', headers: { 'x-fixture': 'bridge-test-only' }, body: JSON.stringify({ endpoint, payload }) }); assert.equal(response.status, 200); return response.json() }
   assert.equal((await client.info()).capabilities.groups, true)
   check('group capability requires the reviewed group contract')
@@ -250,6 +251,11 @@ try {
     assert.equal(agentState.agents.length, 1)
     assert.deepEqual(agentState.agents[0].sessions, [opened.sessionId])
     assert.equal((await client.target(opened.conversationId)).kind, 'agent')
+    assert.ok((await client.info()).capabilities.actions.includes('agent-rename'))
+    const second = await action('agent-new', { agentId: opened.agentId })
+    const secondName = (await client.conversations()).conversations.find(c=>c.id===second.conversationId).name
+    const renamed = await action('agent-rename', {agentId:opened.agentId,sessionId:opened.sessionId,title:'  Phone manual title  '})
+    assert.equal(renamed.title,'Phone manual title');assert.ok(Number.isSafeInteger(renamed.seq))
     const agentMessage = { conversationId: opened.conversationId, sessionId: opened.sessionId, requestId: 'agent_stable_1', text: 'hello agent' }
     assert.equal((await client.submit(agentMessage)).accepted, true)
     assert.deepEqual(await client.submit(agentMessage), await client.submission(agentMessage.requestId))
@@ -260,6 +266,13 @@ try {
     })
     assert.equal(agentHistory.messages.filter(row => row.role === 'user' && row.text === 'hello agent').length, 1)
     assert.equal(agentHistory.messages.find(row => row.role === 'user').requestId, 'agent_stable_1')
+    const reconnected = new MobileClient({baseUrl:urls.bridgeUrl,allowInsecure:true,tokenStore:tokens,WebSocket:TrackedWebSocket})
+    try{
+      const rows=(await reconnected.conversations()).conversations
+      assert.equal(rows.find(c=>c.id===opened.conversationId).name,'Phone manual title','first-prompt automatic titles must not replace the explicit user title')
+      assert.equal(rows.find(c=>c.id===second.conversationId).name,secondName,'a sibling Session title is unchanged')
+    }finally{reconnected.dispose()}
+    check('Agent manual title survives a new SDK connection and automatic first-prompt naming without retitling another Session')
     // A Bot Session cannot be addressed as the Agent.
     const forged = `agent:${opened.agentId}:${agentState.bots[0].sessionId}`
     assert.equal((await api(urls.bridgeUrl, `conversations/${encodeURIComponent(forged)}/target`, session.accessToken)).status, 404)

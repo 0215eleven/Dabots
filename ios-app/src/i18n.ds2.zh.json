@@ -217,5 +217,11 @@
   "Invalid computer identity.": "电脑身份无效。",
   "Invalid phone identity.": "手机身份无效。",
   "The computer identity does not match this connection.": "电脑身份与此连接不匹配。",
-  "Ask the server owner to revoke this phone's old identity before resetting. Saved computers and chats stay here; use a new invitation and scan each computer again.": "请先让服务器所有者撤销这部手机的旧身份，再进行重置。已保存的电脑和聊天会保留；之后用新邀请码绑定，并重新扫描每台电脑。"
+  "Ask the server owner to revoke this phone's old identity before resetting. Saved computers and chats stay here; use a new invitation and scan each computer again.": "请先让服务器所有者撤销这部手机的旧身份，再进行重置。已保存的电脑和聊天会保留；之后用新邀请码绑定，并重新扫描每台电脑。",
+  "Rename conversation": "重命名对话",
+  "Conversation name": "对话名称",
+  "Use up to 80 characters on one line.": "最多 80 个字符，保持一行。",
+  "Use a nonempty, single-line name of up to 80 characters.": "请输入 1 至 80 个字符的单行名称。",
+  "Could not confirm the conversation name was saved. Please try again.": "未能确认对话名称已保存，请重试。",
+  "This Agent conversation is no longer available.": "这条 Agent 对话已不可用。"
 }

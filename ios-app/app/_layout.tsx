@@ -63,6 +63,7 @@ function Root() {
         <Stack.Screen name="pairing" options={{ presentation: "modal", headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="relay-access" options={{ title: tr("Connection invitation"), presentation: "formSheet", sheetAllowedDetents: [0.85], sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: false }} />
         <Stack.Screen name="computer-name" options={{ title: tr("Computer name"), presentation: "formSheet", sheetAllowedDetents: [0.85], sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: false }} />
+        <Stack.Screen name="agent-name" options={{ title: tr("Rename conversation"), presentation: "formSheet", sheetAllowedDetents: [0.85], sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: false }} />
         <Stack.Screen name="classic" options={{ headerShown: false }} />
       </Stack>
     </View>

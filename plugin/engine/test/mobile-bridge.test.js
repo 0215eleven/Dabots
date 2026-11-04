@@ -6,7 +6,7 @@ import { install } from '../src/host/channel.js'
 // owns only persistence, capability admission and the Session prompt service.
 function channel({ prepare = async () => {}, locked = false } = {}) {
   let route, current = 'current'
-  const submitted = []
+  const submitted = [], renamed = []
   const state = {
     bots: { chief: { id: 'chief' } },
     rooms: { room: { id: 'room', members: ['chief'], admin: 'chief', mode: 'admin' } },
@@ -27,14 +27,14 @@ function channel({ prepare = async () => {}, locked = false } = {}) {
     ctx: {
       effect: fn => fn(),
       connection: { fetch: { register: value => { route = value; return () => {} } } },
-      sessionController: { prompt: async value => { submitted.push(value); return { accepted: true } } },
+      sessionController: { prompt: async value => { submitted.push(value); return { accepted: true } }, rename: async value => { renamed.push(value); return { title: value.title, seq: 9 } } },
     },
   }
   install(rt)
   const call = async (endpoint, payload, signal) => (await route.fetch(new Request('http://localhost/api/bot', {
     method: 'POST', body: JSON.stringify({ endpoint, payload }), ...(signal ? { signal } : {}),
   }))).json()
-  return { call, state, submitted }
+  return { call, state, submitted, renamed }
 }
 
 const message = fields => ({ version: 1, conversationId: 'chief', expectedSessionId: 'current', requestId: 'mobile_1', content: [{ type: 'text', text: 'hello' }], ...fields })
@@ -42,7 +42,7 @@ const message = fields => ({ version: 1, conversationId: 'chief', expectedSessio
 test('the production engine advertises the reliable redacted mobile contract', async () => {
   const { call } = channel({ locked: true })
   const response = await call('bridge.describe')
-  assert.deepEqual(response, { ok: true, value: { version: 1, stableRequestId: true, redactedText: true, groups: true, groupProjection: 1, attachments: false, agents: 1 } })
+  assert.deepEqual(response, { ok: true, value: { version: 1, stableRequestId: true, redactedText: true, groups: true, groupProjection: 1, attachments: false, agents: 1, agentRename: 1 } })
 })
 
 test('redaction returns only owned conversation text and refuses stale sessions', async () => {
@@ -105,6 +105,16 @@ test('the mobile Agent entry reuses its owned live session and creates a new one
   assert.deepEqual(await call('bridge.agent-open'), { ok: true, value: { agentId: 'helper', sessionId: 'agent-current' } })
   assert.deepEqual(await call('bridge.agent-new', { agentId: 'helper' }), { ok: true, value: { agentId: 'helper', sessionId: 'agent-new' } })
   assert.equal((await call('bridge.agent-new', { agentId: 'constructor' })).error.code, 'bot/stale')
+})
+
+test('mobile Agent renaming uses the durable user-title service only for its owned session', async () => {
+  const { call, renamed } = channel()
+  assert.equal((await call('bridge.describe')).value.agentRename, 1)
+  assert.deepEqual(await call('bridge.agent-rename', { agentId: 'helper', sessionId: 'agent-current', title: '  Manual title  ' }), { ok: true, value: { title: 'Manual title', seq: 9 } })
+  for (const payload of [{agentId:'helper',sessionId:'current',title:'wrong'}, {agentId:'other',sessionId:'agent-current',title:'wrong'}, {agentId:'helper',sessionId:'agent-current',title:' '}, {agentId:'helper',sessionId:'agent-current',title:'x\ny'}, {agentId:'helper',sessionId:'agent-current',title:'x'.repeat(81)}, {agentId:'helper',sessionId:'agent-current',title:'x',workspaceId:'foreign'}])
+    assert.equal((await call('bridge.agent-rename',payload)).ok,false)
+  assert.deepEqual(renamed,[{sessionId:'agent-current',title:'Manual title'}])
+  assert.equal((await channel({locked:true}).call('bridge.agent-rename',{agentId:'helper',sessionId:'agent-current',title:'x'})).error.code,'bot/read-only')
 })
 
 test('a hidden group session cannot be smuggled into the Agent ownership list', async () => {

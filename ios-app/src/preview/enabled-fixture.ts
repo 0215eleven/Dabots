@@ -15,15 +15,18 @@ export function enableFixture(client:MobileClient,seed:TeamState,source:Conversa
  if(!enabledFixture)return client;
  const team=structuredClone(seed),conversations=structuredClone(source);let lose='';let next=0;
  team.models=[{ref:'dsh/vendor:model',name:'DSH Model One'},{ref:'dsh/custom:next',name:'DSH Model Two'}];
+ for(const item of conversations)if(item.kind==='agent')item.agentId='preview';
  team.rooms[0]={...team.rooms[0],notice:'Desktop notice A',mode:'admin',admin:'preview-research'};
  const control:FixtureControl={team,calls:[],menus:new Map(),lose(action){lose=action}};fixtureControl=control;
  Object.assign(globalThis,{__DS_TEST_FIXTURE__:control});
  return {...client,
- info:async()=>({serverId,capabilities:{history:true,stream:true,send:true,cancel:true,actions:['create-bot','update-bot','duplicate-bot','delete-bot','create-room','update-room','delete-room','set-flags','set-prefs','set-main','efforts']}}),
+ info:async()=>({serverId,capabilities:{history:true,stream:true,send:true,cancel:true,agents:true,actions:['create-bot','update-bot','duplicate-bot','delete-bot','create-room','update-room','delete-room','set-flags','set-prefs','set-main','efforts','agent-open','agent-rename']}}),
  state:async()=>structuredClone(team),conversations:async()=>({conversations:structuredClone(conversations)}),
  action:async(action:string,body:Record<string,unknown>={})=>{
   control.calls.push({action,body:structuredClone(body)});
   if(action==='efforts')return{efforts:[{id:'host/very-deep',name:'Host Deep'},{id:'host/auto-42',name:'Host Auto'}]};
+  if(action==='agent-open'){const item=conversations.find(c=>c.kind==='agent')!;return{conversationId:item.id,agentId:item.agentId,sessionId:item.sessionId}}
+  if(action==='agent-rename'){const item=conversations.find(c=>c.kind==='agent'&&c.agentId===body.agentId&&c.sessionId===body.sessionId);if(!item)throw Error('Unavailable fixture Agent');item.name=String(body.title);if(lose===action){lose='';throw Error('Fixture lost response after desktop apply')}return{title:item.name,seq:1}}
   const bot=team.bots.find(b=>b.id===body.id),room=team.rooms.find(r=>r.id===body.id);let id=String(body.id??'');
   if(action==='create-bot'||action==='duplicate-bot'){id=`created-${++next}`;team.bots.push({...bot,...body,id,name:action==='duplicate-bot'?'Canonical duplicate':`Canonical ${body.name}`,sessionId:`s-${id}`});conversations.push({id,kind:'bot',name:team.bots.at(-1)!.name,sessionId:`s-${id}`})}
   if(action==='update-bot'&&bot)Object.assign(bot,body,body.name?{name:`Canonical ${body.name}`}:{ });

@@ -9,7 +9,7 @@ import { projectTaskEvent, projectApprovalEvent } from './task-events.mjs'
 const error = (status, code, text) => new BridgeError(status, code, text)
 const unsupported = () => { throw error(501, 'UNSUPPORTED', 'This bridge capability is unavailable.') }
 const validSeq = value => Number.isSafeInteger(value) && value >= -1
-export const AGENT_ACTIONS = ['agent-open', 'agent-new']
+export const AGENT_ACTIONS = ['agent-open', 'agent-new', 'agent-rename']
 function approvalEvents(conversations, work) {
   return work.approvals.flatMap(entry => {
     const item = conversations.find(item => item.id === (entry.roomId ?? entry.botId))
@@ -25,7 +25,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
   let description = {}
   const shutdown = new AbortController()
   // This allowlist is entirely internal. No mobile-supplied endpoint reaches it.
-  const allowed = new Set(['state', 'bridge.describe', 'bridge.submit', 'bridge.redact', 'bridge.agent-open', 'bridge.agent-new', ...MOBILE_ACTIONS])
+  const allowed = new Set(['state', 'bridge.describe', 'bridge.submit', 'bridge.redact', 'bridge.agent-open', 'bridge.agent-new', 'bridge.agent-rename', ...MOBILE_ACTIONS])
   async function call(endpoint, payload = {}, signal = AbortSignal.timeout(30_000)) {
     if (disposed) throw error(503, 'DISPOSED', 'The bridge has stopped.')
     if (!allowed.has(endpoint)) throw error(403, 'ACTION_NOT_ALLOWED', 'Unsupported team operation.')
@@ -46,6 +46,12 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
   // redaction. Whether a given phone may use it is the owner's per-device grant,
   // passed in as `access` by the server; without it nothing about Agents leaves.
   const agentsSupported = () => description.version === 1 && description.redactedText === true && description.stableRequestId === true && description.agents === 1
+  const agentActions = () => agentsSupported() ? AGENT_ACTIONS.filter(name => name !== 'agent-rename' || description.agentRename === 1) : []
+  async function agentTitle(item, title, signal) {
+    const value = await call('bridge.redact', { conversationId: channelId(item), expectedSessionId: item.sessionId, texts: [title] }, signal)
+    if (!Array.isArray(value?.texts) || typeof value.texts[0] !== 'string' || value.texts.length !== 1) throw error(503, 'REDACTION_UNAVAILABLE', 'The host title could not be confirmed.')
+    return value.texts[0]
+  }
   // The DS Bot channel names the Agent; the phone names one of its Sessions.
   const channelId = item => item.kind === 'agent' ? `agent:${item.agentId}` : item.id
   // The server passes a reader of the device's current grant; it is read again
@@ -212,6 +218,18 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     allowed()
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw error(400, 'INVALID_ACTION', 'Invalid Agent request.')
     const keys = Object.keys(payload)
+    if (name === 'agent-rename') {
+      if (!agentActions().includes(name)) throw error(403, 'ACTION_NOT_ALLOWED', 'Agent renaming requires an updated desktop plugin.')
+      if (keys.some(key => !['agentId', 'sessionId', 'title'].includes(key)) || typeof payload.agentId !== 'string' || typeof payload.sessionId !== 'string' || typeof payload.title !== 'string' || !payload.title.trim() || payload.title.trim().length > 80 || /[\p{Cc}\p{Zl}\p{Zp}]/u.test(payload.title)) throw error(400, 'INVALID_ACTION', 'Use a nonempty, single-line title of up to 80 characters.')
+      const item = await target(`agent:${payload.agentId}:${payload.sessionId}`, signal, access)
+      if (item.readOnly) throw error(409, 'bot/read-only', 'The team is read-only.')
+      allowed()
+      const result = await call('bridge.agent-rename', { agentId: item.agentId, sessionId: item.sessionId, title: payload.title.trim() }, signal)
+      if (typeof result?.title !== 'string' || !Number.isSafeInteger(result.seq) || result.seq < 0) throw error(503, 'AGENT_UNCONFIRMED', 'The host did not confirm the title.')
+      const title = await agentTitle(item, result.title, signal)
+      allowed()
+      return { title, seq: result.seq }
+    }
     if (name === 'agent-open' ? keys.length : keys.some(key => key !== 'agentId') || typeof payload.agentId !== 'string')
       throw error(400, 'INVALID_ACTION', 'Invalid Agent request.')
     if (name === 'agent-new' && !(await snapshot(signal)).agentConversations.some(item => item.agentId === payload.agentId))
@@ -263,7 +281,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
       activity: true, recentActivity: typeof sessionController?.list === 'function',
       taskEvents: fixtureText || (description.version === 1 && description.redactedText === true),
       ...actionCapabilities(), ...management(),
-      ...(agentsSupported() ? { actions: [...actionCapabilities().actions, ...AGENT_ACTIONS] } : {}),
+      ...(agentsSupported() ? { actions: [...actionCapabilities().actions, ...agentActions()] } : {}),
       memory: actionCapabilities().actions.includes('memory-view'), memorySummary: false, memoryTeam: false,
       schedules: actionCapabilities().actions.includes('schedules'), usage: actionCapabilities().actions.includes('usage') }),
     async state(signal, access) {
@@ -287,6 +305,12 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
         ? (await sessionController.list({}, signal ?? AbortSignal.timeout(30_000))).items : []
       const view = await snapshot(signal)
       const listed = [...view.conversations, ...(grantOf(access).agents === true ? view.agentConversations : [])]
+      for (const item of listed) {
+        if (item.kind !== 'agent') continue
+        const title = (Array.isArray(rows) ? rows : []).find(row => row.sessionId === item.sessionId)?.projections?.values?.title
+        if (typeof title === 'string' && title.trim()) item.name = await agentTitle(item, title, signal)
+        requireGrant(item, access)
+      }
       return { conversations: listed.map(item => recentConversation(item, Array.isArray(rows) ? rows : [], view.work)) }
     },
     async target(id, signal, access) { const item = await target(id, signal, access); return { conversationId: id, sessionId: item.sessionId, revision: item.revision, kind: item.kind } },
@@ -343,6 +367,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     },
     upload: unsupported, transcribe: unsupported, attachment: unsupported,
     async action(name, payload, signal, access) {
+      if (name === 'agent-rename' && !agentActions().includes(name)) throw error(403, 'ACTION_NOT_ALLOWED', 'Agent renaming requires an updated desktop plugin.')
       if (AGENT_ACTIONS.includes(name)) return agentAction(name, payload, signal, access)
       if (!actionCapabilities().actions.includes(name)) throw error(403, 'ACTION_NOT_ALLOWED', 'This mobile action is unavailable.')
       return teamActions.action(name, payload, signal)

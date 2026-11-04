@@ -17,7 +17,7 @@ export function createMobileBridge(rt, { ok, fail }) {
   return async (endpoint, body, signal) => {
     switch (endpoint) {
       case 'bridge.describe':
-        return ok({ version: 1, stableRequestId: true, redactedText: true, groups: true, groupProjection: 1, attachments: false, agents: 1 })
+        return ok({ version: 1, stableRequestId: true, redactedText: true, groups: true, groupProjection: 1, attachments: false, agents: 1, ...(typeof ctx.sessionController.rename === 'function' ? { agentRename: 1 } : {}) })
       case 'bridge.redact': {
         await rt.loadSecrets()
         const id = body.conversationId
@@ -70,6 +70,16 @@ export function createMobileBridge(rt, { ok, fail }) {
         if (rt.readOnly() !== undefined) return fail('Team is read-only', 'bot/read-only')
         if (!own(state.agents, body.agentId)) return fail('Refresh the DSH Agent', 'bot/stale')
         return ok({ agentId: body.agentId, sessionId: await rt.createAgentSession(body.agentId) })
+      }
+      case 'bridge.agent-rename': {
+        await rt.load()
+        if (rt.readOnly() !== undefined) return fail('Team is read-only', 'bot/read-only')
+        if (Object.keys(body).some(key => !['agentId', 'sessionId', 'title'].includes(key)) || typeof body.agentId !== 'string' || typeof body.sessionId !== 'string' || typeof body.title !== 'string' || !body.title.trim() || body.title.trim().length > 80 || /[\p{Cc}\p{Zl}\p{Zp}]/u.test(body.title)) return fail('Invalid title', 'bot/invalid')
+        if (!agentTarget(`agent:${body.agentId}`, body.sessionId)) return fail('Refresh the DSH Agent', 'bot/stale')
+        if (typeof ctx.sessionController.rename !== 'function') return fail('Renaming is unavailable', 'bot/not-found')
+        signal?.throwIfAborted()
+        // Public DSH command appends a user-owned session/title event and supersedes auto titles.
+        return ok(await ctx.sessionController.rename({ sessionId: body.sessionId, title: body.title.trim() }))
       }
     }
   }
