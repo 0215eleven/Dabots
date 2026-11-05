@@ -41,7 +41,7 @@ export function ChatView({ conversationId, ownerId }: {
     const target: ChatTarget | undefined = agent ? { ...agent, kind: 'agent' } : group ? { id: group.id, serverId: group.serverId, name: group.name, kind: 'channel', members: agents.filter(a => group.members.includes(a.id)) } : undefined;
     const insets = useSafeAreaInsets();
     const [foreground, muted, fieldBackground, raised, action, actionForeground, background] = useThemeColor(['foreground', 'muted', 'default', 'surface-tertiary', 'accent', 'accent-foreground', 'background']);
-    const attachmentEpoch=previewEpoch(state.core),previewsAllowed=Boolean(state.view?.capabilities.history&&!workspace.getSnapshot()?.accessDenied&&workspace.team.mobileCapabilities?.attachmentPreviews===1&&(!rawConversationId?.startsWith('agent:')||workspace.team.agentAccess===true));
+    const attachmentEpoch=state.core?previewEpoch(state.core):undefined,previewsAllowed=Boolean(state.core&&state.view?.capabilities.history&&!workspace.getSnapshot()?.accessDenied&&workspace.team.mobileCapabilities?.attachmentPreviews===1&&(!rawConversationId?.startsWith('agent:')||workspace.team.agentAccess===true));
     const attachmentScope=attachmentEpoch+':'+String(previewsAllowed);
     const messages = useMemo(() => screenMessages(state.messages, tr,{previews:previewsAllowed,epoch:attachmentEpoch}), [state.messages, locale,previewsAllowed,attachmentEpoch]);
     const motion = useChatMotion(insets.top + 44, Math.max(insets.bottom, 10) - 10, state.ready, messages.length > 0, messages.findLast(m => m.author === 'user')?.id ?? null);
