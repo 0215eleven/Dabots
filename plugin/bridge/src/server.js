@@ -1,4 +1,5 @@
 import {createUploads,validateUpload,UPLOAD_LIMITS} from './uploads.mjs'
+import {createUploadTransfers,TRANSFER_LIMITS} from './upload-transfers.mjs'
 import { createServer as createHttpServer } from 'node:http'
 import { createServer as createHttpsServer } from 'node:https'
 import { readFile } from 'node:fs/promises'
@@ -65,17 +66,21 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
   } else if (!tls && config.devAllowInsecure !== true && !managedRemote) throw new Error('Set mobile.publicUrl to your HTTPS reverse proxy URL, or configure a TLS certificate.')
   const sockets = new Map()
   const requestControllers = new Map()
+  let transfers
   const auth = await createAuthStore(home, { onRevoke: id => {
     for (const [socket, state] of sockets) if (state.deviceId === id) socket.close(4403, 'Device revoked')
     for (const [controller, deviceId] of requestControllers) if (deviceId === id) controller.abort(new BridgeError(401, 'UNAUTHORIZED', 'This device was revoked.'))
+    void transfers?.removeDevice(id).catch(()=>{})
   }, onAgentsDenied: id => {
     for (const [socket, state] of sockets) if (state.deviceId === id && state.agent) socket.close(4403, 'DSH Agent access removed')
     // An in-flight request may be waiting on the host with Agent work; stop them all.
     for (const [controller, deviceId] of requestControllers) if (deviceId === id) controller.abort(new BridgeError(403, 'AGENT_ACCESS_REQUIRED', 'DSH Agent access was removed.'))
+    void transfers?.removeDevice(id,'agent').catch(()=>{})
   } })
   // A reader of the owner's grant: the adapter calls it again before reaching the
   // host and before releasing Agent text, so a removal takes effect mid-request.
   const uploads = await createUploads(home, auth)
+  transfers = await createUploadTransfers({home,auth})
   let uploading = 0
   const grant = deviceId => () => ({ agents: auth.agentsAllowed(deviceId) })
   const allowedOrigins = new Set(config.allowedOrigins ?? [])
@@ -149,11 +154,13 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
       if (existing.error) throw new BridgeError(existing.error.status, existing.error.code, existing.error.message)
       return recover(device, existing, signal)
     }
-    for (const receiptId of receiptIds) {
+    const streamed=receiptIds.some(id=>auth.data.transfers?.[id])
+    if(streamed&&receiptIds.some(id=>!auth.data.transfers[id]))fail(400,'INVALID_ATTACHMENTS','Do not mix attachment protocol versions.')
+    for (const receiptId of streamed?[]:receiptIds) {
       const upload = auth.data.uploads[receiptId]
       if (!upload || upload.deviceId !== device.id || upload.conversationId !== body.conversationId || upload.sessionId !== body.sessionId || upload.expiresAt <= Date.now()) fail(409, 'UPLOAD_EXPIRED', 'Upload this attachment again for the selected conversation.')
     }
-    const uploadParts = await uploads.resolve(receiptIds, {deviceId:device.id,conversationId:body.conversationId,sessionId:body.sessionId})
+    const uploadParts = await (streamed?transfers:uploads).resolve(receiptIds, {deviceId:device.id,conversationId:body.conversationId,sessionId:body.sessionId})
     if (Object.keys(auth.data.submissions).length >= 100_000) fail(507, 'LEDGER_FULL', 'The message receipt store is full. Contact the server operator.')
     const receipt = { requestId: body.requestId, conversationId: body.conversationId, sessionId: body.sessionId, status: 'unknown', createdAt: Date.now() }
     auth.data.submissions[key] = { hash, receipt }
@@ -166,7 +173,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         if (result?.accepted !== true) fail(503, 'ADMISSION_UNCONFIRMED', 'The host has not confirmed this message.')
         Object.assign(receipt, { accepted: result.accepted === true, status: 'accepted' })
         await auth.save()
-        for (const id of receiptIds) await uploads.remove(id,device.id).catch(()=>{})
+        for (const id of receiptIds) await (streamed?transfers.remove(id,{deviceId:device.id}):uploads.remove(id,device.id)).catch(()=>{})
         return receipt
       } catch (error) {
         if (error.status >= 400 && error.status < 500) {
@@ -194,7 +201,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         response.setHeader('Vary', 'Origin')
       }
       if (request.method === 'OPTIONS') {
-        response.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '600' })
+        response.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '600' })
         response.end()
         return
       }
@@ -220,11 +227,12 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         rate(`refresh:${ip}`, 30)
         result = await auth.refresh((await jsonBody(request)).refreshToken)
       } else {
-        rate(`auth:${ip}`, 600)
+        const chunkRequest=method==='PUT'&&/^\/mobile\/v1\/upload-transfers\/[a-f0-9-]{36}$/u.test(path)
+        rate(`${chunkRequest?'auth-chunk':'auth'}:${ip}`, chunkRequest?4000:600)
         const device = access(request)
         requestControllers.set(controller, device.id)
         const assertActive = () => { signal.throwIfAborted(); access(request) }
-        rate(`device:${device.id}`, 600)
+        rate(`${chunkRequest?'device-chunk':'device'}:${device.id}`, chunkRequest?2000:600)
         const parts = path.startsWith(`${PREFIX}/`) ? path.slice(PREFIX.length + 1).split('/').map(value => {
           try { return decodeURIComponent(value) } catch { fail(400, 'INVALID_PATH', 'The request path is invalid.') }
         }) : []
@@ -236,6 +244,33 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
           result = forDevice(await adapter.history(parts[1], { cursor: url.searchParams.get('cursor') ?? undefined, limit }, signal, grant(device.id)), device.id)
         } else if (parts[0] === 'conversations' && parts.length === 3 && method === 'GET' && parts[2] === 'target') result = await adapter.target(parts[1], signal, grant(device.id))
         else if (parts[0] === 'conversations' && parts.length === 3 && method === 'POST' && parts[2] === 'cancel') result = await adapter.cancel(parts[1], signal, grant(device.id))
+        else if (parts[0]==='upload-transfers') {
+          if(adapter.capabilities?.().uploadTransfers!==1)fail(501,'UNSUPPORTED','Update the desktop plugin for large attachments.')
+          if(parts.length===1&&method==='POST'){
+            const {conversationId,sessionId,...metadata}=await jsonBody(request)
+            required(conversationId,'conversationId');required(sessionId,'sessionId')
+            const target=await adapter.target(conversationId,signal,grant(device.id));assertActive()
+            if(target.sessionId!==sessionId)fail(409,'TARGET_CHANGED','Refresh the receiving conversation.')
+            result=await transfers.begin({deviceId:device.id,conversationId,sessionId,conversationKind:target.kind},metadata);assertActive()
+          }else{
+            const id=parts[1],scope={deviceId:device.id},entry=await transfers.status(id,scope)
+            if(parts.length===2&&method==='DELETE'){await transfers.remove(id,scope);result={removed:true}}
+            else{
+              const target=await adapter.target(entry.conversationId,signal,grant(device.id));assertActive()
+              if(target.sessionId!==entry.sessionId){await transfers.remove(id,scope);fail(409,'TARGET_CHANGED','Refresh the receiving conversation.')}
+              if(parts.length===2&&method==='GET')result=entry
+              else if(parts.length===2&&method==='PUT'){
+                const offset=Number(url.searchParams.get('offset')??0)
+                if(uploading>=4)fail(429,'UPLOAD_BUSY','Wait for current uploads to finish.')
+                uploading++
+                try{const bytes=await readBody(request,TRANSFER_LIMITS.chunkBytes);assertActive();result=await transfers.write(id,scope,offset,bytes);assertActive()}
+                finally{uploading--}
+              }else if(parts.length===3&&parts[2]==='complete'&&method==='POST'){
+                const body=await jsonBody(request);assertActive();result=await transfers.complete(id,scope,body.sha256);assertActive()
+              }else fail(404,'NOT_FOUND','Unknown upload transfer operation.')
+            }
+          }
+        }
         else if (method === 'POST' && path === `${PREFIX}/uploads`) {
           if (adapter.capabilities?.().attachments !== true) fail(501, 'UNSUPPORTED', 'Update the desktop plugin to send attachments.')
           if (uploading >= 4) fail(429, 'UPLOAD_BUSY', 'Wait for current uploads to finish.')
@@ -450,6 +485,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         await Promise.allSettled(submissions.values())
         await Promise.allSettled(recoveries.values())
         await uploads.close()
+        await transfers.close()
         await auth.close()
       })()
       return closing

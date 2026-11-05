@@ -9,13 +9,18 @@ function keyBytes(key){if(key instanceof Uint8Array&&key.length===32)return key.
 const hex=value=>Array.from(value,x=>x.toString(16).padStart(2,'0')).join('');
 async function binary(value){if(value instanceof ArrayBuffer)return new Uint8Array(value);if(ArrayBuffer.isView(value))return new Uint8Array(value.buffer,value.byteOffset,value.byteLength);if(value?.arrayBuffer)return new Uint8Array(await value.arrayBuffer());throw Error('Invalid relay binary data.');}
 function abortable(promise,signal){if(!signal)return promise;if(signal.aborted)return Promise.reject(Error('Request cancelled.'));return new Promise((resolve,reject)=>{const abort=()=>{cleanup();reject(Error('Request cancelled.'));},cleanup=()=>signal.removeEventListener('abort',abort);signal.addEventListener('abort',abort,{once:true});promise.then(value=>{cleanup();resolve(value);},error=>{cleanup();reject(error);});});}
+export function limitRelayUploads(info,policy){
+ if(policy?.uploadTransfers===1&&policy.maxUploadBytes===100000000)return info;
+ if(!info?.capabilities)return info;
+ return {...info,capabilities:{...info.capabilities,uploadTransfers:false,transferLimits:null}};
+}
 export function createRelayTransport({relay,computerId,computerKey,serverId,randomBytes,authenticate,requireAccess=false,WebSocket:Socket=globalThis.WebSocket,onStatus=()=>{}}){
  const origin=new URL(relay);if(origin.protocol!=='wss:'||origin.username||origin.password||origin.pathname!=='/'||origin.search||origin.hash)throw Error('Invalid WSS relay origin.');
  if(typeof computerId!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(computerId)||typeof serverId!=='string'||!serverId||typeof Socket!=='function')throw Error('Invalid relay host.');
  const key=keyBytes(computerKey),baseUrl=`https://${hex(sha256(utf8.encode(computerId))).slice(0,32)}.relay.invalid`,tlsPin=`sha256:${hex(sha256(key))}`;
  let current=null,disposed=false;
  function connect(){
-  if(disposed)return Promise.reject(Error('Relay transport disposed.'));if(current)return current.ready;
+  if(disposed)return Promise.reject(Error('Relay transport disposed.'));if(current&&current.socket.readyState>=2)current.stop('RELAY_DISCONNECTED');if(current)return current.ready;
   const socket=new Socket(`${origin.origin}/v1/phone?computer=${encodeURIComponent(computerId)}`);socket.binaryType='arraybuffer';
   const state={socket,channel:null,rpc:null,queue:Promise.resolve(),ready:null,stop:null,queued:0,proofSent:false,challenged:false};let resolveReady,rejectReady,settled=false;
   state.ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});state.ready.catch(()=>{});current=state;onStatus('connecting');
@@ -46,6 +51,7 @@ export function createRelayTransport({relay,computerId,computerKey,serverId,rand
      }
      if(requireAccess&&!state.proofSent){stop('RELAY_ACCESS_REQUIRED');return;}
      if(frame.type!=='connected'||typeof frame.streamId!=='string'||!/^[A-Za-z0-9_-]{22}$/.test(frame.streamId))throw Error('Invalid relay stream.');
+     state.uploadPolicy={uploadTransfers:frame.uploadTransfers,maxUploadBytes:frame.maxUploadBytes};
      const epoch=b64url(randomBytesFrom(randomBytes,32)),context={relay:origin.origin,computerId,serverId,streamId:frame.streamId,epoch};
      state.channel=createPhoneHandshake({computerKey:key,context,randomBytes});socket.send(utf8.encode(JSON.stringify({type:'offer',version:2,epoch,serverId,box:encode(state.channel.offer)})));return;
     }
@@ -61,7 +67,8 @@ export function createRelayTransport({relay,computerId,computerKey,serverId,rand
   const path=pathFor(input);if(init.signal?.aborted)throw Error('Request cancelled.');const rpc=await abortable(connect(),init.signal);let body=new Uint8Array();
   if(init.body!==undefined&&init.body!==null)body=typeof init.body==='string'?utf8.encode(init.body):await binary(init.body);
   if(init.signal?.aborted)throw Error('Request cancelled.');const response=await rpc.request({method:init.method??'GET',path,headers:init.headers??{},body,signal:init.signal});
-  return {status:response.status,ok:response.status>=200&&response.status<300,headers:new Headers(response.headers),json:async()=>JSON.parse(decoder.decode(response.body)),arrayBuffer:async()=>response.body.slice().buffer,blob:async()=>new Blob([response.body],{type:response.headers['content-type']??'application/octet-stream'})};
+  const policy=current?.uploadPolicy;
+  return {status:response.status,ok:response.status>=200&&response.status<300,headers:new Headers(response.headers),json:async()=>{const value=JSON.parse(decoder.decode(response.body));return path.split('?')[0]==='/mobile/v1/info'?limitRelayUploads(value,policy):value;},arrayBuffer:async()=>response.body.slice().buffer,blob:async()=>new Blob([response.body],{type:response.headers['content-type']??'application/octet-stream'})};
  }
  class RelaySocket{
   static CONNECTING=0;static OPEN=1;static CLOSING=2;static CLOSED=3;

@@ -79,7 +79,7 @@ export function OpenBotChat({ conversation }: { conversation: Conversation }) {
     chat.setDraft(text);
     sentRef.current++;
     setReplyTarget(null);
-    try { const files=selected.items.length ? await selected.upload(client!,conversation.id) : []; if(await chat.send(files,text))selected.clear(); } catch(error){setAttachmentError(error instanceof Error?error.message:String(error));setSendRetryVersion(value=>value+1)} finally{sending.current=false}
+    try { const files=selected.items.length ? await selected.upload(client!,conversation.id) : []; if(await chat.send(files,text))selected.clearSent(); } catch(error){setAttachmentError(error instanceof Error?error.message:String(error));setSendRetryVersion(value=>value+1)} finally{sending.current=false}
   }, [chat]);
 
   return (
@@ -120,6 +120,8 @@ export function OpenBotChat({ conversation }: { conversation: Conversation }) {
         />
         <Animated.View style={[{position:"absolute",left:0,right:0,bottom:0},motion.composerStyle]} onLayout={motion.onComposerLayout}>
         {selected.uploading?<Button onPress={selected.cancelUpload}><Button.Label>{tr('Cancel upload')}</Button.Label></Button>:null}
+        {selected.statusLabel?<Typography.Paragraph accessibilityLiveRegion="polite" className="px-4 text-muted">{selected.statusLabel}</Typography.Paragraph>:null}
+        {selected.notice?<Typography.Paragraph className="px-4 text-muted">{selected.notice}</Typography.Paragraph>:null}
         {attachmentError?<Typography.Paragraph accessibilityRole="alert">{tr(attachmentError)}</Typography.Paragraph>:null}
         <ChatComposer attachments={attachmentEnabled?selected:undefined} menuProgress={selected.menuProgress} menuOpen={selected.menuOpen}
           sendRetryVersion={sendRetryVersion}

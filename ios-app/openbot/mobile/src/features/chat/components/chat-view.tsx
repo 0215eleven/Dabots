@@ -55,7 +55,7 @@ export function ChatView({ conversationId, ownerId }: {
         const files=selected.items.length ? await selected.upload(client!,raw!) : [];
         const result = await sendScreenMessage(state.core, conversationId, text, files);
         if (result.queued) {
-            draftState.sent(sentDraft); selected.clear();
+            draftState.sent(sentDraft); selected.clearSent();
             state.setError('');
         }
         else if (result.problem) {
@@ -100,6 +100,8 @@ export function ChatView({ conversationId, ownerId }: {
    <ChatHeader target={target} needsAction={false} channelBrowser={null} fallbackBackground={fieldBackground} foreground={foreground} liquidGlassAvailable={liquidGlass} topInset={insets.top} onBack={() => router.canGoBack() ? router.back() : router.replace('/')}/>
    <ChatMessageList target={target} rowsShown agents={agents} motion={motion} sending={busy} awaitingTurn={false} keyboardOffset={Math.max(insets.bottom, 10) - 10} canSend={canSend} online={state.online} appActive activeTurnId={null} activityAccessory={group ? <GroupActivity groupId={group.id}/> : undefined} activity={work && work.phase !== 'idle' ? { agentId: ownerId, phase: work.phase, detail: work.detail, turnId: null } : undefined} fieldBackground={fieldBackground} foreground={foreground} muted={muted} raised={raised} historyState={state.ready ? 'ready' : state.error ? 'error' : state.online ? 'loading' : 'waiting'} messages={messages} messageAliases={new Map()} referenceMessages={messages} hasOlder={Boolean(state.cursor)} olderLoading={state.olderLoading} olderError={state.olderError} onLoadOlder={() => void state.load(true)} showStarter={false} topInset={insets.top} onDismissStarter={() => { }} onSelectStarter={text => void send(text)} onRetryHistory={() => void state.load()}/>
    <Animated.View style={[{ position: "absolute", left: 0, right: 0, bottom: 0 }, motion.composerStyle]} onLayout={motion.onComposerLayout}>
+    {selected.statusLabel?<Typography.Paragraph type="body-xs" className="px-4 text-muted" accessibilityLiveRegion="polite">{selected.statusLabel}</Typography.Paragraph>:null}
+    {selected.notice?<Typography.Paragraph type="body-xs" className="px-4 text-muted">{selected.notice}</Typography.Paragraph>:null}
     {selected.uploading ? <Button variant="secondary" onPress={selected.cancelUpload}><Button.Label>{tr("Cancel upload")}</Button.Label></Button> : null}
     {/* DS Bot Mobile: notices above the field are compact cards, and an absent or empty computer queue says nothing. */}
     {state.error ? <View className="mx-4 mb-2 rounded-2xl px-3.5 py-2.5" style={{ backgroundColor: fieldBackground }}><Typography.Paragraph accessibilityRole="alert" type="body-sm" className="text-danger-text">{tr(state.error)}</Typography.Paragraph></View> : null}

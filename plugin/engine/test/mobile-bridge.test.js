@@ -4,7 +4,7 @@ import { install } from '../src/host/channel.js'
 
 // Exercise the real registered channel at its public Fetch boundary. The fixture
 // owns only persistence, capability admission and the Session prompt service.
-function channel({ prepare = async () => {}, locked = false } = {}) {
+function channel({ prepare = async () => {}, locked = false, fileUploads } = {}) {
   let route, current = 'current'
   const submitted = [], renamed = []
   const state = {
@@ -25,6 +25,8 @@ function channel({ prepare = async () => {}, locked = false } = {}) {
     createAgentSession: async id => { state.agents[id].sessions.push('agent-new'); return 'agent-new' },
     noteFailure: error => { throw Error(`Unexpected internal failure: ${error.text}`) },
     ctx: {
+      fileUploads,
+      agents:fileUploads?{get:id=>({id})}:undefined,
       effect: fn => fn(),
       connection: { fetch: { register: value => { route = value; return () => {} } } },
       sessionController: { prompt: async value => { submitted.push(value); return { accepted: true } }, rename: async value => { renamed.push(value); return { title: value.title, seq: 9 } } },
@@ -84,6 +86,21 @@ test('attachment admission independently bounds file count, bytes and text parts
     assert.equal((await call('bridge.submit', message({ content }))).error.code, 'bot/invalid')
   }
   assert.equal(submitted.length, 0)
+})
+
+test('v2 accepts only staged file receipts while preserving v1 byte limits and target checks',async()=>{
+ const receiptId='10000000-0000-4000-8000-000000000001'
+ const {call,submitted}=channel({fileUploads:{uploadStream(){},resolve:(_agent,id)=>id===receiptId?{bytes:3}:undefined}})
+ const part={type:'file',receiptId:'10000000-0000-4000-8000-000000000001'}
+ assert.equal((await call('bridge.submit',message({version:2,content:[part]}))).ok,true)
+ assert.deepEqual(submitted[0].content,[part])
+ assert.equal((await call('bridge.submit',message({version:1,content:[part]}))).error.code,'bot/invalid')
+ assert.equal((await call('bridge.submit',message({version:2,content:[{...part,receiptId:'20000000-0000-4000-8000-000000000001'}]}))).error.code,'bot/invalid')
+ for(const content of [[{...part,path:'C:/other'}],[{...part,receiptId:'foreign/path'}],Array(5).fill(part)]){
+  assert.equal((await call('bridge.submit',message({version:2,content}))).error.code,'bot/invalid')
+ }
+ assert.equal((await call('bridge.submit',message({version:2,expectedSessionId:'old',content:[part]}))).error.code,'bot/stale')
+ assert.equal(submitted.length,1)
 })
 
 test('a rotated Bot session is rechecked after capability admission', async () => {

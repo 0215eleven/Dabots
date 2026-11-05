@@ -48,3 +48,15 @@ The cache is scoped by server ID and conversation ID. Cache and draft reads work
 Close the subscription when changing conversation or entering the background. `logout()` clears local credentials and closes active requests and sockets. `revokeDevice(id)` also revokes access at the host; call it before logout to disconnect the current device remotely. `dispose()` closes connections without erasing stored credentials. Failed refresh after revocation clears unusable credentials and terminates socket reconnection with the `unauthorized` status.
 
 Run validation with `npm test` in this directory.
+
+Large attachments require negotiated `capabilities.uploadTransfers === 1` and
+`transferLimits` from `info()`. `uploadFile({conversationId, sessionId, clientId,
+name, mediaType, size, read, signal, onProgress})` reads one bounded chunk at a
+time, verifies the original SHA-256, resumes from durable status after a lost
+acknowledgement, and returns a receipt for `submit()`. Keep `clientId` stable
+while retrying the same immutable source and Session. Explicit cancellation
+deletes staging; transient disconnection leaves an expiring partial for retry.
+`removeTransfer(id)` discards a no-longer-needed receipt. Limits are 100,000,000
+original bytes per file/message, four originals; model previews are separate
+2 MiB inputs. Existing `upload()` retains its legacy 2 MiB behavior. Old relays
+filter the large-upload capability off; never infer it from the desktop alone.

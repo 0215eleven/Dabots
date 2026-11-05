@@ -284,6 +284,8 @@ export class MobileClient {
   cancel(conversationId: string): Promise<Record<string, unknown>>;
   action<T = Record<string, unknown>>(endpoint: string, payload?: Record<string, unknown>, options?: { signal?: AbortSignal }): Promise<T>;
   upload(options: { conversationId: string; sessionId: string; name: string; mediaType: string; body: BodyInit; signal?: AbortSignal }): Promise<Attachment>;
+  uploadFile(options: {conversationId:string;sessionId:string;clientId:string;name:string;mediaType:string;size:number;read:(offset:number,length:number)=>Promise<Uint8Array>;kind?:'file'|'photo'|'preview';previewFor?:string;signal?:AbortSignal;expectedSha256?:string;onTransfer?:(id:string)=>void;onProgress?:(bytes:number,total:number)=>void}):Promise<Attachment>;
+  removeTransfer(receiptId:string):Promise<{removed:true}>;
   removeUpload(receiptId: string): Promise<{removed:boolean}>;
   transcribe(options: { name: string; mediaType: string; body: BodyInit; signal?: AbortSignal }): Promise<{ text: string; [key: string]: unknown }>;
   devices(): Promise<{ devices: Device[] }>;

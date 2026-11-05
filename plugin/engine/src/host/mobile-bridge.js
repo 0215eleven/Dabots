@@ -21,7 +21,8 @@ export function createMobileBridge(rt, { ok, fail }) {
   return async (endpoint, body, signal) => {
     switch (endpoint) {
       case 'bridge.describe':
-        return ok({ version: 1, stableRequestId: true, redactedText: true, groups: true, groupProjection: 1, attachments: typeof files()?.uploadStream === 'function' && typeof images()?.validateImage === 'function' ? 1 : false, agents: 1, ...(typeof ctx.sessionController.rename === 'function' ? { agentRename: 1 } : {}) })
+        return ok({ version: 1, stableRequestId: true, redactedText: true, groups: true, groupProjection: 1, attachments: typeof files()?.uploadStream === 'function' && typeof images()?.validateImage === 'function' ? 1 : false,
+          ...(typeof files()?.uploadStream === 'function' && typeof files()?.resolve === 'function' ? { uploadTransfers:1 } : {}), agents: 1, ...(typeof ctx.sessionController.rename === 'function' ? { agentRename: 1 } : {}) })
       case 'bridge.redact': {
         await rt.loadSecrets()
         const id = body.conversationId
@@ -32,18 +33,22 @@ export function createMobileBridge(rt, { ok, fail }) {
         return ok({ texts: body.texts.map(text => rt.redactSecrets(text)) })
       }
       case 'bridge.submit': {
-        if (body.version !== 1 || typeof body.requestId !== 'string' || !/^[a-zA-Z0-9._:-]{1,256}$/.test(body.requestId)) return fail('Invalid request ID', 'bot/invalid')
+        if (![1,2].includes(body.version) || typeof body.requestId !== 'string' || !/^[a-zA-Z0-9._:-]{1,256}$/.test(body.requestId)) return fail('Invalid request ID', 'bot/invalid')
         const id = body.conversationId
         if (typeof id !== 'string' || !id || typeof body.expectedSessionId !== 'string') return fail('Invalid conversation', 'bot/invalid')
-        if (!Array.isArray(body.content) || !body.content.length || body.content.length > 5) return fail('Invalid content', 'bot/invalid')
-        let total = 0, fileCount = 0, texts = 0
+        if (!Array.isArray(body.content) || !body.content.length || body.content.length > (body.version===2?9:5)) return fail('Invalid content', 'bot/invalid')
+        let total = 0, fileCount = 0, texts = 0, previews=0
         try {
           for (const part of body.content) {
             if (part?.type === 'text') {
               if (++texts > 1 || typeof part.text !== 'string' || !part.text.trim() || part.text.length > 100000 || part.text.includes('dsh-session:')) throw Error()
-            } else { fileCount++; total += mobileUpload(part).length }
+            } else if(body.version===2&&part?.type==='file'){
+              if(Object.keys(part).some(key=>!['type','receiptId'].includes(key))||typeof part.receiptId!=='string'||!/^[0-9a-f-]{36}$/.test(part.receiptId))throw Error()
+              fileCount++
+            }else if(body.version===2){if(part?.type!=='image')throw Error();previews++;total+=mobileUpload(part).length}
+            else { fileCount++; total += mobileUpload(part).length }
           }
-          if (fileCount > 4 || total > 4 * 1024 * 1024) throw Error()
+          if (fileCount > 4 || previews>4 || total > (body.version===2?8:4) * 1024 * 1024) throw Error()
         } catch { return fail('Invalid content', 'bot/invalid') }
         await rt.load()
         const initialRoom = own(state.rooms, id) ? state.rooms[id] : undefined
@@ -67,6 +72,16 @@ export function createMobileBridge(rt, { ok, fail }) {
         await rt.refresh()
         check()
         signal.throwIfAborted()
+        if(body.version===2){
+          const agent=(ctx.get?.('agents')??ctx.agents)?.get(body.expectedSessionId)
+          let bytes=0
+          for(const part of body.content)if(part.type==='file'){
+            const file=agent&&files()?.resolve?.(agent,part.receiptId)
+            if(!file||!Number.isSafeInteger(file.bytes)||file.bytes<=0||file.bytes>100000000)return fail('Invalid staged file','bot/invalid')
+            bytes+=file.bytes
+          }
+          if(bytes>100000000)return fail('Message originals exceed 100 MB','bot/invalid')
+        }
         const content = []
         for (const part of body.content) {
           if (part.type !== 'file-upload') { content.push(part); continue }

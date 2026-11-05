@@ -27,3 +27,19 @@
 实现位于 ios-app/sdk/、plugin/bridge/ 与 plugin/tools/relay/。单元及隔离宿主检查不代表真实服务器部署或真机验收。
 
 来源与许可：Happy根MIT Copyright 2026 Happy Coder Contributors，App子目录MIT Copyright 2024 Happy Coder Contributors。此处记录设计参考；如后续复用代码必须在实际文件及第三方许可证保留其完整许可与固定SHA，不能覆盖本仓库Apache-2.0原始来源。
+
+## Unreleased: bounded large-upload negotiation
+
+The authenticated `connected` control frame advertises `uploadTransfers: 1`
+and `maxUploadBytes: 100000000` only when all configured minute byte budgets can
+carry at least 140,000,000 bytes. New defaults are 256 MiB/computer/minute,
+512 MiB/IP/minute and 1024 MiB/global/minute. A smaller configured budget or old
+relay disables large uploads in the phone's filtered Bridge `/info` response.
+This is capability negotiation, not a reservation or a throughput guarantee;
+concurrent traffic remains rate limited and can require a later retry.
+
+Uploads use separate acknowledged 256 KiB HTTP requests inside the existing
+end-to-end encrypted records. The 8 MiB RPC body bound, 1 MiB WebSocket frame
+bound, record sequence checks and backpressure queues are unchanged. The relay
+never receives a plaintext file, filename, Bridge credential or completed receipt.
+Updating this source does not change a running server or its explicit overrides.

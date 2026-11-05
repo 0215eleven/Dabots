@@ -9,7 +9,7 @@ function fixture(t,options={}){
  const transport=createRelayTransport({relay,computerId,computerKey,serverId,randomBytes:n=>new Uint8Array(n).fill(7),WebSocket:Socket,...options});
  const result=transport.fetch(transport.baseUrl+'/mobile/v1/info').catch(error=>error);
  t.after(async()=>{transport.dispose();await result;});
- return {socket,sent,result};
+ return {get socket(){return socket},sent,result,transport};
 }
 test('an official transport refuses legacy connected control before revealing encrypted pairing data',async t=>{
  const f=fixture(t,{requireAccess:true,authenticate:async()=>{throw Error('Must not sign');}});
@@ -26,4 +26,9 @@ test('a valid relay challenge sends only the scoped phone proof before any encry
  f.socket.receive({type:'phone-challenge',access:1,nonce:'A'.repeat(43),computerId,computerKey,serverId});await tick();
  assert.deepEqual(challenge,{relay,nonce:'A'.repeat(43),computerId,computerKey,serverId});
  assert.equal(f.sent.length,1);assert.deepEqual(JSON.parse(f.sent[0]),{type:'authenticate',key:'A'.repeat(43),signature:'A'.repeat(86)});
+});
+test('a closed socket is replaced before the next request, even before its close event arrives',async t=>{
+ const f=fixture(t),old=f.socket;old.readyState=3;
+ const retry=f.transport.fetch(f.transport.baseUrl+'/mobile/v1/info').catch(error=>error);
+ assert.notEqual(f.socket,old);f.transport.dispose();await retry;
 });

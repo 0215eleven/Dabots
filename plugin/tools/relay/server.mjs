@@ -11,7 +11,7 @@ import {createAccessApi,phoneConnectionMessage,verifyPhone} from './access-api.m
 const hash=x=>createHash('sha256').update(x).digest();
 // These ceilings apply to secret/account registrations too: enabling the public
 // door must never create an unbounded pool of connections or encrypted traffic.
-export const DEFAULT_LIMITS=Object.freeze({maxConnections:200,connectionsPerIp:20,connectionsPerMinute:600,maxComputers:100,maxPendingComputers:20,pendingComputersPerIp:4,pendingTimeoutMs:120000,streamsPerComputer:4,registrationPerIpPerHour:30,registrationPerHour:200,bytesPerComputerPerMinute:16*1048576,bytesPerIpPerMinute:32*1048576,bytesPerMinute:256*1048576,framesPerIpPerMinute:6000,framesPerMinute:30000});
+export const DEFAULT_LIMITS=Object.freeze({maxConnections:200,connectionsPerIp:20,connectionsPerMinute:600,maxComputers:100,maxPendingComputers:20,pendingComputersPerIp:4,pendingTimeoutMs:120000,streamsPerComputer:4,registrationPerIpPerHour:30,registrationPerHour:200,bytesPerComputerPerMinute:256*1048576,bytesPerIpPerMinute:512*1048576,bytesPerMinute:1024*1048576,framesPerIpPerMinute:6000,framesPerMinute:30000});
 function validateLimits(overrides){
  if(!overrides||typeof overrides!=='object'||Array.isArray(overrides))throw Error('limits must be an object.');
  for(const [key,value] of Object.entries(overrides))if(!Object.hasOwn(DEFAULT_LIMITS,key)||!Number.isSafeInteger(value)||value<1)throw Error('Every limit must have a supported name and a positive safe integer value.');
@@ -187,7 +187,8 @@ export async function createRelay({secret,origin,host='127.0.0.1',port=0,allowed
     if(computer.ws.readyState!==WebSocket.OPEN||computers.get(computer.id)!==computer)return ws.close(4503,'COMPUTER_OFFLINE');
     if(computer.streams.size>=limits.streamsPerComputer)return ws.close(4429,'STREAM_LIMIT');
     const streamId=randomBytes(16),key=streamId.toString('base64url');computer.streams.set(key,ws);
-    control(computer.ws,{type:'open',streamId:key});control(ws,{type:'connected',streamId:key});
+    const uploadTransfers=Math.min(limits.bytesPerComputerPerMinute,limits.bytesPerIpPerMinute,limits.bytesPerMinute)>=140000000?1:0;
+    control(computer.ws,{type:'open',streamId:key});control(ws,{type:'connected',streamId:key,uploadTransfers,maxUploadBytes:uploadTransfers?100000000:2097152});
     ws.on('message',(data,binary)=>{if(!authorized())return ws.close(4403,'PHONE_DENIED');if(!trafficAllowed(ip,computer.id,data.length))return ws.close(4429,'TRAFFIC_LIMIT');if(!binary||data.length>1048576-16)return ws.close(4400,'INVALID_FRAME');send(computer.ws,Buffer.concat([streamId,data]));});
     ws.once('close',()=>{computer.streams.delete(key);control(computer.ws,{type:'close',streamId:key});});
     };

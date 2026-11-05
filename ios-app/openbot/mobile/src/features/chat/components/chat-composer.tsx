@@ -1362,7 +1362,7 @@ export const ChatComposer = memo(function ChatComposer({
             ? {
                 name: previewItem.name,
                 uri: localPreviewUri(previewItem),
-                type: attachmentTypeLabel(previewItem.name, previewItem.mimeType, t),
+                type: previewItem.localFile?.kind==='photo'?t(previewItem.localFile.preview?'mobile.chat.attachment.modelPreview':'mobile.chat.attachment.originalOnly'):attachmentTypeLabel(previewItem.name, previewItem.mimeType, t),
                 size: format.fileSize(previewItem.size),
               }
             : null
@@ -1370,9 +1370,10 @@ export const ChatComposer = memo(function ChatComposer({
         actions={
           previewItem
             ? [
+                ...(previewItem.localFile?[{label:t('mobile.chat.attachment.openOriginal'),onPress:()=>void shareLocalAttachment({name:previewItem.localFile!.name,mimeType:previewItem.localFile!.mediaType,uri:previewItem.localFile!.uri})}]:[]),
                 ...(localPreviewUri(previewItem)
                   ? []
-                  : [{ label: t("common.open"), onPress: () => void shareLocalAttachment(previewItem) }]),
+                  : previewItem.localFile?[]:[{ label: t("common.open"), onPress: () => void shareLocalAttachment(previewItem) }]),
                 {
                   label: t("mobile.chat.attachment.replace"),
                   disabled: preparing,

@@ -2,11 +2,16 @@
 import { createServer } from 'node:http'
 import { writeFile } from 'node:fs/promises'
 import { startBridge } from '../index.mjs'
+import { createHash,randomBytes,generateKeyPairSync } from 'node:crypto'
+import { WebSocket } from 'ws'
+import { createRelayConnector } from '../src/relay-client.mjs'
+import { createBoxKeyPair } from '../../../ios-app/sdk/relay-crypto.js'
 export const name = 'candidate-integration-fixture'
 export const inject = ['connection', 'sessionController', 'webServer']
 export function apply(ctx, config) {
   ctx.effect(() => {
     let bridge, operator, peer, stopped = false
+    const testRelays=[]
     const ready = (async () => {
       const dispatcher = ctx.connection.createSharedFetchHandler('/api')
       peer = ctx.connection.createPeer({ principal: { kind: 'owner' } })
@@ -35,7 +40,21 @@ export function apply(ctx, config) {
           for await (const chunk of request) { length += chunk.length; if (length > 65536) throw Error('Too large'); chunks.push(chunk) }
           const { endpoint, payload } = JSON.parse(Buffer.concat(chunks).toString())
           let result
-          if (endpoint === 'test.bot-call') {
+          if(endpoint==='test.relay-open'){
+            const relay=payload.origin,url=payload.url
+            if(!relay.startsWith('wss://')||!url.startsWith('ws://127.0.0.1:'))throw Error('Loopback fixture relay required')
+            class FixtureSocket extends WebSocket{constructor(target){super(String(target).replace(relay,url))}}
+            const x=createBoxKeyPair(n=>new Uint8Array(randomBytes(n))),ed=generateKeyPairSync('ed25519')
+            const connector=createRelayConnector({relay,secret:payload.secret,identity:{edPrivateKey:ed.privateKey,xPublicKey:x.publicKey,xSecretKey:x.secretKey},serverId:bridge.serverId,endpoint:id=>bridge.relayEndpoint(id),Socket:FixtureSocket})
+            testRelays.push(connector);await connector.ready;result=connector.status()
+          }
+          else if(endpoint==='test.file-facts'){
+            if(!/^[a-f0-9]{64}$/.test(payload.sha256)||!Number.isSafeInteger(payload.size))throw Error('Synthetic reference required')
+            const hash=createHash('sha256');let bytes=0,maxChunk=0
+            for await(const chunk of (ctx.get('attachments')??ctx.attachments).readFileStream({attachmentId:'sha256:'+payload.sha256,name:payload.name,bytes:payload.size},AbortSignal.timeout(30000))){hash.update(chunk);bytes+=chunk.length;maxChunk=Math.max(maxChunk,chunk.length)}
+            result={bytes,sha256:hash.digest('hex'),maxChunk}
+          }
+          else if (endpoint === 'test.bot-call') {
             // Isolated owner-only acceptance controls; never part of the shipped plugin.
             if (!['state', 'efforts', 'update-bot', 'delete-bot', 'create-bot', 'update-room', 'set-prefs', 'set-flags', 'bridge.submit'].includes(payload?.action)) throw Error('Unsupported fixture action')
             result = await call(payload.action, payload.body ?? {})
@@ -63,6 +82,6 @@ export function apply(ctx, config) {
       await writeFile(config.ready, JSON.stringify({ bridgeUrl: bridge.url, operatorUrl: `http://127.0.0.1:${operator.address().port}`, botId: view.bots[0].id, sessionId: view.bots[0].sessionId, groupId: seeded.id, memberIds: seeded.members }), { mode: 0o600 })
     })()
     ready.catch(error => process.stderr.write(`Candidate fixture startup failed: ${error.code ?? error.name}\n`))
-    return async () => { stopped = true; await ready.catch(() => {}); operator?.closeAllConnections(); if (operator) await new Promise(resolve => operator.close(resolve)); await bridge?.close(); await peer?.dispose() }
+    return async () => { stopped = true; await ready.catch(() => {});for(const relay of testRelays)relay.close(); operator?.closeAllConnections(); if (operator) await new Promise(resolve => operator.close(resolve)); await bridge?.close(); await peer?.dispose() }
   })
 }

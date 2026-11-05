@@ -2992,7 +2992,7 @@ var decoder = new TextDecoder("utf-8", { fatal: true });
 var MAX_BODY = 8 * 1024 * 1024;
 var CHUNK = 32768;
 var MAX_PENDING = 32;
-var routes = [["GET", /^info$/], ["POST", /^pairings(?:\/complete)?$/], ["POST", /^auth\/refresh$/], ["GET", /^(?:state|conversations|devices)$/], ["GET", /^conversations\/[^/]+\/(?:messages|target)$/], ["POST", /^conversations\/[^/]+\/cancel$/], ["POST", /^(?:submissions|actions|read-markers|uploads|transcriptions)$/], ["GET", /^(?:submissions|attachments)\/[^/]+$/], ["DELETE", /^(?:devices|uploads)\/[^/]+$/]];
+var routes = [["POST", /^upload-transfers$/], ["PUT", /^upload-transfers\/[^/]+$/], ["GET", /^upload-transfers\/[^/]+$/], ["DELETE", /^upload-transfers\/[^/]+$/], ["POST", /^upload-transfers\/[^/]+\/complete$/], ["GET", /^info$/], ["POST", /^pairings(?:\/complete)?$/], ["POST", /^auth\/refresh$/], ["GET", /^(?:state|conversations|devices)$/], ["GET", /^conversations\/[^/]+\/(?:messages|target)$/], ["POST", /^conversations\/[^/]+\/cancel$/], ["POST", /^(?:submissions|actions|read-markers|uploads|transcriptions)$/], ["GET", /^(?:submissions|attachments)\/[^/]+$/], ["DELETE", /^(?:devices|uploads)\/[^/]+$/]];
 function validateRelayRequest({ method = "GET", path, headers = {} }) {
   if (typeof path !== "string" || path.length > 8192 || !path.startsWith("/mobile/v1/") || /[\\#\u0000-\u0020]/.test(path)) throw Error("Invalid relay path.");
   const [pathname] = path.split("?");
@@ -3004,7 +3004,7 @@ function validateRelayRequest({ method = "GET", path, headers = {} }) {
   }
   const url = new URL(path, "https://bridge.invalid");
   if (!routes.some(([verb, pattern]) => verb === method && pattern.test(url.pathname.slice(11)))) throw Error("Relay endpoint denied.");
-  for (const key of url.searchParams.keys()) if (!["cursor", "limit", "conversationId", "sessionId", "seq", "name", "mediaType"].includes(key)) throw Error("Relay query denied.");
+  for (const key of url.searchParams.keys()) if (!["cursor", "limit", "conversationId", "sessionId", "seq", "name", "mediaType", "offset"].includes(key)) throw Error("Relay query denied.");
   const clean2 = {};
   new Headers(headers).forEach((value, key) => {
     if (!["authorization", "content-type", "accept"].includes(key) || value.length > 4096) throw Error("Relay header denied.");

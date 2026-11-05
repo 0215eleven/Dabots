@@ -2,14 +2,14 @@
 import {encode,decode} from '@stablelib/base64';
 const encoder=new TextEncoder(),decoder=new TextDecoder('utf-8',{fatal:true});
 const MAX_BODY=8*1024*1024,CHUNK=32768,MAX_PENDING=32;
-const routes=[['GET',/^info$/],['POST',/^pairings(?:\/complete)?$/],['POST',/^auth\/refresh$/],['GET',/^(?:state|conversations|devices)$/],['GET',/^conversations\/[^/]+\/(?:messages|target)$/],['POST',/^conversations\/[^/]+\/cancel$/],['POST',/^(?:submissions|actions|read-markers|uploads|transcriptions)$/],['GET',/^(?:submissions|attachments)\/[^/]+$/],['DELETE',/^(?:devices|uploads)\/[^/]+$/]];
+const routes=[['POST',/^upload-transfers$/],['PUT',/^upload-transfers\/[^/]+$/],['GET',/^upload-transfers\/[^/]+$/],['DELETE',/^upload-transfers\/[^/]+$/],['POST',/^upload-transfers\/[^/]+\/complete$/],['GET',/^info$/],['POST',/^pairings(?:\/complete)?$/],['POST',/^auth\/refresh$/],['GET',/^(?:state|conversations|devices)$/],['GET',/^conversations\/[^/]+\/(?:messages|target)$/],['POST',/^conversations\/[^/]+\/cancel$/],['POST',/^(?:submissions|actions|read-markers|uploads|transcriptions)$/],['GET',/^(?:submissions|attachments)\/[^/]+$/],['DELETE',/^(?:devices|uploads)\/[^/]+$/]];
 export function validateRelayRequest({method='GET',path,headers={}}){
  if(typeof path!=='string'||path.length>8192||!path.startsWith('/mobile/v1/')||/[\\#\u0000-\u0020]/.test(path))throw Error('Invalid relay path.');
  const [pathname]=path.split('?');if(/%(?:2f|5c|25)/i.test(pathname))throw Error('Invalid relay path.');const segments=pathname.split('/');
  for(const segment of segments){const plain=decodeURIComponent(segment);if(plain==='.'||plain==='..')throw Error('Invalid relay path.');}
  const url=new URL(path,'https://bridge.invalid');
  if(!routes.some(([verb,pattern])=>verb===method&&pattern.test(url.pathname.slice(11))))throw Error('Relay endpoint denied.');
- for(const key of url.searchParams.keys())if(!['cursor','limit','conversationId','sessionId','seq','name','mediaType'].includes(key))throw Error('Relay query denied.');
+ for(const key of url.searchParams.keys())if(!['cursor','limit','conversationId','sessionId','seq','name','mediaType','offset'].includes(key))throw Error('Relay query denied.');
  const clean={};new Headers(headers).forEach((value,key)=>{if(!['authorization','content-type','accept'].includes(key)||value.length>4096)throw Error('Relay header denied.');clean[key]=value;});
  return {method,path,headers:clean};
 }

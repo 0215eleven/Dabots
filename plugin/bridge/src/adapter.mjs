@@ -5,6 +5,7 @@ import { createTeamActions, MOBILE_ACTIONS } from './actions.mjs'
 import { projectGroupRecords } from './group-projection.mjs'
 import { projectLiveState, conversationStatus, recentConversation } from './live-state.mjs'
 import { projectTaskEvent, projectApprovalEvent } from './task-events.mjs'
+import { Readable } from 'node:stream'
 
 const error = (status, code, text) => new BridgeError(status, code, text)
 const unsupported = () => { throw error(501, 'UNSUPPORTED', 'This bridge capability is unavailable.') }
@@ -273,6 +274,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
         : 'This Dabots version does not provide the required mobile chat interfaces. Pairing and team summaries are available; chat controls must remain disabled.' }),
     capabilities: () => ({ discovery: true, pairing: true, conversations: true, history: fixtureText || (description.version === 1 && description.redactedText === true), stream: fixtureText || (description.version === 1 && description.redactedText === true),
       send: description.version === 1 && description.stableRequestId === true, attachments: description.attachments === 1, uploadLimits: description.attachments === 1 ? {maxBytes:2097152,maxFiles:4,maxTotalBytes:4194304} : null, cancel: false,
+      ...(description.uploadTransfers===1&&description.attachments===1?{uploadTransfers:1,transferLimits:{maxBytes:100000000,maxTotalBytes:100000000,maxFiles:4,chunkBytes:262144,previewBytes:2097152}}:{}),
       actions: [], images: description.attachments === 1, files: description.attachments === 1, transcription: false, attachmentDownloads: [], audioStreaming: false,
       approvals: false, groups: description.groups === true && description.groupProjection === 1,
       // Host support only; each phone still needs the owner's grant (see state.agentAccess).
@@ -320,9 +322,29 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
       if (description.version !== 1 || description.stableRequestId !== true) throw error(501, 'STABLE_SUBMIT_REQUIRED', 'DS Bot 0.1.7 needs the reviewed bridge submit extension for reliable sending.')
       const item = await target(conversationId, signal, access)
       if (item.sessionId !== sessionId || item.readOnly) throw error(409, 'TARGET_CHANGED', 'Refresh the writable conversation target.')
-      if ((attachments?.length && (description.attachments !== 1 || uploadParts.length !== attachments.length)) || (!text?.trim() && !uploadParts.length) || text.includes('dsh-session:')) throw error(400, 'INVALID_CONTENT', 'Only plain text without Session references is supported.')
+      const streamed=uploadParts.some(part=>part.type==='stream-file')
+      if ((attachments?.length && (description.attachments !== 1 || (streamed?uploadParts.filter(part=>part.type==='stream-file').length:uploadParts.length) !== attachments.length)) || (!text?.trim() && !uploadParts.length) || text.includes('dsh-session:')) throw error(400, 'INVALID_CONTENT', 'Only plain text without Session references is supported.')
+      if(streamed&&description.uploadTransfers!==1)throw error(501,'UNSUPPORTED','Update the engine for streamed attachments.')
       requireGrant(item, access)
-      const result = await call('bridge.submit', { version: 1, conversationId: channelId(item), expectedSessionId: sessionId, ...(item.kind === 'room' ? { expectedMembers: item.members } : {}), requestId, content: [...(text.trim() ? [{ type: 'text', text }] : []), ...uploadParts] }, signal)
+      const parts=[]
+      for(const part of uploadParts){
+        if(part.type==='stream-file'){
+          const response=await dispatcher.fetch(new Request(`http://bridge.invalid/api/session/uploadFileBinary?${new URLSearchParams({sessionId,name:part.name})}`,{
+            method:'POST',headers:{'content-type':'application/octet-stream'},body:Readable.toWeb(Readable.from(part.stream(signal))),duplex:'half',signal,
+          }),peer)
+          const result=await response.json()
+          if(!response.ok||result.ok!==true||typeof result.value?.receiptId!=='string'||result.value.file?.bytes!==part.size||result.value.file?.attachmentId!==`sha256:${part.sha256}`)throw error(503,'UPLOAD_UNCONFIRMED','The host could not verify the original file.')
+          parts.push({type:'file',receiptId:result.value.receiptId})
+        }else if(part.type==='stream-preview'){
+          let size=0;const chunks=[]
+          for await(const chunk of part.stream(signal)){size+=chunk.length;if(size>2097152)throw error(413,'FILE_TOO_LARGE','Model preview exceeds its byte limit.');chunks.push(chunk)}
+          parts.push({type:'image',name:part.name,mediaType:part.mediaType,data:Buffer.concat(chunks).toString('base64')})
+        }else parts.push(part)
+        requireGrant(item,access);signal.throwIfAborted()
+      }
+      const latest=await target(conversationId,signal,access)
+      if(latest.sessionId!==sessionId||latest.readOnly)throw error(409,'TARGET_CHANGED','Refresh the receiving conversation.')
+      const result = await call('bridge.submit', { version: streamed?2:1, conversationId: channelId(item), expectedSessionId: sessionId, ...(item.kind === 'room' ? { expectedMembers: item.members } : {}), requestId, content: [...(text.trim() ? [{ type: 'text', text }] : []), ...parts] }, signal)
       if (result?.accepted !== true || result.sessionId !== sessionId || result.requestId !== requestId) throw error(503, 'ADMISSION_UNCONFIRMED', 'The upstream admission receipt is unconfirmed.')
       return result
     },

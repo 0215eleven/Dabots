@@ -1,4 +1,5 @@
 export { mentionSpans, nameProblem } from './mentions.js';
+import {uploadFile} from './upload-file.js';
 export const protocolVersion = 1;
 
 export class MobileError extends Error {
@@ -454,6 +455,12 @@ export class MobileClient {
     for (const [key, value] of Object.entries({ conversationId, sessionId, name, mediaType })) requireString(value, key);
     return this.#request(`/uploads?${new URLSearchParams({ conversationId, sessionId, name, mediaType })}`, { method: 'POST', body, mediaType, signal });
   }
+  async uploadFile(options) {
+    const info=await this.info();
+    if(info.capabilities?.uploadTransfers!==1)throw new MobileError('unsupported_upload','Update the phone, desktop plugin and relay for large attachments.');
+    return uploadFile((path,init)=>this.#request(path,init),options,info.capabilities.transferLimits);
+  }
+  removeTransfer(receiptId) { return this.#request(`/upload-transfers/${encodeURIComponent(requireString(receiptId,'Upload'))}`,{method:'DELETE'}); }
   removeUpload(receiptId) { return this.#request(`/uploads/${encodeURIComponent(requireString(receiptId,'Upload'))}`,{method:'DELETE'}); }
   transcribe({ name, mediaType, body, signal }) {
     requireString(name, 'File name');
