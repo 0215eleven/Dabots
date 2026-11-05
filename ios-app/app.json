@@ -112,11 +112,19 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Scan your computer’s pairing QR code to connect Dabots.",
+          "cameraPermission": "Scan your computer’s pairing QR code or take photos to send to your paired Dabots computer.",
           "microphonePermission": false
         }
       ],
       "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose photos to send to your paired Dabots computer.",
+          "cameraPermission": "Scan your computer’s pairing QR code or take photos to send to your paired Dabots computer.",
+          "microphonePermission": false
+        }
+      ],
       "expo-sqlite",
       "expo-asset",
       "expo-notifications"

@@ -1,5 +1,5 @@
 // Expo's automatic plugins can add permissions even for packages excluded from autolinking.
-// First delivery supports QR pairing; voice, Photos and biometric unlock are not exposed.
+// QR pairing and selected photo attachments are exposed; voice and biometric unlock are not.
 const { withInfoPlist } = require('expo/config-plugins');
 
 module.exports = function withSupportedPrivacy(config) {
@@ -8,7 +8,6 @@ module.exports = function withSupportedPrivacy(config) {
       'NSFaceIDUsageDescription',
       'NSMicrophoneUsageDescription',
       'NSSpeechRecognitionUsageDescription',
-      'NSPhotoLibraryUsageDescription',
       'NSPhotoLibraryAddUsageDescription',
     ]) delete config.modResults[key];
     return config;

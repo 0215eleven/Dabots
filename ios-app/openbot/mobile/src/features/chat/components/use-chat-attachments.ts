@@ -9,9 +9,8 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { RemoteFileUpload } from "@openbot/team-client/remote-peer";
 // Preserve the upstream local-copy default without loading its unused transport.
 const MOBILE_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
-import * as ImagePicker from "expo-image-picker";
+import type { ImagePickerAsset } from "expo-image-picker";
 import { useMemo, useRef, useState } from "react";
 import {Platform} from "react-native";
 import { attachmentSizeBucket } from "@/features/analytics/events";
@@ -160,7 +159,7 @@ export function useChatAttachments(
     if (itemsRef.current.length >= maxItems) throw new Error(limitMessage());
     await add(await readFile(uri, name));
   }
-  function photoName(asset: ImagePicker.ImagePickerAsset) {
+  function photoName(asset: ImagePickerAsset) {
     const extension = asset.uri.split(".").at(-1)?.toLowerCase();
     return asset.fileName && isSupportedAttachmentName(asset.fileName) ? asset.fileName : `photo.${extension ?? "jpg"}`;
   }
@@ -170,6 +169,7 @@ export function useChatAttachments(
     if (!current) return;
     let picked: { uri: string; name: string } | null = null;
     if (current.mimeType.startsWith("image/")) {
+      const ImagePicker = await import("expo-image-picker");
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         quality: 1,
@@ -178,6 +178,7 @@ export function useChatAttachments(
       const asset = result.canceled ? undefined : result.assets[0];
       if (asset) picked = { uri: asset.uri, name: photoName(asset) };
     } else {
+      const DocumentPicker = await import("expo-document-picker");
       const result = await DocumentPicker.getDocumentAsync({ multiple: false, copyToCacheDirectory: true });
       const asset = result.canceled ? undefined : result.assets[0];
       if (asset) picked = { uri: asset.uri, name: asset.name };
@@ -194,6 +195,9 @@ export function useChatAttachments(
     trackSelected(item.size);
   }
   async function chooseFiles() {
+    // Native pickers are only needed after an explicit selection action. A route import
+    // in an older native binary must reach the ordinary failure alert, not fail at import.
+    const DocumentPicker = await import("expo-document-picker");
     const result = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
     if (!result.canceled) for (const asset of result.assets) await addFile(asset.uri, asset.name);
     else mobileAnalytics.track("attachment_action", { action: "select", result: "cancelled", attachment_count: 0 });
@@ -204,6 +208,7 @@ export function useChatAttachments(
   async function requestCamera(): Promise<boolean> {
     try {
       if (itemsRef.current.length >= maxItems) throw new Error(limitMessage());
+      const ImagePicker = await import("expo-image-picker");
       if (!(await ImagePicker.requestCameraPermissionsAsync()).granted)
         throw new Error(t("mobile.chat.attachment.cameraPermission"));
     } catch (error) {
@@ -225,6 +230,7 @@ export function useChatAttachments(
   }
   async function choosePhotos() {
     if (itemsRef.current.length >= maxItems) throw new Error(limitMessage());
+    const ImagePicker = await import("expo-image-picker");
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: true,

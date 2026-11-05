@@ -147,10 +147,7 @@
           "expo-media-library",
           "expo-video",
           "expo-audio",
-          "expo-image-picker",
-          "expo-speech",
-          "expo-document-picker",
-          "expo-image-manipulator"
+          "expo-speech"
         ]
       }
     }
