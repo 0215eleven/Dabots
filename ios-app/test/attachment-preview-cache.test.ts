@@ -1,9 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {buildSync} from 'esbuild';import {fileURLToPath} from 'node:url';import {createRequire} from 'node:module';
 const root=fileURLToPath(new URL('../',import.meta.url)),require=createRequire(import.meta.url);
-function fixture(config:{permission?:()=>Promise<any>;available?:()=>Promise<boolean>;denied?:boolean;cached?:boolean}={}){let options:any,writes=0,exports=0,lastSignal:AbortSignal|undefined;const cleanup:any[]=[];
+function fixture(config:{permission?:()=>Promise<any>;available?:()=>Promise<boolean>;denied?:boolean;cached?:boolean}={}){let options:any,writes=0,exports=0,cursor=0,lastSignal:AbortSignal|undefined;const slots:any[]=[];
  const file={exists:false,size:0,uri:'file:///synthetic-preview',parentDirectory:{create(){}},writeSync(){writes++;}};
  const cached={name:'preview.png',mimeType:'image/png',base64:'b2s='};
- const mocks:any={react:{useMemo:(fn:any)=>fn(),useState:(value:any)=>[value,()=>{}],useEffect:(effect:any)=>cleanup.push(effect())},'react-native':{View:'View'},expo:{},'expo-modules-core':{},'expo-image':{Image:'Image'},
+ const equal=(a:any[],b:any[])=>a?.length===b.length&&b.every((value:any,index:number)=>Object.is(a[index],value));
+ const mocks:any={react:{useMemo:(fn:any,deps:any[])=>{const n=cursor++;if(!equal(slots[n]?.deps,deps))slots[n]={deps,value:fn()};return slots[n].value},useState:(value:any)=>[value,()=>{}],useEffect:(effect:any,deps:any[])=>{const n=cursor++;if(!equal(slots[n]?.deps,deps)){slots[n]?.cleanup?.();slots[n]={deps,cleanup:effect()}}}},'react-native':{View:'View'},expo:{},'expo-modules-core':{},'expo-image':{Image:'Image'},
   'expo-sharing':{isAvailableAsync:config.available??(async()=>true),shareAsync:async()=>{exports++}},'expo-media-library':{requestPermissionsAsync:config.permission??(async()=>({granted:true})),Asset:{create:async()=>{exports++}}},
   'expo-file-system':{Paths:{cache:'file:///cache'},File:class{exists=false;uri='file:///synthetic-preview';writeSync(){writes++}delete(){}}},
   '@openbot/team-client/remote-peer':{MOBILE_ATTACHMENT_BYTES:10485760},'@tanstack/react-query':{useQuery:(value:any)=>{options=value;return {data:config.cached?cached:undefined};}},'heroui-native/hooks':{useThemeColor:()=>''},'lucide-react-native/icons/file-text':{},
@@ -13,7 +14,7 @@ function fixture(config:{permission?:()=>Promise<any>;available?:()=>Promise<boo
  };
  const result=buildSync({absWorkingDir:root,entryPoints:['openbot/mobile/src/features/chat/components/attachment-preview.tsx'],bundle:true,write:false,platform:'node',format:'cjs',supported:{'dynamic-import':false},external:Object.keys(mocks),jsx:'automatic',jsxImportSource:'react',logLevel:'silent'}),module={exports:{} as any};
  new Function('require','module','exports',result.outputFiles[0].text)((name:string)=>Object.hasOwn(mocks,name)?mocks[name]:require(name),module,module.exports);
- return{use:module.exports.useAttachmentFile,get options(){return options},get writes(){return writes},get exports(){return exports},get signal(){return lastSignal},unmount(){cleanup.forEach(fn=>fn?.())}};
+ return{use:(...args:any[])=>{cursor=0;return module.exports.useAttachmentFile(...args)},get options(){return options},get writes(){return writes},get exports(){return exports},get signal(){return lastSignal},unmount(){slots.forEach(slot=>slot.cleanup?.())}};
 }
 const attachment={id:'scoped-message-preview',name:'original.png',size:70,kind:'image',mimeType:'image/png',previewKind:'image',previewUrl:null};
 test('scoped previews are memory-only, cancel with their query and leave no retained cache entry',async()=>{
@@ -32,6 +33,12 @@ test('permission prompts cannot export a cached preview after unmount or loss of
 test('share preparation is cancelled on unmount even when cached preview data exists',async()=>{
  let release!:(value:boolean)=>void;const gate=new Promise<boolean>(resolve=>{release=resolve});const f=fixture({cached:true,available:()=>gate}),hook=f.use('server',{...attachment,downloadMode:'preview'},true);
  hook.share();f.unmount();release(true);await new Promise(resolve=>setImmediate(resolve));assert.equal(f.writes,0);assert.equal(f.exports,0);
+});
+
+test('an ordinary provider rerender does not cancel export when the scoped image remains authorized',async()=>{
+ let release!:(value:any)=>void,opened!:()=>void;const prompt=new Promise<any>(resolve=>{release=resolve}),ready=new Promise<void>(resolve=>{opened=resolve});
+ const f=fixture({cached:true,permission:()=>{opened();return prompt}}),photo={...attachment,downloadMode:'preview'},hook=f.use('server',photo,true),pending=hook.saveToPhotos();
+ await ready;f.use('server',photo,true);release({granted:true});assert.equal(await pending,true);assert.equal(f.writes,1);assert.equal(f.exports,1);
 });
 test('an unavailable attachment never enables its read query and ordinary upstream images retain their policy',async()=>{
  const f=fixture();f.use('server',{...attachment,downloadMode:'unavailable'},true);assert.equal(f.options.enabled,false);

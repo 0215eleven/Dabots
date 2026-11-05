@@ -38,7 +38,23 @@ export function messageAttachments(message:DsMessage,options:{previews?:boolean;
   }catch{return fallback;}
  });
 }
-export async function readPreview(client:Pick<MobileClient,'attachment'>,serverId:string,epoch:string,id:string,options:{signal?:AbortSignal;current:(scope:PreviewScope)=>boolean}){
+type PreviewReadOptions={signal?:AbortSignal;current:(scope:PreviewScope)=>boolean};
+type PreviewWaiter={start:()=>void;cancel:()=>void};
+const reads=new WeakMap<object,{active:number;waiting:PreviewWaiter[]}>();
+// Several cards can mount together. Queue small preview reads instead of causing
+// the host's two-per-device resource guard to reject ordinary multi-photo messages.
+export async function readPreview(client:Pick<MobileClient,'attachment'>,serverId:string,epoch:string,id:string,options:PreviewReadOptions){
+ options.signal?.throwIfAborted();
+ let queue=reads.get(client);if(!queue){queue={active:0,waiting:[]};reads.set(client,queue);}
+ const state=queue;if(state.waiting.length>=32)throw unavailable();
+ await new Promise<void>((resolve,reject)=>{
+  const waiter:PreviewWaiter={start:()=>{options.signal?.removeEventListener('abort',waiter.cancel);state.active++;resolve();},cancel:()=>{const index=state.waiting.indexOf(waiter);if(index>=0)state.waiting.splice(index,1);reject(options.signal?.reason??unavailable());}};
+  if(state.active<2)waiter.start();else{state.waiting.push(waiter);options.signal?.addEventListener('abort',waiter.cancel,{once:true});}
+ });
+ try{return await readScopedPreview(client,serverId,epoch,id,options);}
+ finally{state.active--;state.waiting.shift()?.start();if(!state.active&&!state.waiting.length)reads.delete(client);}
+}
+async function readScopedPreview(client:Pick<MobileClient,'attachment'>,serverId:string,epoch:string,id:string,options:PreviewReadOptions){
  const scope=decodePreviewId(id),check=()=>{options.signal?.throwIfAborted();if(scope.serverId!==serverId||scope.epoch!==epoch||!options.current(scope))throw unavailable();};check();
  const blob=await client.attachment(scope.conversationId,scope.sessionId,scope.attachmentId,{seq:scope.seq,signal:options.signal});check();
  if(!blob||!Number.isSafeInteger(blob.size)||blob.size<=0||blob.size>1048576||!mimeTypes.has(blob.type))throw unavailable();

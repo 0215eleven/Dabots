@@ -73,7 +73,7 @@ export function previewClient(serverId = "preview"): MobileClient {
   };
   const client = {
     info: async () => ({ serverId, capabilities: { attachmentPreviews:1, history: true, stream: true, send: true, groups: true, "agent-open": true, botManagement: true, groupManagement: true, actions: ["create-bot", "create-room"] } }),
-    attachment:async(_conversationId:string,_sessionId:string,id:string)=>{if(id!==previewImageId)throw new Error('No synthetic image');return (await fetch(previewPhoto)).blob();},
+    attachment:async(_conversationId:string,_sessionId:string,id:string)=>{if(id!==previewImageId)throw new Error('This image preview is unavailable.');return (await fetch(previewPhoto)).blob();},
     state: async () => state,
     conversations: async () => ({ conversations }),
     messages: async (id: string) => ({ messages: transcripts[id] ?? [], cursor: null, sessionId: "s" }),

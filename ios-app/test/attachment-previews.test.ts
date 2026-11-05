@@ -40,3 +40,13 @@ test('aborted, revoked or switched connections cannot return preview bytes to a 
  let release!:(value:Blob)=>void,allowed=true;const gate=new Promise<Blob>(resolve=>{release=resolve});
  const pending=readPreview({attachment:async()=>gate} as any,'computer','epoch-A',row.attachments![0].id,{current:()=>allowed});allowed=false;release(new Blob([png],{type:'image/png'}));await assert.rejects(pending);
 });
+
+test('multiple visible photos respect the desktop read quota and a queued cancellation never downloads',async()=>{
+ const {readPreview}=await import('../src/ds/attachment-preview.ts'),[row]=screenMessages([message([photo])],s=>s,{previews:true,epoch:'epoch-A'} as any);
+ let active=0,peak=0,calls=0;const gates:Array<()=>void>=[],controller=new AbortController();
+ const client={attachment:async()=>{calls++;active++;peak=Math.max(peak,active);await new Promise<void>(resolve=>gates.push(resolve));active--;return new Blob([png],{type:'image/png'});}} as any;
+ const reads=Array.from({length:4},(_,index)=>readPreview(client,'computer','epoch-A',row.attachments![0].id,{current:()=>true,...(index===2?{signal:controller.signal}:{})})),settled=Promise.allSettled(reads);
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(active,2);controller.abort();
+ gates.splice(0).forEach(release=>release());await new Promise(resolve=>setImmediate(resolve));gates.splice(0).forEach(release=>release());
+ const results=await settled;assert.equal(results.filter(r=>r.status==='fulfilled').length,3);assert.equal(results[2].status,'rejected');assert.equal(peak,2);assert.equal(calls,3);
+});

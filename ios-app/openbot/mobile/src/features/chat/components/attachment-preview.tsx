@@ -127,7 +127,9 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
   const { t, sourceText } = useText();
   const [sharing, setSharing] = useState(false);
   const mode=(attachment as PresentedAttachment).downloadMode,memoryOnly=mode==='preview';
-  const exports = useMemo(() => ({active:true, controllers:new Set<AbortController>()}), [serverId,attachment.id,downloadAttachment]);
+  // The scoped id changes on connection/access changes. Provider callbacks can change
+  // identity during ordinary chat updates; that alone must not cancel a system prompt.
+  const exports = useMemo(() => ({active:true, controllers:new Set<AbortController>()}), [serverId,attachment.id]);
   useEffect(() => {
     exports.active=true;
     return () => {exports.active=false;for(const controller of exports.controllers)controller.abort();};
