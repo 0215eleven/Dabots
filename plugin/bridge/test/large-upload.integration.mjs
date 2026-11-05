@@ -15,6 +15,7 @@ import {createRelayTransport} from '../../../ios-app/sdk/relay-transport.js'
 import {MobileClient,MemoryTokenStore} from '../../../ios-app/sdk/index.js'
 
 let fixture,tls,relay,transport,client,direct;let passed=0
+const until=async task=>{const deadline=Date.now()+30000;let error;while(Date.now()<deadline){try{return await task()}catch(cause){error=cause;await new Promise(resolve=>setTimeout(resolve,60))}}throw error}
 const check=name=>{passed++;console.log('PASS '+name)}
 const hashOf=bytes=>createHash('sha256').update(bytes).digest('hex')
 function pngChunk(type,data){const kind=Buffer.from(type),length=Buffer.alloc(4),crc=Buffer.alloc(4);length.writeUInt32BE(data.length);crc.writeUInt32BE(crc32(Buffer.concat([kind,data])));return Buffer.concat([length,kind,data,crc])}
@@ -46,12 +47,13 @@ try{
   const body=init.body;assert.ok(body==null||Buffer.byteLength(body)<=524288,'transport received an unbounded body')
   const request=tlsRequest(input,{method:init.method??'GET',headers:init.headers,ca:cert,signal:init.signal,
    checkServerIdentity:(hostname,peer)=>checkServerIdentity(hostname,peer)??(hashOf(new X509Certificate(peer.raw).publicKey.export({format:'der',type:'spki'}))===pin?undefined:Error('Pin mismatch')),
-  },response=>{const chunks=[];let length=0;response.on('data',chunk=>{length+=chunk.length;if(length>1048576){request.destroy(Error('Response too large'));return}chunks.push(chunk)});response.on('end',()=>{const text=Buffer.concat(chunks).toString();resolve({status:response.statusCode,ok:response.statusCode>=200&&response.statusCode<300,headers:new Headers(response.headers),json:async()=>JSON.parse(text)})})})
+  },response=>{const chunks=[];let length=0;response.on('data',chunk=>{length+=chunk.length;if(length>1048576){request.destroy(Error('Response too large'));return}chunks.push(chunk)});response.on('end',()=>{const text=Buffer.concat(chunks).toString();resolve({status:response.statusCode,ok:response.statusCode>=200&&response.statusCode<300,headers:new Headers(response.headers),json:async()=>JSON.parse(text),blob:async()=>new Blob([Buffer.concat(chunks)],{type:response.headers['content-type']??'application/octet-stream'})})})})
   request.on('error',reject);if(body!=null)request.write(body);request.end()
  })
  class NoSocket{constructor(){throw Error('Upload test does not use direct event sockets')}}
  const tokens=new MemoryTokenStore();direct=new MobileClient({baseUrl,tlsPin:'sha256:'+pin,fetch:pinnedFetch,WebSocket:NoSocket,tokenStore:tokens})
  assert.equal((await direct.info()).capabilities.uploadTransfers,1)
+ assert.equal((await direct.info()).capabilities.attachmentPreviews,1)
  const claim=await direct.pair((await operator('pairing.create')).code,'Synthetic large-upload phone');await operator('pairing.approve',{requestId:claim.requestId});const session=await direct.completePairing(claim.claimToken)
  async function roundTrip(receiver,label,seed,onProgress,photo=false){
   const size=100000000,expected=createHash('sha256');let maxRead=0,reads=0
@@ -80,12 +82,26 @@ try{
  await roundTrip(direct,'original-photo',0,undefined,true)
  await operator('device.agents',{id:session.deviceId,enabled:true})
  const agent=await direct.action('agent-open',{})
+ const visiblePreviews=[]
  for(const [label,conversationId] of [['bot',botId],['group',fixture.urls.groupId],['agent',agent.conversationId]]){
   const target=await direct.target(conversationId),source={size:tinyPng.length,read:async(offset,length)=>new Uint8Array(tinyPng.subarray(offset,offset+length))}
   const original=await direct.uploadFile({conversationId,sessionId:target.sessionId,clientId:'photo_'+label,name:'original-'+label+'.png',mediaType:'image/png',kind:'photo',...source})
   await direct.uploadFile({conversationId,sessionId:target.sessionId,clientId:'preview_'+label,name:'Model preview - '+label+'.png',mediaType:'image/png',kind:'preview',previewFor:original.receiptId,...source})
   assert.equal((await direct.submit({conversationId,sessionId:target.sessionId,requestId:'preview_'+label,text:'Original file and independent model preview',attachments:[original]})).accepted,true)
   check(label+' original-file receipt and separate model image use real exact-session DSH admission')
+  const row=await until(async()=>{const value=(await direct.messages(conversationId)).messages.find(row=>row.requestId==='preview_'+label);assert.ok(value);return value})
+  assert.equal(row.attachments.length,1);assert.equal(row.attachments[0].size,tinyPng.length);assert.ok(row.attachments[0].preview)
+  const attachmentId=row.attachments[0].preview.id,blob=await direct.attachment(conversationId,target.sessionId,attachmentId,{seq:row.seq})
+  assert.ok(blob.size>0&&blob.size<=1048576);assert.ok(['image/png','image/jpeg','image/webp'].includes(blob.type))
+  visiblePreviews.push({conversationId,sessionId:target.sessionId,attachmentId,seq:row.seq})
+  check(label+' original/preview proof yields one photo and an exact-message bounded real DSH preview')
+  if(label==='bot'){
+   const encrypted=await client.attachment(conversationId,target.sessionId,attachmentId,{seq:row.seq})
+   assert.equal(hashOf(new Uint8Array(await encrypted.arrayBuffer())),hashOf(new Uint8Array(await blob.arrayBuffer())))
+   check('physical encrypted relay returns the same authorized preview bytes as direct HTTPS')
+   await assert.rejects(direct.attachment(conversationId,fixture.urls.groupId,attachmentId,{seq:row.seq}),error=>error.code==='SESSION_DENIED')
+   check('foreign Session cannot reuse an otherwise valid preview hash/message')
+  }
   const bytes=Buffer.from('synthetic ordinary document '+label)
   const document=await direct.uploadFile({conversationId,sessionId:target.sessionId,clientId:'document_'+label,name:'synthetic-'+label+'.txt',mediaType:'text/plain',kind:'file',size:bytes.length,read:async(offset,length)=>bytes.subarray(offset,offset+length)})
   assert.equal((await direct.submit({conversationId,sessionId:target.sessionId,requestId:'document_'+label,text:'Synthetic ordinary document',attachments:[document]})).accepted,true)
@@ -95,6 +111,14 @@ try{
  const response=await fetch(operatorUrl,{method:'POST',headers:{'x-fixture':'bridge-test-only'},body:JSON.stringify({endpoint:'test.bot-call',payload:{action:'bridge.submit',body:{version:2,requestId:'foreign_receipt',conversationId:fixture.urls.groupId,expectedSessionId:fixture.urls.groupId,expectedMembers:fixture.urls.memberIds,content:[{type:'file',receiptId:foreign.receiptId}]}}})})
  assert.equal(response.ok,false);assert.equal((await response.json()).code,'bot/invalid')
  check('real DSH file receipt from another Session is refused before prompt admission')
+ const agentPreview=visiblePreviews[2],botPreview=visiblePreviews[0]
+ await operator('device.agents',{id:session.deviceId,enabled:false})
+ await assert.rejects(direct.attachment(agentPreview.conversationId,agentPreview.sessionId,agentPreview.attachmentId,{seq:agentPreview.seq}),error=>error.code==='CONVERSATION_NOT_FOUND')
+ assert.ok((await direct.attachment(botPreview.conversationId,botPreview.sessionId,botPreview.attachmentId,{seq:botPreview.seq})).size>0)
+ check('Agent revocation blocks its images while preserving authorized Bot previews')
+ await operator('device.revoke',{id:session.deviceId})
+ for(const receiver of [direct,client])await assert.rejects(receiver.attachment(botPreview.conversationId,botPreview.sessionId,botPreview.attachmentId,{seq:botPreview.seq}),error=>error.status===401)
+ check('device revocation blocks preview reads through HTTPS and physical encrypted relay')
  console.log(passed+' large upload integration checks passed; public DSH '+fixture.dshVersion+'; no native iOS/device assertion')
 }catch(error){if(fixture)console.error(fixture.diagnostics().replace(/([?&]token=)[^\s&]+/gu,'$1[synthetic-token-redacted]'));throw error}
 finally{client?.dispose();direct?.dispose();transport?.dispose();await relay?.close();if(tls){tls.closeAllConnections();await new Promise(resolve=>tls.close(resolve))}await fixture?.close()}

@@ -22,6 +22,10 @@ export interface Attachment {
   mediaType?: string;
   size?: number;
   sessionId?: string;
+  /** Only a trusted original/model-preview association is combined by the Bridge. */
+  photo?: boolean;
+  previewAvailable?: boolean;
+  preview?: {id:string;size:number;mediaType:string;width:number;height:number};
   [key: string]: unknown;
 }
 export interface Message {

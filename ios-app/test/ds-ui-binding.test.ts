@@ -64,7 +64,7 @@ test('offline chat reads preserved cache without opening an unsupported stream',
 test('screen transcript renders DS reasoning/tool/attachment details and author IDs',async()=>{
  const {screenMessages}=await import('../src/ds/chat-binding.ts');
  const [row]=screenMessages([{id:'m',author:'assistant',senderAgentId:'ds:A:bot:b',text:'answer',createdAt:'now',status:'completed',ds:{author:{id:'b',name:'Reviewer'},source:{},reasoning:'why',tool:{name:'read',output:'result'},attachments:[{name:'proof.txt'}]}}] as any);
- assert.equal(row.speaker?.id,'ds:A:bot:b');assert.equal(row.speaker?.name,'Reviewer');for(const text of ['answer','why','read','proof.txt'])assert.ok(row.body.includes(text));
+ assert.equal(row.speaker?.id,'ds:A:bot:b');assert.equal(row.speaker?.name,'Reviewer');for(const text of ['answer','why','read'])assert.ok(row.body.includes(text));assert.equal(row.attachments?.[0].name,'proof.txt');assert.ok(!row.body.includes('proof.txt'));
 });
 test('transcript presentation changes language without changing user content, names or canonical identity',async()=>{
  const {screenMessages}=await import('../src/ds/chat-binding.ts');

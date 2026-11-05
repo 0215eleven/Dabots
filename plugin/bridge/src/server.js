@@ -7,6 +7,8 @@ import { WebSocketServer, WebSocket } from 'ws'
 import { BridgeError, createAuthStore, digest } from './auth.js'
 import { validateRemoteUrl } from './remote-connection.mjs'
 import { createRelayEndpoint } from './relay-endpoint.mjs'
+import {PREVIEW_LIMITS} from './attachment-preview.mjs'
+import {decorateAttachmentMessage} from './attachment-display.mjs'
 
 const PREFIX = '/mobile/v1'
 const HEARTBEAT_MS = 15_000
@@ -18,9 +20,9 @@ const required = (value, name, maximum = 256) => {
   return value
 }
 const safeError = error => ({ code: error.status ? error.code ?? 'REQUEST_FAILED' : 'INTERNAL_ERROR', message: error.status ? error.message : 'The mobile bridge could not complete this request.' })
-function forDevice(value, deviceId) {
+function forDevice(value, deviceId, submissions, conversationId) {
   const prefix = `${deviceId}_`
-  const message = item => typeof item.requestId === 'string' && item.requestId.startsWith(prefix) ? { ...item, requestId: item.requestId.slice(prefix.length) } : item
+  const message = raw => {const item=decorateAttachmentMessage(raw,submissions,conversationId);return typeof item.requestId === 'string' && item.requestId.startsWith(prefix) ? { ...item, requestId: item.requestId.slice(prefix.length) } : item}
   return { ...value, ...(value.messages ? { messages: value.messages.map(message) } : {}), ...(value.message ? { message: message(value.message) } : {}), ...(value.items ? { items: value.items.map(message) } : {}), ...(value.queue ? { queue: value.queue.map(message) } : {}) }
 }
 
@@ -82,6 +84,8 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
   const uploads = await createUploads(home, auth)
   transfers = await createUploadTransfers({home,auth})
   let uploading = 0
+  let previewing = 0
+  const previewDevices = new Map()
   const grant = deviceId => () => ({ agents: auth.agentsAllowed(deviceId) })
   const allowedOrigins = new Set(config.allowedOrigins ?? [])
   if (publicUrl) allowedOrigins.add(publicUrl)
@@ -169,7 +173,9 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         await auth.save()
         assertActive()
         // The same device request must also stay stable in DSH after a bridge restart.
-        const result = await adapter.submit({ ...payload, uploadParts, requestId: `${device.id}_${body.requestId}` }, signal, grant(device.id))
+        const result = await adapter.submit({ ...payload, uploadParts, requestId: `${device.id}_${body.requestId}`,recordAttachments:async pairs=>{
+          assertActive();auth.data.submissions[key].attachmentBindings=pairs;await auth.save();assertActive()
+        } }, signal, grant(device.id))
         if (result?.accepted !== true) fail(503, 'ADMISSION_UNCONFIRMED', 'The host has not confirmed this message.')
         Object.assign(receipt, { accepted: result.accepted === true, status: 'accepted' })
         await auth.save()
@@ -236,12 +242,27 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         const parts = path.startsWith(`${PREFIX}/`) ? path.slice(PREFIX.length + 1).split('/').map(value => {
           try { return decodeURIComponent(value) } catch { fail(400, 'INVALID_PATH', 'The request path is invalid.') }
         }) : []
-        if (method === 'GET' && path === `${PREFIX}/state`) result = await adapter.state(signal, grant(device.id))
+        if(method==='GET'&&parts[0]==='attachments'&&parts.length===2){
+          if(adapter.capabilities?.().attachmentPreviews!==1)fail(501,'UNSUPPORTED','Image previews require an updated desktop plugin.')
+          const conversationId=required(url.searchParams.get('conversationId'),'conversationId'),sessionId=required(url.searchParams.get('sessionId'),'sessionId')
+          const sequence=url.searchParams.get('seq'),seq=sequence!==null&&/^(0|[1-9]\d*)$/.test(sequence)?Number(sequence):NaN
+          if(!Number.isSafeInteger(seq)||!/^sha256:[a-f0-9]{64}$/.test(parts[1]))fail(400,'INVALID_PREVIEW','Choose an image from an exact conversation message.')
+          if(previewing>=4||(previewDevices.get(device.id)??0)>=2)fail(429,'PREVIEW_BUSY','Wait for current image previews to finish.')
+          previewing++;previewDevices.set(device.id,(previewDevices.get(device.id)??0)+1)
+          try{
+            const preview=await adapter.attachment({conversationId,sessionId,seq,attachmentId:parts[1]},signal,grant(device.id))
+            assertActive()
+            if(!(preview?.bytes instanceof Uint8Array)||!preview.bytes.length||preview.bytes.length>PREVIEW_LIMITS.bytes||!['image/png','image/jpeg','image/webp'].includes(preview.mediaType))fail(503,'INVALID_PREVIEW','The computer could not provide a safe image preview.')
+            response.writeHead(200,{'Content-Type':preview.mediaType,'Content-Length':preview.bytes.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})
+            response.end(preview.bytes);return
+          }finally{previewing--;const count=previewDevices.get(device.id)-1;if(count)previewDevices.set(device.id,count);else previewDevices.delete(device.id)}
+        }
+        else if (method === 'GET' && path === `${PREFIX}/state`) result = await adapter.state(signal, grant(device.id))
         else if (method === 'GET' && path === `${PREFIX}/conversations`) result = await adapter.conversations(signal, grant(device.id))
         else if (parts[0] === 'conversations' && parts.length === 3 && method === 'GET' && parts[2] === 'messages') {
           const limit = url.searchParams.has('limit') ? Number(url.searchParams.get('limit')) : 50
           if (!Number.isInteger(limit) || limit < 1 || limit > 100) fail(400, 'INVALID_LIMIT', 'limit must be between 1 and 100.')
-          result = forDevice(await adapter.history(parts[1], { cursor: url.searchParams.get('cursor') ?? undefined, limit }, signal, grant(device.id)), device.id)
+          result = forDevice(await adapter.history(parts[1], { cursor: url.searchParams.get('cursor') ?? undefined, limit }, signal, grant(device.id)), device.id,auth.data.submissions,parts[1])
         } else if (parts[0] === 'conversations' && parts.length === 3 && method === 'GET' && parts[2] === 'target') result = await adapter.target(parts[1], signal, grant(device.id))
         else if (parts[0] === 'conversations' && parts.length === 3 && method === 'POST' && parts[2] === 'cancel') result = await adapter.cancel(parts[1], signal, grant(device.id))
         else if (parts[0]==='upload-transfers') {
@@ -353,7 +374,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
     const send = event => {
       if (socket.readyState !== WebSocket.OPEN) return
       if (socket.bufferedAmount > 2 * 1024 * 1024) { socket.close(4408, 'Reconnect to catch up'); return }
-      socket.send(JSON.stringify(state.deviceId ? forDevice(event, state.deviceId) : event))
+      socket.send(JSON.stringify(state.deviceId ? forDevice(event, state.deviceId,auth.data.submissions,state.conversationId) : event))
       // Protocol 2 tracks what the phone has not acknowledged. A phone that stops
       // acknowledging is too slow to follow live; it reconnects and catches up from its cursor.
       if (state.protocol === 2 && Number.isSafeInteger(event.eventSeq) && event.eventSeq > state.head) {
@@ -395,6 +416,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         await adapter.target(frame.conversationId, controller.signal, grant(device.id))
         auth.verifyAccess(frame.token)
         state.deviceId = device.id
+        state.conversationId = frame.conversationId
         state.agent = frame.conversationId.startsWith('agent:')
         state.protocol = frame.protocol === 2 ? 2 : 1
         state.acked = state.head = Number.isSafeInteger(frame.after) ? frame.after : 0

@@ -28,6 +28,7 @@ import { useAttachmentPreview } from "./use-attachment-preview";
 import { useHistoryShown } from "./use-history-shown";
 import { useListSettled } from "./use-list-settled";
 import { useMediaFile } from "./use-media-file";
+import type {PresentedAttachment} from '../model/attachment-presentation';
 
 // The width reserved while the shape is still unknown: a portrait phone photo.
 const UNKNOWN_RATIO = 3 / 4;
@@ -172,9 +173,10 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
   const shownUpload = upload ?? (lingering ? 1 : undefined);
   const revealStyle = useUploadRevealStyle(shownUpload ?? 1);
   const { width } = useWindowDimensions();
+  const presentation=attachment as PresentedAttachment,unavailable=presentation.downloadMode==='unavailable',memoryOnly=presentation.downloadMode==='preview';
   const tooLarge = attachment.size > MOBILE_ATTACHMENT_BYTES;
   // An image above the transfer limit cannot be shown here, so it is a file the user opens on desktop.
-  const image = attachment.kind === "image" && !tooLarge;
+  const image = attachment.kind === "image" && !tooLarge && !unavailable;
   const { pending, localUri, uri, dimensions, query, sharing, share } = useAttachmentFile(serverId, attachment, image);
   // The conversation's viewer measures this copy and hides it on the UI thread while it holds the picture.
   const source = useChatImageSource(image && isViewableImage(attachment) ? attachment.id : null, FRAME_RADIUS);
@@ -234,6 +236,7 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
                     // so the picture never looks cut while it comes into focus.
                     <Image
                       source={uri}
+                      cachePolicy={memoryOnly?'none':undefined}
                       blurRadius={UPLOAD_BLUR_RADIUS}
                       transition={0}
                       contentFit="contain"
@@ -244,6 +247,7 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
                   <Animated.View style={[FILL, revealStyle]}>
                     <Image
                       source={uri}
+                      cachePolicy={memoryOnly?'none':undefined}
                       transition={localUri ? 0 : 220}
                       // The frame has the image's shape, so this fills it; only an extremely
                       // narrow image leaves a margin at its sides instead of losing its ends.
@@ -279,6 +283,7 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
             />
           ) : null}
         </View>
+        {memoryOnly?<View style={{maxWidth:frame.width}}><Typography.Paragraph type="body-sm" numberOfLines={1}>{attachment.name}</Typography.Paragraph><Typography.Paragraph type="body-xs" className="text-muted">{presentation.originalFile?t('mobile.chat.attachment.photoPreview',{size:format.fileSize(presentation.originalFile.size)}):t('mobile.chat.attachment.previewOnly')}</Typography.Paragraph></View>:null}
         {failed ? (
           <Button
             variant="ghost"
@@ -295,7 +300,7 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
     );
 
   const typeLabel = attachmentTypeLabel(attachment.name, attachment.mimeType, t);
-  const detail = tooLarge
+  const detail = unavailable?t('mobile.chat.attachment.desktopFile',{size:format.fileSize(attachment.size)}):tooLarge
     ? t("mobile.chat.attachment.openOnDesktopDetail", { size: format.fileSize(attachment.size) })
     : upload !== undefined
       ? t("mobile.chat.attachment.uploadingPercent", { percent: format.percent(upload) })
@@ -308,13 +313,13 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
         variant="secondary"
         className="h-auto flex-row justify-start gap-3 rounded-2xl border border-border bg-control p-3"
         style={{ width: maxWidth, maxWidth: "100%" }}
-        isDisabled={pending || busy || tooLarge}
+        isDisabled={pending || busy || tooLarge || unavailable}
         accessibilityLabel={
           previewable
             ? t("mobile.chat.attachment.preview", { name: attachment.name })
             : t("mobile.chat.attachment.openOrSave", { name: attachment.name })
         }
-        accessibilityHint={tooLarge ? t("mobile.chat.attachment.tooLargeHint") : undefined}
+        accessibilityHint={unavailable?t('mobile.chat.attachment.desktopFileHint'):tooLarge ? t("mobile.chat.attachment.tooLargeHint") : undefined}
         // The card is one element to a screen reader, so the progress inside it is read from here.
         accessibilityValue={upload !== undefined ? { min: 0, max: 100, now: Math.round(upload * 100) } : undefined}
         onPress={() => {

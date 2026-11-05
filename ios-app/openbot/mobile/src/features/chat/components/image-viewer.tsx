@@ -1,4 +1,5 @@
 import type { AttachmentSummary } from "@openbot/contracts/ipc";
+import type {PresentedAttachment} from '../model/attachment-presentation';
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Image } from "expo-image";
@@ -98,7 +99,7 @@ function useReduceTransparency() {
       knownReduceTransparency = value;
       if (active) setEnabled(value);
     };
-    void AccessibilityInfo.isReduceTransparencyEnabled().then(update, () => update(false));
+    void (AccessibilityInfo.isReduceTransparencyEnabled?.() ?? Promise.resolve(false)).then(update, () => update(false));
     const subscription = AccessibilityInfo.addEventListener("reduceTransparencyChanged", update);
     return () => {
       active = false;
@@ -225,7 +226,8 @@ export function ImageViewer({
   const motion: ViewerMotion = { t, origin, index, pageOffset, scale, shrink, tx, ty, dragX, dragY };
   const current = pages[shown] ?? pages[0];
   const saved = current ? savedKeys.has(current.key) : false;
-  const name = current?.attachment.name ?? "";
+  const fileName = current?.attachment.name ?? "";
+  const name = (current?.attachment as PresentedAttachment|undefined)?.downloadMode==='preview'?`${text.t('mobile.chat.attachment.previewOnly')} · ${fileName}`:fileName;
   const position = text.t("mobile.chat.imageViewer.position", { current: shown + 1, total: count });
 
   const reportSize = useCallback((key: string, size: ImageDimensions) => {
@@ -786,6 +788,7 @@ function ViewerPicture({
         {file.uri ? (
           <Image
             source={file.uri}
+            cachePolicy={(attachment as PresentedAttachment).downloadMode==='preview'?'none':undefined}
             contentFit="cover"
             transition={0}
             accessible={false}

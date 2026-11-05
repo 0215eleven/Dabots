@@ -18,6 +18,7 @@ import { currentText, useText } from "@/shared/lib/text";
 import { createImageDimensionCache } from "../model/image-dimension-cache";
 import { type ImageDimensions, imageDimensions } from "../model/image-dimensions";
 import { mediaFile } from "./use-media-file";
+import type {PresentedAttachment} from '../model/attachment-presentation';
 
 // Sizes outlive the downloaded file and the launch. A chat that scrolls an image back into view,
 // or opens again, then reserves its real shape at once instead of a guess.
@@ -125,6 +126,7 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
   const { downloadAttachment } = useMobileWorkspaceActions();
   const { t, sourceText } = useText();
   const [sharing, setSharing] = useState(false);
+  const mode=(attachment as PresentedAttachment).downloadMode,memoryOnly=mode==='preview';
   const pending = attachment.id.startsWith("mobile-draft-attachment-");
   const local =
     attachment.previewUrl?.startsWith("data:image/") || (pending && attachment.previewUrl?.startsWith("file://"))
@@ -132,20 +134,21 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       : null;
   const query = useQuery({
     queryKey: queryKeys.chatAttachment(serverId, attachment.id),
-    queryFn: async (): Promise<RemoteFileUpload & { localUri?: string; fileUri?: string }> => {
+    queryFn: async ({signal}): Promise<RemoteFileUpload & { localUri?: string; fileUri?: string }> => {
+      if(mode==='unavailable')throw new Error(t('mobile.chat.attachment.unavailable'));
       if (attachment.size > MOBILE_ATTACHMENT_BYTES) throw new Error(t("mobile.chat.attachment.tooLargeForMobile"));
-      const kept = keptImageFile(serverId, attachment);
+      const kept = memoryOnly?null:keptImageFile(serverId, attachment);
       if (kept) return kept;
-      const data = await downloadAttachment(serverId, attachment.id);
+      const data = await downloadAttachment(serverId, attachment.id, {signal});
       return {
         ...data,
-        fileUri: data.mimeType.startsWith("image/") ? keepImageFile(serverId, attachment, data) : undefined,
+        fileUri: !memoryOnly&&data.mimeType.startsWith("image/") ? keepImageFile(serverId, attachment, data) : undefined,
       };
     },
-    enabled: preview && !local && !pending,
+    enabled: mode!=='unavailable' && preview && !local && !pending,
     retry: false,
-    staleTime: Infinity,
-    gcTime: 5 * 60 * 1000,
+    staleTime: memoryOnly?0:Infinity,
+    gcTime: memoryOnly?0:5 * 60 * 1000,
   });
   const data = query.data;
   const dimensions = useMemo(() => {
@@ -166,7 +169,7 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       const result = query.data ? { data: query.data, error: null } : await query.refetch();
       if (result.error) throw result.error;
       if (!result.data) throw new Error(t("mobile.chat.attachment.unavailable"));
-      const name = attachment.name.replace(/[/\\\p{Cc}]/gu, "_");
+      const name = (memoryOnly?result.data.name:attachment.name).replace(/[/\\\p{Cc}]/gu, "_");
       file = new File(Paths.cache, `${Date.now()}-${name}`);
       file.writeSync(await fileBase64(result.data), { encoding: "base64" });
       await Sharing.shareAsync(file.uri, { mimeType: result.data.mimeType, dialogTitle: attachment.name });
@@ -198,7 +201,7 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       if (result.error) throw result.error;
       if (!result.data) throw new Error(t("mobile.chat.attachment.imageUnavailable"));
       // The photo library reads the type from the extension, so the file keeps one.
-      const extension = attachmentFileExtension(attachment.name) ?? result.data.mimeType.split("/")[1] ?? "png";
+      const extension = attachmentFileExtension(memoryOnly?result.data.name:attachment.name) ?? result.data.mimeType.split("/")[1] ?? "png";
       file = new File(Paths.cache, `${Date.now()}-download.${extension}`);
       file.writeSync(await fileBase64(result.data), { encoding: "base64" });
       await MediaLibrary.Asset.create(file.uri);

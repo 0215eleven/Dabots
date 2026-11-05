@@ -23,6 +23,7 @@ import { GroupActivity } from '@ds/group-activity';
 import { useDsDraft } from '@ds/use-draft';
 import { useDsChat } from '@ds/use-chat';
 import { screenMessages } from '@ds/chat-binding';
+import {previewEpoch} from '@ds/attachment-preview';
 import { mutationProblem, sendScreenMessage } from '@ds/screen-binding';
 import { Unavailable } from '@ds/routes';
 export function ChatView({ conversationId, ownerId }: {
@@ -40,7 +41,9 @@ export function ChatView({ conversationId, ownerId }: {
     const target: ChatTarget | undefined = agent ? { ...agent, kind: 'agent' } : group ? { id: group.id, serverId: group.serverId, name: group.name, kind: 'channel', members: agents.filter(a => group.members.includes(a.id)) } : undefined;
     const insets = useSafeAreaInsets();
     const [foreground, muted, fieldBackground, raised, action, actionForeground, background] = useThemeColor(['foreground', 'muted', 'default', 'surface-tertiary', 'accent', 'accent-foreground', 'background']);
-    const messages = useMemo(() => screenMessages(state.messages, tr), [state.messages, locale]);
+    const attachmentEpoch=previewEpoch(state.core),previewsAllowed=Boolean(state.view?.capabilities.history&&!workspace.getSnapshot()?.accessDenied&&workspace.team.mobileCapabilities?.attachmentPreviews===1&&(!rawConversationId?.startsWith('agent:')||workspace.team.agentAccess===true));
+    const attachmentScope=attachmentEpoch+':'+String(previewsAllowed);
+    const messages = useMemo(() => screenMessages(state.messages, tr,{previews:previewsAllowed,epoch:attachmentEpoch}), [state.messages, locale,previewsAllowed,attachmentEpoch]);
     const motion = useChatMotion(insets.top + 44, Math.max(insets.bottom, 10) - 10, state.ready, messages.length > 0, messages.findLast(m => m.author === 'user')?.id ?? null);
     const draftState = useDsDraft(state.core, conversationId);
     const draft = draftState.text, setDraft = draftState.set;
@@ -98,7 +101,7 @@ export function ChatView({ conversationId, ownerId }: {
     return <View className="flex-1" style={{ backgroundColor: background }}><Stack.Screen options={{ headerShown: false }}/>
   <KeyboardGestureArea style={{ flex: 1 }} textInputNativeID="chat-composer-input" interpolator="ios">
    <ChatHeader target={target} needsAction={false} channelBrowser={null} fallbackBackground={fieldBackground} foreground={foreground} liquidGlassAvailable={liquidGlass} topInset={insets.top} onBack={() => router.canGoBack() ? router.back() : router.replace('/')}/>
-   <ChatMessageList target={target} rowsShown agents={agents} motion={motion} sending={busy} awaitingTurn={false} keyboardOffset={Math.max(insets.bottom, 10) - 10} canSend={canSend} online={state.online} appActive activeTurnId={null} activityAccessory={group ? <GroupActivity groupId={group.id}/> : undefined} activity={work && work.phase !== 'idle' ? { agentId: ownerId, phase: work.phase, detail: work.detail, turnId: null } : undefined} fieldBackground={fieldBackground} foreground={foreground} muted={muted} raised={raised} historyState={state.ready ? 'ready' : state.error ? 'error' : state.online ? 'loading' : 'waiting'} messages={messages} messageAliases={new Map()} referenceMessages={messages} hasOlder={Boolean(state.cursor)} olderLoading={state.olderLoading} olderError={state.olderError} onLoadOlder={() => void state.load(true)} showStarter={false} topInset={insets.top} onDismissStarter={() => { }} onSelectStarter={text => void send(text)} onRetryHistory={() => void state.load()}/>
+   <ChatMessageList key={attachmentScope} target={target} rowsShown agents={agents} motion={motion} sending={busy} awaitingTurn={false} keyboardOffset={Math.max(insets.bottom, 10) - 10} canSend={canSend} online={state.online} appActive activeTurnId={null} activityAccessory={group ? <GroupActivity groupId={group.id}/> : undefined} activity={work && work.phase !== 'idle' ? { agentId: ownerId, phase: work.phase, detail: work.detail, turnId: null } : undefined} fieldBackground={fieldBackground} foreground={foreground} muted={muted} raised={raised} historyState={state.ready ? 'ready' : state.error ? 'error' : state.online ? 'loading' : 'waiting'} messages={messages} messageAliases={new Map()} referenceMessages={messages} hasOlder={Boolean(state.cursor)} olderLoading={state.olderLoading} olderError={state.olderError} onLoadOlder={() => void state.load(true)} showStarter={false} topInset={insets.top} onDismissStarter={() => { }} onSelectStarter={text => void send(text)} onRetryHistory={() => void state.load()}/>
    <Animated.View style={[{ position: "absolute", left: 0, right: 0, bottom: 0 }, motion.composerStyle]} onLayout={motion.onComposerLayout}>
     {selected.statusLabel?<Typography.Paragraph type="body-xs" className="px-4 text-muted" accessibilityLiveRegion="polite">{selected.statusLabel}</Typography.Paragraph>:null}
     {selected.notice?<Typography.Paragraph type="body-xs" className="px-4 text-muted">{selected.notice}</Typography.Paragraph>:null}

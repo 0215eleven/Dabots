@@ -669,7 +669,7 @@ export interface MobileWorkspaceContextValue {
     /** Hears the fraction of the file sent so far, from 0 to 1. */
     onProgress?: (fraction: number) => void,
   ) => Promise<DraftAttachment>;
-  downloadAttachment: (serverId: string, attachmentId: string) => Promise<RemoteFileUpload>;
+  downloadAttachment: (serverId: string, attachmentId: string, options?: { signal?: AbortSignal }) => Promise<RemoteFileUpload>;
   discardAttachment: (agentId: string, attachmentId: string, serverId?: string) => Promise<void>;
   /**
    * True when a hide goes to the host (`agent-hidden-v1`, and the user is an owner or admin), so each

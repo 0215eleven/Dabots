@@ -6,6 +6,7 @@ import { projectGroupRecords } from './group-projection.mjs'
 import { projectLiveState, conversationStatus, recentConversation } from './live-state.mjs'
 import { projectTaskEvent, projectApprovalEvent } from './task-events.mjs'
 import { Readable } from 'node:stream'
+import {createPreviewReader,safePreviewReference} from './attachment-preview.mjs'
 
 const error = (status, code, text) => new BridgeError(status, code, text)
 const unsupported = () => { throw error(501, 'UNSUPPORTED', 'This bridge capability is unavailable.') }
@@ -18,7 +19,7 @@ function approvalEvents(conversations, work) {
     return event ? [event] : []
   })
 }
-export function createAdapter({ connection, sessionController, fixtureText = false }) {
+export function createAdapter({ connection, sessionController, attachmentStore, fixtureText = false }) {
   if (typeof connection?.createSharedFetchHandler !== 'function') throw error(503, 'CONNECTION_UNAVAILABLE', 'The public Connection dispatcher is unavailable.')
   const dispatcher = connection.createSharedFetchHandler('/api')
   const peer = connection.createPeer?.({ principal: { kind: 'owner' } })
@@ -148,12 +149,13 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     if (item.kind === 'room') await primeGroupCalls(records, item, sessionId, signal, calls)
     const filtered = records.filter(record => ['user/message', 'assistant/message'].includes(record.event?.type))
     const projected = (item.kind === 'room' ? projectGroupRecords(records, { sessionId, members: item.members, calls, redact }) : projectRecords(filtered, options(item, sessionId))).filter(row => ['user', 'assistant'].includes(row.role)).map(row => ({
-      id: row.id, sessionId, seq: row.seq, createdAt: row.createdAt, role: row.role, text: row.text || row.attachments?.map(a => `[${a.type}: ${a.name}]`).join('\n') || '',
+      id: row.id, sessionId, seq: row.seq, createdAt: row.createdAt, role: row.role, text: row.text || '',
       ...(row.requestId ? { requestId: row.requestId } : {}),
-      ...(row.attachments?.length ? { attachments: row.attachments.slice(0,10).map(a => ({id:a.id,type:a.type,name:a.name,size:a.size})) } : {}),
+      ...(row.attachments?.length ? { attachments: row.attachments.slice(0,10).map(a => ({id:a.id,type:a.type,name:a.name,size:a.size,
+        ...(a.type==='image'?(safePreviewReference({attachmentId:a.id,mediaType:a.mediaType,bytes:a.size,width:a.width,height:a.height})?{mediaType:a.mediaType,width:a.width,height:a.height,previewAvailable:true}:{previewAvailable:false}):{})})) } : {}),
       ...(row.author ? { author: row.author } : {}),
       ...(row.groupReplyId ? { groupReplyId: row.groupReplyId } : {}),
-    })).filter(row => row.text.length > 0)
+    })).filter(row => row.text.length > 0 || row.attachments?.length)
     if (!fixtureText && projected.length) {
       for (let offset = 0; offset < projected.length; offset += 10) {
         const batch = projected.slice(offset, offset + 10)
@@ -253,6 +255,9 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     return { botProfileEditing: editing, botEditableFields: editing ? ['name', 'role', 'instructions', 'color', 'avatar', 'model', 'effort'] : ['model', 'effort'],
       botManagement: editing, groupManagement: actions.includes('create-room'), groupProgress: actions.includes('room-progress'), preferences: actions.includes('set-prefs') }
   }
+  const attachment=createPreviewReader({sessionController,attachmentStore,project:messages,authorize:async(input,signal,access)=>{
+    textAllowed();const item=await target(input.conversationId,signal,access);requireSession(item,input.sessionId);requireGrant(item,access);return item
+  }})
   return {
     async initialize() {
       for (let attempt = 0; ; attempt++) {
@@ -274,6 +279,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
         : 'This Dabots version does not provide the required mobile chat interfaces. Pairing and team summaries are available; chat controls must remain disabled.' }),
     capabilities: () => ({ discovery: true, pairing: true, conversations: true, history: fixtureText || (description.version === 1 && description.redactedText === true), stream: fixtureText || (description.version === 1 && description.redactedText === true),
       send: description.version === 1 && description.stableRequestId === true, attachments: description.attachments === 1, uploadLimits: description.attachments === 1 ? {maxBytes:2097152,maxFiles:4,maxTotalBytes:4194304} : null, cancel: false,
+      ...(typeof attachmentStore?.readImageRequest==='function'?{attachmentPreviews:1,previewLimits:{maxBytes:1048576,maxEdge:1536}}:{}),
       ...(description.uploadTransfers===1&&description.attachments===1?{uploadTransfers:1,transferLimits:{maxBytes:100000000,maxTotalBytes:100000000,maxFiles:4,chunkBytes:262144,previewBytes:2097152}}:{}),
       actions: [], images: description.attachments === 1, files: description.attachments === 1, transcription: false, attachmentDownloads: [], audioStreaming: false,
       approvals: false, groups: description.groups === true && description.groupProjection === 1,
@@ -318,7 +324,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
     },
     async target(id, signal, access) { const item = await target(id, signal, access); return { conversationId: id, sessionId: item.sessionId, revision: item.revision, kind: item.kind } },
     history,
-    async submit({ conversationId, sessionId, requestId, text, attachments, uploadParts = [] }, signal, access) {
+    async submit({ conversationId, sessionId, requestId, text, attachments, uploadParts = [], recordAttachments = async()=>{} }, signal, access) {
       if (description.version !== 1 || description.stableRequestId !== true) throw error(501, 'STABLE_SUBMIT_REQUIRED', 'DS Bot 0.1.7 needs the reviewed bridge submit extension for reliable sending.')
       const item = await target(conversationId, signal, access)
       if (item.sessionId !== sessionId || item.readOnly) throw error(409, 'TARGET_CHANGED', 'Refresh the writable conversation target.')
@@ -326,7 +332,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
       if ((attachments?.length && (description.attachments !== 1 || (streamed?uploadParts.filter(part=>part.type==='stream-file').length:uploadParts.length) !== attachments.length)) || (!text?.trim() && !uploadParts.length) || text.includes('dsh-session:')) throw error(400, 'INVALID_CONTENT', 'Only plain text without Session references is supported.')
       if(streamed&&description.uploadTransfers!==1)throw error(501,'UNSUPPORTED','Update the engine for streamed attachments.')
       requireGrant(item, access)
-      const parts=[]
+      const parts=[],originals=new Map(),pairs=[]
       for(const part of uploadParts){
         if(part.type==='stream-file'){
           const response=await dispatcher.fetch(new Request(`http://bridge.invalid/api/session/uploadFileBinary?${new URLSearchParams({sessionId,name:part.name})}`,{
@@ -334,16 +340,21 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
           }),peer)
           const result=await response.json()
           if(!response.ok||result.ok!==true||typeof result.value?.receiptId!=='string'||result.value.file?.bytes!==part.size||result.value.file?.attachmentId!==`sha256:${part.sha256}`)throw error(503,'UPLOAD_UNCONFIRMED','The host could not verify the original file.')
+          if(typeof part.id==='string'&&part.id.length>0)originals.set(part.id,{originalId:result.value.file.attachmentId,originalIndex:parts.length})
           parts.push({type:'file',receiptId:result.value.receiptId})
         }else if(part.type==='stream-preview'){
           let size=0;const chunks=[]
           for await(const chunk of part.stream(signal)){size+=chunk.length;if(size>2097152)throw error(413,'FILE_TOO_LARGE','Model preview exceeds its byte limit.');chunks.push(chunk)}
+          const original=typeof part.previewFor==='string'?originals.get(part.previewFor):undefined
+          if(original)pairs.push({...original,previewIndex:parts.length})
           parts.push({type:'image',name:part.name,mediaType:part.mediaType,data:Buffer.concat(chunks).toString('base64')})
         }else parts.push(part)
         requireGrant(item,access);signal.throwIfAborted()
       }
       const latest=await target(conversationId,signal,access)
       if(latest.sessionId!==sessionId||latest.readOnly)throw error(409,'TARGET_CHANGED','Refresh the receiving conversation.')
+      if(pairs.length)await recordAttachments(pairs)
+      requireGrant(item,access);signal.throwIfAborted()
       const result = await call('bridge.submit', { version: streamed?2:1, conversationId: channelId(item), expectedSessionId: sessionId, ...(item.kind === 'room' ? { expectedMembers: item.members } : {}), requestId, content: [...(text.trim() ? [{ type: 'text', text }] : []), ...parts] }, signal)
       if (result?.accepted !== true || result.sessionId !== sessionId || result.requestId !== requestId) throw error(503, 'ADMISSION_UNCONFIRMED', 'The upstream admission receipt is unconfirmed.')
       return result
@@ -394,7 +405,7 @@ export function createAdapter({ connection, sessionController, fixtureText = fal
       if (item.sessionId !== sessionId || item.readOnly) throw error(409, 'TARGET_CHANGED', 'Refresh the writable conversation target.')
       await call('bridge.upload-check', { conversationId: channelId(item), expectedSessionId: sessionId, part: { type: mediaType.startsWith('image/') ? 'image' : 'file-upload', name, mediaType, data: bytes.toString('base64') } }, signal)
       requireGrant(item, access)
-    }, transcribe: unsupported, attachment: unsupported,
+    }, transcribe: unsupported, attachment,
     async action(name, payload, signal, access) {
       if (name === 'agent-rename' && !agentActions().includes(name)) throw error(403, 'ACTION_NOT_ALLOWED', 'Agent renaming requires an updated desktop plugin.')
       if (AGENT_ACTIONS.includes(name)) return agentAction(name, payload, signal, access)

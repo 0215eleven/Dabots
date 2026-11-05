@@ -11,7 +11,7 @@ import { BridgeError } from './src/auth.js'
 export { Config } from './src/config.mjs'
 
 export const name = 'ds-bot-mobile-bridge'
-export const inject = ['connection', 'sessionController', 'webServer']
+export const inject = ['connection', 'sessionController', 'webServer', 'attachments']
 export function resolveBridgeHome(config = {}) {
   if (config.home) {
     if (!isAbsolute(config.home)) throw new Error('Bridge home must be absolute.')
@@ -25,7 +25,7 @@ export async function startBridge(ctx, config) {
   if (home === resolveDshHome()) throw new Error('Bridge home must be separate from DSH_HOME.')
   await assertRemoteCleanupSafe(home)
   // Synthetic transcript mode is intentionally unavailable in the production entry.
-  const adapter = createAdapter({ connection: ctx.connection, sessionController: ctx.sessionController })
+  const adapter = createAdapter({ connection: ctx.connection, sessionController: ctx.sessionController, attachmentStore: ctx.get?.('attachments')??ctx.attachments })
   let server
   try {
     await adapter.initialize()

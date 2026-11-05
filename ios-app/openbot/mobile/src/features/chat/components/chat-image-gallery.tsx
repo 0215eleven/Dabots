@@ -12,6 +12,7 @@ import { sameShape } from "../model/image-dimensions";
 import { type GalleryTile, galleryTiles } from "../model/image-gallery-layout";
 import { rememberImageDimensions, useAttachmentFile } from "./attachment-preview";
 import { useChatImageSource } from "./chat-image-viewer";
+import type {PresentedAttachment} from '../model/attachment-presentation';
 
 const GAP = 4;
 const TILE_RADIUS = 10;
@@ -106,6 +107,7 @@ function ChatGalleryTile({
             <Skeleton isLoading={!loaded} className="rounded-none" style={FILL} />
             <Image
               source={uri}
+              cachePolicy={(attachment as PresentedAttachment).downloadMode==='preview'?'none':undefined}
               transition={localUri ? 0 : 220}
               contentFit="cover"
               accessible={false}

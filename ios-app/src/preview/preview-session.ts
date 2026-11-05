@@ -3,6 +3,7 @@
 import type { Conversation, Message, MobileClient, MobileEvent } from "@ds-bot/mobile-sdk";
 import { enableFixture } from "./enabled-fixture";
 import type { Host } from "../storage";
+import {previewPhoto} from './preview-photo';
 
 export const designPreview = __DEV__ && process.env.EXPO_PUBLIC_DS_BOT_DESIGN_PREVIEW === "1";
 
@@ -40,6 +41,11 @@ const transcripts: Record<string, Message[]> = {
     message(6, "assistant", "收到，我们把想法变成一个可以试用的版本。", 189, bots[1]),
   ],
 };
+const previewImageId='sha256:'+'b'.repeat(64);
+transcripts['preview-chief'].push({...message(5,'user','Look at this picture',0),attachments:[
+  {id:'sha256:'+'a'.repeat(64),type:'file',name:'Synthetic landscape.png',size:201461,photo:true,preview:{id:previewImageId,size:71082,mediaType:'image/png',width:400,height:300}},
+  {id:'sha256:'+'c'.repeat(64),type:'file',name:'Notes.pdf',size:8024},
+]});
 for (const [index, bot] of bots.slice(1).entries())
   transcripts[bot.id] = [message(1, "assistant", ["把关键证据留在正文，其余放进附录。", "新配色已经准备好了，来看看？", "这段开头还可以再轻一点。"][index], 40 + index * 30)];
 
@@ -66,7 +72,8 @@ export function previewClient(serverId = "preview"): MobileClient {
     work: { bots: { "preview-design": { said: "正在调整首页的配色", since: now - 90_000 } }, rooms: { "preview-room": [{ botId: "preview-research", said: "正在整理用户反馈", speaking: true }] }, approvals: [{ id: "approval-1", botId: "preview-writing" }] },
   };
   const client = {
-    info: async () => ({ serverId, capabilities: { history: true, stream: true, send: true, groups: true, "agent-open": true, botManagement: true, groupManagement: true, actions: ["create-bot", "create-room"] } }),
+    info: async () => ({ serverId, capabilities: { attachmentPreviews:1, history: true, stream: true, send: true, groups: true, "agent-open": true, botManagement: true, groupManagement: true, actions: ["create-bot", "create-room"] } }),
+    attachment:async(_conversationId:string,_sessionId:string,id:string)=>{if(id!==previewImageId)throw new Error('No synthetic image');return (await fetch(previewPhoto)).blob();},
     state: async () => state,
     conversations: async () => ({ conversations }),
     messages: async (id: string) => ({ messages: transcripts[id] ?? [], cursor: null, sessionId: "s" }),

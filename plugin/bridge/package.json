@@ -19,6 +19,8 @@
   "files": [
     "index.mjs",
     "src/adapter.mjs",
+    "src/attachment-preview.mjs",
+    "src/attachment-display.mjs",
     "src/auth.js",
     "src/config.mjs",
     "src/projection.js",

@@ -24,6 +24,7 @@ import type { DsCore, DsView } from './contracts';
 import { createScreenCommands, mutationProblem } from './screen-binding';
 import { dsId } from './identity';
 import { unavailableWorkspace, unsupported } from './unavailable-workspace';
+import {previewEpoch,readPreview} from './attachment-preview';
 import type { ChannelSummary } from '@openbot/contracts/ipc';
 interface Binding {
     core: DsCore | null;
@@ -92,6 +93,15 @@ export function DsProvider({ children }: {
     }) => { const target = view?.bots.find(b => b.id === id) ?? view?.groups.find(g => g.id === id); if (!target?.conversationId || !core)
         return unsupported('Conversation flags'); return (await core.setFlags(target.conversationId, patch)).value; };
     const value: MobileWorkspaceContextValue = { ...unavailableWorkspace, ...stores,
+        downloadAttachment: async (requestedServer,id,options={}) => {
+            if(!client||!core||!serverId||requestedServer!==serverId)return unsupported('Image preview');
+            return readPreview(client,serverId,previewEpoch(core),id,{signal:options.signal,current:scope=>{
+                const current=latest.current,snapshot=current.workspace.getSnapshot();
+                if(current.client!==client||current.host?.serverId!==serverId||snapshot?.accessDenied||current.workspace.team.mobileCapabilities?.attachmentPreviews!==1)return false;
+                if(scope.conversationId.startsWith('agent:')&&current.workspace.team.agentAccess!==true)return false;
+                try{return core.capabilities().history;}catch{return false;}
+            }});
+        },
         get teamDirectory() { return unsupported('Remote account directory'); },
         sidebarByServer: {}, servers: session.host ? [host] : [], memberCountByServer: {}, serverDirectoryState: session.loading ? 'loading' : 'ready', serverDirectoryError: session.error || null,
         agents, activeAgents: agents.filter(a => !view?.bots.find(b => b.id === a.id)?.hidden), hiddenAgents: agents.filter(a => view?.bots.find(b => b.id === a.id)?.hidden), activeServer: host,
