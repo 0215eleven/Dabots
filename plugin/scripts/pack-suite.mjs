@@ -33,7 +33,7 @@ if(contract.missing.length)throw Error(`Engine lacks the Bridge contract (${cont
 const base=String(engine.version).split('-')[0]
 if(!/^\d+\.\d+\.\d+$/.test(base))throw Error('Unrecognized engine version')
 if(!args.dev&&base!=='0.2.0')throw Error(`Expected the production ds-bot 0.2.0 engine, found ${engine.version}`)
-const version=`${base}-pro.3${args.dev?'.dev':''}`
+const version=`${base}-pro.4${args.dev?'.dev':''}`
 // Fingerprint the entry contract/client; the full TGZ has its own SHA-256 below.
 const fingerprint=createHash('sha256').update(await readFile(join(engineDir,'package.json'))).update(channel).update(await readFile(join(engineDir,'client.js')))
 try{fingerprint.update(await readFile(join(engineDir,'src/host/mobile-bridge.js')))}catch(error){if(error.code!=='ENOENT')throw error}

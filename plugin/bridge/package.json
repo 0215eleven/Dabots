@@ -51,7 +51,7 @@
   ],
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "test:integration": "node test/integration.mjs && node test/large-upload.integration.mjs",
+    "test:integration": "node test/integration.mjs && node test/large-upload.integration.mjs && node test/receipt-compat.integration.mjs",
     "fixture": "node test/fixture-host.mjs",
     "lint": "oxlint --deny-warnings index.mjs src test",
     "test:delivery": "node test/delivery.mjs",

@@ -103,6 +103,53 @@ test('v2 accepts only staged file receipts while preserving v1 byte limits and t
  assert.equal(submitted.length,1)
 })
 
+test('v2 admits legacy and tagged file receipts with previews for Bot, room and Agent Sessions', async () => {
+  const receiptId = '10000000-0000-4000-8000-000000000001'
+  const file = { attachmentId: `sha256:${'a'.repeat(64)}`, name: 'synthetic.png', bytes: 100000000 }
+  const content = [{ type: 'file', receiptId }, { type: 'image', name: 'preview.png', mediaType: 'image/png', data: 'b2s=' }]
+  for (const staged of [file, { type: 'file', attachment: file }]) {
+    for (const target of [
+      { conversationId: 'chief', expectedSessionId: 'current' },
+      { conversationId: 'room', expectedSessionId: 'room', expectedMembers: ['chief'] },
+      { conversationId: 'agent:helper', expectedSessionId: 'agent-current' },
+    ]) {
+      const { call, submitted } = channel({ fileUploads: { resolve: (agent, id) => agent.id === target.expectedSessionId && id === receiptId ? staged : undefined } })
+      assert.equal((await call('bridge.submit', message({ version: 2, ...target, content }))).ok, true)
+      assert.deepEqual(submitted, [{ requestId: 'mobile_1', sessionId: target.expectedSessionId, mode: 'queue', content }])
+    }
+  }
+})
+
+test('v2 rejects image receipts, unknown receipt tags and invalid original byte counts before queuing', async () => {
+  const receiptId = '10000000-0000-4000-8000-000000000001'
+  const file = { attachmentId: `sha256:${'a'.repeat(64)}`, name: 'synthetic.txt', bytes: 3 }
+  const invalid = [
+    undefined, { type: 'image', attachment: file, bytes: 3 }, { type: 'other', attachment: file, bytes: 3 },
+    { type: 'file' }, { type: 'file', attachment: { type: 'file', attachment: file } },
+    ...[undefined, 0, -1, 1.5, '3', NaN, Infinity, 100000001].flatMap(bytes => [{ ...file, bytes }, { type: 'file', attachment: { ...file, bytes } }]),
+  ]
+  for (const staged of invalid) {
+    const { call, submitted } = channel({ fileUploads: { resolve: () => staged } })
+    const result = await call('bridge.submit', message({ version: 2, content: [{ type: 'file', receiptId }] }))
+    assert.equal(result.ok, false)
+    assert.equal(result.error.code, 'bot/invalid')
+    assert.equal(submitted.length, 0)
+  }
+})
+
+test('v2 tagged receipt admission preserves exact receiver ownership and the total original byte limit', async () => {
+  const ids = ['10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001']
+  let bytes = 50000000
+  const { call, submitted } = channel({ fileUploads: { resolve: (agent, id) => agent.id === 'current' && ids.includes(id)
+    ? { type: 'file', attachment: { attachmentId: `sha256:${'a'.repeat(64)}`, name: 'synthetic.txt', bytes } } : undefined } })
+  const content = ids.map(receiptId => ({ type: 'file', receiptId }))
+  assert.equal((await call('bridge.submit', message({ version: 2, content }))).ok, true)
+  bytes = 50000001
+  assert.equal((await call('bridge.submit', message({ version: 2, content }))).error.code, 'bot/invalid')
+  assert.equal((await call('bridge.submit', message({ version: 2, conversationId: 'room', expectedSessionId: 'room', expectedMembers: ['chief'], content: content.slice(0, 1) }))).error.code, 'bot/invalid')
+  assert.equal(submitted.length, 1)
+})
+
 test('a rotated Bot session is rechecked after capability admission', async () => {
   const { call, submitted } = channel({ prepare: async ({ move }) => move() })
   assert.equal((await call('bridge.submit', message())).error.code, 'bot/stale')

@@ -1,4 +1,4 @@
-// Isolated public DSH 0.2.1-rc.2 runs for single-package tests. Everything lives
+// Isolated public DSH runs for single-package tests. Everything lives
 // under a temporary DSH_HOME; no user profile, network service or credential is used.
 import {spawn,execFileSync} from 'node:child_process'
 import {createServer} from 'node:net'
@@ -10,7 +10,7 @@ import {randomUUID} from 'node:crypto'
 import {fixtureEnvironment} from '../../bridge/test/fixture-environment.mjs'
 
 export const root=resolve(import.meta.dirname,'../../..')
-export const deps=join(root,'plugin/bridge/fixture/deps/node_modules')
+export const deps=resolve(process.env.BRIDGE_TEST_DEPS??join(root,'plugin/bridge/fixture/deps/node_modules'))
 export const devEngine=join(root,'plugin/bridge/fixture/extended/package')
 const delay=ms=>new Promise(r=>setTimeout(r,ms))
 export async function freePort(){const s=createServer();s.listen(0,'127.0.0.1');await once(s,'listening');const p=s.address().port;await new Promise(r=>s.close(r));return p}

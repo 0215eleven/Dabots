@@ -48,6 +48,11 @@ export function apply(ctx, config) {
             const connector=createRelayConnector({relay,secret:payload.secret,identity:{edPrivateKey:ed.privateKey,xPublicKey:x.publicKey,xSecretKey:x.secretKey},serverId:bridge.serverId,endpoint:id=>bridge.relayEndpoint(id),Socket:FixtureSocket})
             testRelays.push(connector);await connector.ready;result=connector.status()
           }
+          else if(endpoint==='test.file-receipt'){
+            // Mint a receipt only in this isolated fixture, to test cross-Session refusal.
+            result=await (ctx.get('fileUploads')??ctx.fileUploads).uploadStream({sessionId:payload.sessionId,name:'synthetic-receipt.txt',data:(async function*(){yield Buffer.from('synthetic receipt ownership')})(),signal:AbortSignal.timeout(30000)})
+            result={receiptId:result.receiptId}
+          }
           else if(endpoint==='test.file-facts'){
             if(!/^[a-f0-9]{64}$/.test(payload.sha256)||!Number.isSafeInteger(payload.size))throw Error('Synthetic reference required')
             const hash=createHash('sha256');let bytes=0,maxChunk=0

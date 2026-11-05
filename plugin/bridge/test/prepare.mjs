@@ -9,9 +9,11 @@ const run = (cmd, args, cwd, input) => {
   if (result.status !== 0) throw Object.assign(Error(`Fixture command failed: ${cmd}`), { code: result.error?.code ?? `COMMAND_${result.status}` })
   return result.stdout
 }
-await mkdir(join(fixture, 'deps'), {recursive: true})
-await writeFile(join(fixture, 'deps/package.json'), JSON.stringify({private: true, dependencies: {'@deepseek-ai/dsh': '0.2.1-rc.2', jsdom: '29.1.1', oxlint: '1.76.0'}}))
-run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--registry=https://registry.npmjs.org'], join(fixture, 'deps'))
+for (const [directory, version] of [['deps', '0.2.1-rc.2'], ['deps-022', '0.2.2-rc.1']]) {
+  await mkdir(join(fixture, directory), {recursive: true})
+  await writeFile(join(fixture, directory, 'package.json'), JSON.stringify({private: true, dependencies: {'@deepseek-ai/dsh': version, jsdom: '29.1.1', oxlint: '1.76.0'}}))
+  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--registry=https://registry.npmjs.org'], join(fixture, directory))
+}
 const packed = JSON.parse(run('npm', ['pack', 'ds-bot@0.1.7', '--ignore-scripts', '--json', '--registry=https://registry.npmjs.org', '--pack-destination', fixture], root))[0]
 if (packed.integrity !== 'sha512-xRiXIpDfemkZ2l6lDwu7ZKSnn0a2c26BsZ7e+eEOkQ1AknXOKretK52Yuq1yfG6p4XCObmUiXR1tdGo7EQIStw==') throw Error('Unexpected public DS Bot integrity')
 const vanilla = join(fixture, 'vanilla'), extended = join(fixture, 'extended')
@@ -26,4 +28,4 @@ run('git', ['apply', '--no-index', '-'], join(extended, 'package'), patch.replac
 for (const dir of [vanilla, extended]) {
   try { await symlink(join(fixture, 'deps/node_modules'), join(dir, 'package/node_modules'), process.platform === 'win32' ? 'junction' : 'dir') } catch (error) { if (error.code !== 'EEXIST') throw error }
 }
-console.log('Prepared public DSH 0.2.1-rc.2 and pristine/reviewed DS Bot 0.1.7 fixtures; no user profile used.')
+console.log('Prepared public DSH 0.2.1-rc.2 / 0.2.2-rc.1 and pristine/reviewed DS Bot 0.1.7 fixtures; no user profile used.')

@@ -1,5 +1,11 @@
 # Dabots changelog
 
+## Desktop plugin 0.2.0-pro.4
+
+- Fix attachment submission on DSH 0.2.2-rc.1 by accepting its tagged file receipts as well as DSH 0.2.1-rc.2 file references. Preserve exact receiving Session ownership, file-only admission and the 100 MB per-file/message original-byte limits.
+- Cover Bot, group and DSH Agent original photos, separate model previews, ordinary files and foreign-Session receipt refusal in isolated public DSH tests for both versions.
+- Give the desktop package a distinct version so it upgrades the earlier pro.3 packages. Existing pairings and configuration are preserved; no phone rebuild or relay deployment is required for this compatibility fix.
+
 ## Desktop plugin 0.2.0-pro.3
 
 - Include persistent DSH Agent conversation renaming and bounded mobile image/document uploads through the encrypted relay and native DSH attachment services. Both the mobile app and desktop plugin need the updated code.

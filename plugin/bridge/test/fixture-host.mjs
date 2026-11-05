@@ -14,7 +14,7 @@ export async function launchFixture() {
   await chmod(home, 0o700)
   const deps = resolve(process.env.BRIDGE_TEST_DEPS ?? join(root, 'fixture/deps/node_modules'))
   const dsh = JSON.parse(await readFile(join(deps, '@deepseek-ai/dsh/package.json'), 'utf8'))
-  if (dsh.version !== '0.2.1-rc.2') throw Error('Fixture requires public DSH 0.2.1-rc.2')
+  if (!['0.2.1-rc.2', '0.2.2-rc.1'].includes(dsh.version)) throw Error('Fixture requires a pinned public DSH 0.2.1-rc.2 or 0.2.2-rc.1')
   const children = [], env = await fixtureEnvironment(home)
   const close = async () => {
     for (const { child } of [...children].reverse()) {
@@ -51,7 +51,7 @@ export async function launchFixture() {
     if (!urls) throw Error('Candidate fixture readiness timeout')
     await writeFile(join(root, 'fixture/ready.json'), JSON.stringify({ ...urls, readyFile: ready, home, webUrl: `http://127.0.0.1:${webPort}` }), { mode: 0o600 })
     await chmod(join(root, 'fixture/ready.json'), 0o600)
-    return { home, urls, ready, close, diagnostics }
+    return { home, urls, ready, close, diagnostics, dshVersion: dsh.version }
   } catch (error) { await writeFile(join(home, 'failure.log'), diagnostics(), { mode: 0o600 }); await close(); throw Object.assign(error, { fixtureHome: home }) }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

@@ -76,7 +76,10 @@ export function createMobileBridge(rt, { ok, fail }) {
           const agent=(ctx.get?.('agents')??ctx.agents)?.get(body.expectedSessionId)
           let bytes=0
           for(const part of body.content)if(part.type==='file'){
-            const file=agent&&files()?.resolve?.(agent,part.receiptId)
+            const staged=agent&&files()?.resolve?.(agent,part.receiptId)
+            // DSH 0.2.2 tags file/image receipts; 0.2.1 returns the file directly.
+            // Only unwrap files from this exact Agent's receipt store.
+            const file=staged?.type==='file'?staged.attachment:staged?.type===undefined?staged:undefined
             if(!file||!Number.isSafeInteger(file.bytes)||file.bytes<=0||file.bytes>100000000)return fail('Invalid staged file','bot/invalid')
             bytes+=file.bytes
           }

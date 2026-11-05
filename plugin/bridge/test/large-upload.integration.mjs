@@ -86,7 +86,15 @@ try{
   await direct.uploadFile({conversationId,sessionId:target.sessionId,clientId:'preview_'+label,name:'Model preview - '+label+'.png',mediaType:'image/png',kind:'preview',previewFor:original.receiptId,...source})
   assert.equal((await direct.submit({conversationId,sessionId:target.sessionId,requestId:'preview_'+label,text:'Original file and independent model preview',attachments:[original]})).accepted,true)
   check(label+' original-file receipt and separate model image use real exact-session DSH admission')
+  const bytes=Buffer.from('synthetic ordinary document '+label)
+  const document=await direct.uploadFile({conversationId,sessionId:target.sessionId,clientId:'document_'+label,name:'synthetic-'+label+'.txt',mediaType:'text/plain',kind:'file',size:bytes.length,read:async(offset,length)=>bytes.subarray(offset,offset+length)})
+  assert.equal((await direct.submit({conversationId,sessionId:target.sessionId,requestId:'document_'+label,text:'Synthetic ordinary document',attachments:[document]})).accepted,true)
+  check(label+' ordinary file reaches the real DSH Session')
  }
- console.log(passed+' large upload integration checks passed; no native iOS/device assertion')
+ const foreign=await operator('test.file-receipt',{sessionId})
+ const response=await fetch(operatorUrl,{method:'POST',headers:{'x-fixture':'bridge-test-only'},body:JSON.stringify({endpoint:'test.bot-call',payload:{action:'bridge.submit',body:{version:2,requestId:'foreign_receipt',conversationId:fixture.urls.groupId,expectedSessionId:fixture.urls.groupId,expectedMembers:fixture.urls.memberIds,content:[{type:'file',receiptId:foreign.receiptId}]}}})})
+ assert.equal(response.ok,false);assert.equal((await response.json()).code,'bot/invalid')
+ check('real DSH file receipt from another Session is refused before prompt admission')
+ console.log(passed+' large upload integration checks passed; public DSH '+fixture.dshVersion+'; no native iOS/device assertion')
 }catch(error){if(fixture)console.error(fixture.diagnostics().replace(/([?&]token=)[^\s&]+/gu,'$1[synthetic-token-redacted]'));throw error}
 finally{client?.dispose();direct?.dispose();transport?.dispose();await relay?.close();if(tls){tls.closeAllConnections();await new Promise(resolve=>tls.close(resolve))}await fixture?.close()}
