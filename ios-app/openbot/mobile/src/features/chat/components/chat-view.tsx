@@ -30,7 +30,8 @@ export function ChatView({ conversationId, ownerId }: {
     ownerId: string;
 }) {
     const state = useDsChat(conversationId);
-    const selected=useAttachments(),{client,workspace,foreground:appActive}=useSession();
+    const rawConversationId=[...(state.view?.conversations??[]),...(state.view?.agents??[])].find(item=>item.id===conversationId)?.sourceId;
+    const selected=useAttachments(rawConversationId),{client,workspace,foreground:appActive}=useSession();
     const attachmentEnabled=workspace.team.mobileCapabilities?.attachments===true;
     const { tr, locale } = useDsText();
     const { agents } = useDs();
@@ -51,8 +52,7 @@ export function ChatView({ conversationId, ownerId }: {
     const canSend = Boolean(state.core && state.view?.capabilities.send && !state.view.readOnly && !uncertain);
     async function send(text: string) { if (!state.core || sending.current || !canSend)
         return; const sentDraft = draftState.capture(); sending.current = true; setBusy(true); try {
-        const raw=state.view?.conversations.find(item=>item.id===conversationId)?.sourceId;
-        const files=selected.items.length ? await selected.upload(client!,raw!) : [];
+        const files=selected.items.length ? await selected.upload(client!,rawConversationId!) : [];
         const result = await sendScreenMessage(state.core, conversationId, text, files);
         if (result.queued) {
             draftState.sent(sentDraft); selected.clearSent();

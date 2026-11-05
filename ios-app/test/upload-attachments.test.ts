@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {uploadAttachments,validateSelectedUploads,LEGACY_UPLOAD_LIMITS} from '../src/logic/upload-attachments.ts';
+import {uploadAttachments,uploadStreamedAttachments,validateSelectedUploads,LEGACY_UPLOAD_LIMITS} from '../src/logic/upload-attachments.ts';
 const file={id:'one',name:'synthetic.txt',mimeType:'text/plain',base64:'b2s=',size:2};
 test('selected bytes go only to the exact paired target and a partial/cancelled batch removes its unused receipts',async()=>{
  const calls:any[]=[],removed:string[]=[],client:any={target:async(id:string)=>{assert.equal(id,'chief');return{sessionId:'session'}},upload:async(body:any)=>{calls.push(body);return{receiptId:'r',name:body.name,size:2}},removeUpload:async(id:string)=>removed.push(id)};
@@ -20,4 +20,10 @@ test('invalid confirmations are cleaned and selection count and total bytes stay
  assert.throws(()=>validateSelectedUploads([{...file,size:100000001}]));
  assert.throws(()=>validateSelectedUploads([{...file,size:100000000},{...file,id:'two',size:1}]));
  assert.throws(()=>validateSelectedUploads([{...file,name:'photo.png',mimeType:'text/plain'}]));
+});
+
+test('a fresh host target cannot silently replace the Session captured by the composer',async()=>{
+ const client:any={target:async()=>({sessionId:'replacement'}),upload:()=>assert.fail('no legacy bytes'),uploadFile:()=>assert.fail('no original chunks')};
+ await assert.rejects(uploadAttachments(client,'chief',[file],undefined,'selected'),{code:'TARGET_CHANGED'});
+ await assert.rejects(uploadStreamedAttachments(client,'chief',[file],{sessionId:'selected',read:async()=>assert.fail('no source read')}),{code:'TARGET_CHANGED'});
 });

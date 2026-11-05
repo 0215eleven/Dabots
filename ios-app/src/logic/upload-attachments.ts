@@ -27,9 +27,10 @@ export function validateSelectedUploads(items:readonly SelectedUpload[],limits=M
   if(item.size>limits.maxBytes)throw new UploadSelectionError('size',item.name);
  }
 }
-export async function uploadAttachments(client:Pick<MobileClient,'upload'|'target'|'removeUpload'>,conversationId:string,items:readonly SelectedUpload[],signal?:AbortSignal):Promise<Attachment[]>{
+export async function uploadAttachments(client:Pick<MobileClient,'upload'|'target'|'removeUpload'>,conversationId:string,items:readonly SelectedUpload[],signal?:AbortSignal,expectedSessionId?:string):Promise<Attachment[]>{
  validateSelectedUploads(items,LEGACY_UPLOAD_LIMITS);if(!items.length)return[];
  const {sessionId}=await client.target(conversationId),uploaded:Attachment[]=[];
+ if(expectedSessionId&&sessionId!==expectedSessionId)throw Object.assign(Error('The receiving Session changed.'),{code:'TARGET_CHANGED'});
  try {
   for (const item of items) {
    signal?.throwIfAborted();
@@ -45,9 +46,10 @@ export async function uploadAttachments(client:Pick<MobileClient,'upload'|'targe
  catch(error){await Promise.allSettled(uploaded.map(item=>client.removeUpload(item.receiptId!)));throw error;}
 }
 export async function uploadStreamedAttachments(client:Pick<MobileClient,'uploadFile'|'target'|'removeTransfer'>,conversationId:string,items:readonly SelectedUpload[],
- options:{signal?:AbortSignal;read:(uri:string,size:number,offset:number,length:number)=>Promise<Uint8Array>;onTransfer?:(sourceId:string,id:string)=>void;onProgress?:(bytes:number,total:number,phase:'original'|'preview')=>void}):Promise<Attachment[]>{
+ options:{sessionId?:string;signal?:AbortSignal;read:(uri:string,size:number,offset:number,length:number)=>Promise<Uint8Array>;onTransfer?:(sourceId:string,id:string)=>void;onProgress?:(bytes:number,total:number,phase:'original'|'preview')=>void}):Promise<Attachment[]>{
  validateSelectedUploads(items);if(!items.length)return[];
  const {sessionId}=await client.target(conversationId),total=items.reduce((sum,item)=>sum+item.size,0),uploaded:Attachment[]=[];let done=0;
+ if(options.sessionId&&sessionId!==options.sessionId)throw Object.assign(Error('The receiving Session changed.'),{code:'TARGET_CHANGED'});
  for(const item of items){
   options.signal?.throwIfAborted();const source=item.localFile,sourceId=source?.clientId??item.id;
   // Pasted text has a small in-memory representation; picked files always use owned URI chunks.

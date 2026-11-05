@@ -29,7 +29,7 @@ export function OpenBotChat({ conversation }: { conversation: Conversation }) {
   const insets = useSafeAreaInsets();
   const { client, host, workspace, foreground: appActive } = useSession();
   const chat = useChat(conversation.id);
-  const selected=useAttachments(),{tr}=useI18n(),sending=useRef(false);
+  const selected=useAttachments(conversation.id),{tr}=useI18n(),sending=useRef(false);
   const [attachmentError,setAttachmentError]=useState('');
   const attachmentEnabled=workspace.team.mobileCapabilities?.attachments===true;
   const reducedTransparency = useReducedTransparency();

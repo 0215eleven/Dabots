@@ -48,6 +48,18 @@ test('HEIC/JPEG and transparent PNG previews are separate from unchanged origina
  }
 });
 
+test('wide and tall low-byte photos are converted instead of bypassing the model preview edge bound',async()=>{
+ const {preparePhoto}=load('src/logic/prepare-photo.ts');
+ for(const [width,height] of [[4096,512],[512,4096]]){
+  let encodes=0;
+  const result=await preparePhoto({uri:'source',fileName:'panorama.png'},cap,{
+   inspect:async(uri:string)=>({header:png,size:100,width:uri==='source'?width:2048,height:uri==='source'?height:256}),
+   encode:async()=>{encodes++;return 'preview'},discard:()=>{},
+  });
+  assert.equal(encodes,1);assert.equal(result.preview.uri,'preview');assert.ok(Math.max(result.preview.width,result.preview.height)<=2048);
+ }
+});
+
 test('conversion failure stays within 4 attempts and cleans every rejected output without touching the original',async()=>{
  const {preparePhoto}=load('src/logic/prepare-photo.ts');let attempts=0;const discarded:string[]=[];
  const original=await preparePhoto({uri:'original',fileName:'big.png'},cap,{inspect:async()=>({header:png,size:3000000,width:3000,height:2000}),

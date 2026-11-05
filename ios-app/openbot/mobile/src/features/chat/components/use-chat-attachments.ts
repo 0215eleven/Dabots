@@ -205,15 +205,16 @@ export function useChatAttachments(
       mobileAnalytics.track("attachment_action", { action: "select", result: "cancelled", attachment_count: 0 });
       return;
     }
-    let kept=false;
+    let kept=false,read:Awaited<ReturnType<typeof readFile>>|undefined;
     try{
-      const item = prepare(await readFile(picked.uri, picked.name,picked.localFile));
+      read=await readFile(picked.uri,picked.name,picked.localFile);
+      const item = prepare(read);
       // The list can change while the picker is open; replace the file where it is now.
       const next = itemsRef.current.map((candidate) => (candidate.id === id ? item : candidate));
       if (!next.includes(item)) return;
       await persistItems(next);
       kept=true;trackSelected(item.size);
-    }finally{if(!kept)picked.discard?.();}
+    }finally{if(!kept){if(read?.localFile)limits.discardFile?.(read.localFile);picked.discard?.();}}
   }
   async function chooseFiles() {
     // Native pickers are only needed after an explicit selection action. A route import

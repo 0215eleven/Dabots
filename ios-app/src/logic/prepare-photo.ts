@@ -38,7 +38,7 @@ export async function preparePhoto(asset:PhotoSelection,maxBytes:number,io:Photo
  // Unknown or excessive source dimensions do not enter a decoder. The original remains a file.
  if(source.size>20*1048576||!width||!height||!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1||width*height>64000000||Math.max(width,height)>8192)return {...original,previewUnavailable:true};
  const previewName=(kind:string)=>{const name=photoName(asset,kind),dot=name.lastIndexOf('.');return `Model preview - ${name.slice(0,dot).slice(0,220)}${name.slice(dot)}`;};
- if(['png','jpeg','webp'].includes(format)&&source.size<=2097152&&width*height<=4194304)return {...original,preview:{uri:asset.uri,name:previewName(format),mimeType:`image/${format}`,size:source.size,width,height}};
+ if(['png','jpeg','webp'].includes(format)&&source.size<=2097152&&width*height<=4194304&&Math.max(width,height)<=2048)return {...original,preview:{uri:asset.uri,name:previewName(format),mimeType:`image/${format}`,size:source.size,width,height}};
  // PNG/WebP preview alpha is retained. HEIC/HEIF and JPEG previews are genuinely encoded JPEG.
  const outputFormat=format==='png'||format==='webp'?'png':'jpeg';
  for(const [maxEdge,quality] of [[2048,0.9],[1536,0.8],[1024,0.7],[768,0.6]] as const){
