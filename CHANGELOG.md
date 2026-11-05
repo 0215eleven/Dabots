@@ -1,5 +1,11 @@
 # Dabots changelog
 
+## Desktop plugin 0.2.0-pro.3
+
+- Include persistent DSH Agent conversation renaming and bounded mobile image/document uploads through the encrypted relay and native DSH attachment services. Both the mobile app and desktop plugin need the updated code.
+- Bump only the composed desktop package version; preserve engine 0.2.0, package/row identities and stored pairings. Official packages include the configured official relay address.
+- Deliver a verified desktop TGZ with its exact main source commit and SHA-256 metadata. This release does not rebuild the iOS app.
+
 ## Desktop plugin 0.2.0-pro.2
 
 - Bump the composed desktop plugin version from 0.2.0-pro.1 and refresh its package documentation. The production engine remains 0.2.0; installed package/row IDs and stored pairings are unchanged.
