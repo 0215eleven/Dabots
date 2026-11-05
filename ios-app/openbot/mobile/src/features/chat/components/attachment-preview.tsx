@@ -8,7 +8,7 @@ import { Image } from "expo-image";
 import * as Sharing from "expo-sharing";
 import { useThemeColor } from "heroui-native/hooks";
 import FileText from "lucide-react-native/icons/file-text";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
@@ -127,6 +127,26 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
   const { t, sourceText } = useText();
   const [sharing, setSharing] = useState(false);
   const mode=(attachment as PresentedAttachment).downloadMode,memoryOnly=mode==='preview';
+  const exports = useMemo(() => ({active:true, controllers:new Set<AbortController>()}), [serverId,attachment.id,downloadAttachment]);
+  useEffect(() => {
+    exports.active=true;
+    return () => {exports.active=false;for(const controller of exports.controllers)controller.abort();};
+  }, [exports]);
+  function beginExport() {
+    if(!memoryOnly)return undefined;
+    const controller=new AbortController();exports.controllers.add(controller);return controller;
+  }
+  function checkExport(controller:AbortController|undefined) {
+    if(!controller)return;
+    controller.signal.throwIfAborted();
+    if(!exports.active)throw new Error(t('mobile.chat.attachment.previewUnavailable'));
+  }
+  async function exportData(controller:AbortController|undefined) {
+    checkExport(controller);
+    // A cached thumbnail does not authorize a new export after an asynchronous system prompt.
+    if(memoryOnly){const data=await downloadAttachment(serverId,attachment.id,{signal:controller?.signal});checkExport(controller);return {data,error:null};}
+    return query.data ? {data:query.data,error:null} : query.refetch();
+  }
   const pending = attachment.id.startsWith("mobile-draft-attachment-");
   const local =
     attachment.previewUrl?.startsWith("data:image/") || (pending && attachment.previewUrl?.startsWith("file://"))
@@ -163,17 +183,20 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
     localUri ?? query.data?.fileUri ?? (query.data ? `data:${query.data.mimeType};base64,${query.data.base64}` : null);
   async function share() {
     setSharing(true);
+    const controller=beginExport();
     let file: File | null = null;
     try {
       if (!(await Sharing.isAvailableAsync())) throw new Error(t("mobile.chat.attachment.sharingUnavailable"));
-      const result = query.data ? { data: query.data, error: null } : await query.refetch();
+      const result = await exportData(controller);
       if (result.error) throw result.error;
       if (!result.data) throw new Error(t("mobile.chat.attachment.unavailable"));
       const name = (memoryOnly?result.data.name:attachment.name).replace(/[/\\\p{Cc}]/gu, "_");
       file = new File(Paths.cache, `${Date.now()}-${name}`);
-      file.writeSync(await fileBase64(result.data), { encoding: "base64" });
+      const bytes=await fileBase64(result.data);checkExport(controller);
+      file.writeSync(bytes, { encoding: "base64" });checkExport(controller);
       await Sharing.shareAsync(file.uri, { mimeType: result.data.mimeType, dialogTitle: attachment.name });
     } catch (error) {
+      if(controller?.signal.aborted||!exports.active)return;
       void haptics.notification("error");
       showFailureAlert(
         error,
@@ -183,12 +206,14 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       );
     } finally {
       if (file?.exists) file.delete();
-      setSharing(false);
+      if(controller)exports.controllers.delete(controller);
+      if(exports.active)setSharing(false);
     }
   }
   /** Saves the image to the photo library. It reports its own failure and returns whether it saved. */
   async function saveToPhotos(): Promise<boolean> {
     setSharing(true);
+    const controller=beginExport();
     let file: File | null = null;
     try {
       // Loaded on use: an app build made before this module was added has no native side for it,
@@ -197,16 +222,18 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       if (!MediaLibrary) throw new Error(t("mobile.chat.attachment.photosNeedUpdate"));
       if (!(await MediaLibrary.requestPermissionsAsync(true, ["photo"])).granted)
         throw new Error(t("mobile.chat.attachment.photosPermission"));
-      const result = query.data ? { data: query.data, error: null } : await query.refetch();
+      const result = await exportData(controller);
       if (result.error) throw result.error;
       if (!result.data) throw new Error(t("mobile.chat.attachment.imageUnavailable"));
       // The photo library reads the type from the extension, so the file keeps one.
       const extension = attachmentFileExtension(memoryOnly?result.data.name:attachment.name) ?? result.data.mimeType.split("/")[1] ?? "png";
       file = new File(Paths.cache, `${Date.now()}-download.${extension}`);
-      file.writeSync(await fileBase64(result.data), { encoding: "base64" });
+      const bytes=await fileBase64(result.data);checkExport(controller);
+      file.writeSync(bytes, { encoding: "base64" });checkExport(controller);
       await MediaLibrary.Asset.create(file.uri);
       return true;
     } catch (error) {
+      if(controller?.signal.aborted||!exports.active)return false;
       void haptics.notification("error");
       showFailureAlert(
         error,
@@ -217,7 +244,8 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       return false;
     } finally {
       if (file?.exists) file.delete();
-      setSharing(false);
+      if(controller)exports.controllers.delete(controller);
+      if(exports.active)setSharing(false);
     }
   }
   return {
