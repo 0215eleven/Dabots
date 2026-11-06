@@ -1,4 +1,4 @@
-import { KeyboardAwareLegendList } from "@legendapp/list/keyboard";
+import {ChatPreviewList} from '@ds/preview-list';
 import {ChatPreviewRange,PREVIEW_VIEWABILITY} from '@ds/preview-range';
 import type { AnchoredEndSpaceConfig } from "@legendapp/list/react-native";
 import { expandAttachmentReferences } from "@openbot/contracts/attachment-references";
@@ -1335,7 +1335,7 @@ export const ChatMessageList = memo(function ChatMessageList({
         {/* The history hides only once it is ready: a loading list shows what it has. */}
         <HistoryShownContext value={historyState !== "ready" || motion.historyVisible}>
           <RowContext value={rowContext}>
-            <KeyboardAwareLegendList
+            <ChatPreviewList
               ref={motion.listRef}
               data={rows}
               // A new data set when the latest messages replace a window around a searched message.

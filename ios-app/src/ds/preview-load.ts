@@ -1,5 +1,6 @@
 import {createPreviewBudget,previewBudget,PreviewCapacityError,type PreviewLease} from './preview-budget.ts';
 import {materializePreview,ownPreviewData,retainedPreview,type PreviewFileAPI,type PreviewResource} from './preview-resource.ts';
+import {previewRemover} from './preview-cleanup.ts';
 type Data={name:string;mimeType:string;base64:string;dimensions?:{width:number;height:number}};
 const allocations=new WeakMap<PreviewResource,PreviewLease>();
 const nativeCapacity=(error:unknown)=>!!error&&typeof error==='object'&&'code'in error&&String(error.code)==='ERR_DS_PREVIEW_CAPACITY';
@@ -10,7 +11,9 @@ function waitForChange(budget:ReturnType<typeof createPreviewBudget>,signal?:Abo
 /** Reserve before downloading: queued work holds no image/Base64 and never fetches a whole original. */
 export async function loadPrivatePreview(api:PreviewFileAPI|null,read:()=>Promise<Data>,options:{signal?:AbortSignal;previous?:PreviewResource;budget?:ReturnType<typeof createPreviewBudget>}={}){
  const budget=options.budget??previewBudget,signal=options.signal;
- const lease=await budget.acquire({signal,replace:options.previous?allocations.get(options.previous):undefined});let resource:PreviewResource|undefined;
+ const acquiring=budget.acquire({signal,replace:options.previous?allocations.get(options.previous):undefined});
+ const stopRecovery=api?previewRemover(api).recoverWhileWaiting():()=>{};
+ const lease=await acquiring.finally(stopRecovery);let resource:PreviewResource|undefined;
  const own=(value:PreviewResource)=>{resource=value;allocations.set(value,lease);value.onDeleted(()=>lease.release());};
  try{
   const data=await read();signal?.throwIfAborted();

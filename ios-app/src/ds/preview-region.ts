@@ -1,5 +1,12 @@
 export type PreviewMeasure=(done:(x:number,y:number,width:number,height:number)=>void)=>void;
 export const viewerPreviewActive=(slot:number,shown:number)=>Math.abs(slot-shown)<=1;
+/** A scroll changes image positions even when a tall row's viewable amount stays constant. */
+export function createPreviewViewport(){
+ const listeners=new Set<()=>void>();let timer:ReturnType<typeof setTimeout>|undefined;
+ return {onScroll:()=>{if(timer===undefined)timer=setTimeout(()=>{timer=undefined;for(const scan of listeners)scan()},64)},
+  subscribe:(scan:()=>void)=>{listeners.add(scan);return()=>{listeners.delete(scan)}},
+  dispose:()=>{clearTimeout(timer);timer=undefined;listeners.clear()}};
+}
 /** Only entries in a viewable row are measured; delayed callbacks cannot resurrect an offscreen row. */
 export function createPreviewRegion(height:number){
  let visible=false,generation=0;const entries=new Set<{measure:PreviewMeasure;notify:(visible:boolean)=>void}>();
