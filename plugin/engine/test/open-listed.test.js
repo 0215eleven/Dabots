@@ -11,6 +11,7 @@ const store = (ids = []) => {
   return {
     getSnapshot: () => snapshot,
     subscribe: (fn) => { listeners.add(fn); return () => { listeners.delete(fn) } },
+    listeners: () => [...listeners],
     set: (id) => { put(id); notify() },
     setMain: (id) => { for (const row of Object.values(snapshot.byId)) delete row.retainedBy; put(id, true); notify() },
   }
@@ -72,4 +73,36 @@ test('a navigation elsewhere drops the wait', () => {
   list.setMain('y')
   list.set('a')
   assert.deepEqual(opened, [])
+})
+
+test('cancel releases every subscription and a copied old listener cannot cancel the next wait', () => {
+  const list = store(), other = store(), opened = []
+  const show = listedOpener({ list, subscribe: other.subscribe, open: id => opened.push(id) })
+  show('a')
+  const stale = list.listeners()[0]
+  show('b')
+  stale()
+  assert.equal(show.pending, true)
+  assert.equal(list.listeners().length, 1)
+  assert.equal(other.listeners().length, 1)
+  list.set('b')
+  assert.deepEqual(opened, ['b'])
+  assert.equal(show.pending, false)
+  assert.equal(other.listeners().length, 0)
+  show('c'); show.cancel(); list.set('c')
+  assert.deepEqual(opened, ['b'])
+  assert.equal(list.listeners().length, 0)
+})
+
+test('a changing target is resolved on both roster and list arrival and guarded before commit', () => {
+  const list = store(['new']), roster = store(), opened = []
+  let target = 'old', valid = true
+  const show = listedOpener({ list, subscribe: roster.subscribe, open: id => opened.push(id) })
+  show(() => target, { isCurrent: () => valid })
+  target = 'new'; roster.set('ready')
+  assert.deepEqual(opened, ['new'])
+  show('late', { isCurrent: () => valid })
+  valid = false; list.set('late')
+  assert.deepEqual(opened, ['new'])
+  assert.equal(show.pending, false)
 })
