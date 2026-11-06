@@ -2271,13 +2271,8 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-badge-main path{fill:var(--bt-star);stroke:var(--bt-sidebar);stroke-width:2.6;stroke-linejoin:round;paint-order:stroke}
 .bt-badge-alert{background:color-mix(in srgb,var(--bt-accent) 78%,var(--bt-sidebar));color:var(--bt-accent-ink,#fff);font-size:8.5px;line-height:12px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
 .bt-badge-working{background:color-mix(in srgb,var(--bt-green) 82%,var(--bt-sidebar));width:8px;height:8px;right:1px;bottom:1px}
-.bt-cluster{position:relative;display:inline-block;flex:none;line-height:0}
+.bt-cluster{position:relative;display:inline-block;flex:none;line-height:0;overflow:hidden}
 .bt-cluster>*{position:absolute}
-.bt-cluster-more,.bt-cluster-you{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--bt-active);color:var(--bt-ink-3);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
-.bt-cluster-you{background:color-mix(in srgb,var(--bt-ink) 12%,transparent)}
-.bt-stack{display:inline-flex;align-items:center;flex:none;line-height:0}
-.bt-stack>*+*{margin-left:calc(var(--bt-stack-size) * -.3)}
-.bt-stack-more{font-size:11px;line-height:16px;color:var(--bt-ink-3);margin-left:3px!important}
 
 .bt-side{display:flex;flex-direction:column;min-height:0;flex:1 1 auto;gap:2px;padding:0 12px 8px 0;color:var(--bt-ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
 .bt-side-top{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:6px 5px 0 0}
@@ -3268,6 +3263,38 @@ function installCompiledStyles(text, tag) {
   };
 }
 
+// src/client/room-avatar.js
+function renderRoomAvatar(h38, BotMark2, room2, roster, size) {
+  const ids = [...new Set(room2.members)].filter((id) => typeof id === "string" && id.length > 0).slice(0, 4);
+  const gap = Math.min(2, size / 12);
+  const cell = (size - gap * 3) / 2;
+  const rows = Math.ceil(ids.length / 2);
+  const top = (size - rows * cell - Math.max(0, rows - 1) * gap) / 2;
+  return h38("span", {
+    className: "bt-cluster",
+    "aria-hidden": true,
+    style: { width: size, height: size, overflow: "hidden", flexShrink: 0 }
+  }, ids.length ? ids.map((id, index) => {
+    const columns = Math.min(2, ids.length - Math.floor(index / 2) * 2);
+    const left = (size - columns * cell - (columns - 1) * gap) / 2;
+    const bot = roster.byId[id] ?? { id };
+    return h38("span", {
+      key: id,
+      className: "bt-cluster-member",
+      "data-member-id": id,
+      style: { left: left + index % 2 * (cell + gap), top: top + Math.floor(index / 2) * (cell + gap), width: cell, height: cell, overflow: "hidden" }
+    }, h38(BotMark2, { bot, size: cell }));
+  }) : h38("svg", {
+    width: size * 0.56,
+    height: size * 0.56,
+    viewBox: "0 0 20 20",
+    style: { left: size * 0.22, top: size * 0.22 },
+    fill: "none",
+    stroke: "var(--bt-ink-3)",
+    strokeWidth: 1.5
+  }, h38("path", { d: "M2.5 6V4.5h6l2 2h7V16h-15Z", strokeLinejoin: "round" })));
+}
+
 // src/client/mark.js
 var import_react2 = require("react");
 var STATES = ["idle", "thinking", "searching", "working", "sending", "orbit", "waiting", "alert", "done"];
@@ -3385,22 +3412,8 @@ function BotAvatar({ bot, size, state = "idle", main, admin, badge = true, live 
     badgeKind === "main" ? (0, import_react2.createElement)("span", { className: "bt-badge bt-badge-main", "aria-label": t("Main Bot"), role: "img" }, (0, import_react2.createElement)(MainStar)) : null
   );
 }
-function clusterSeats(count, frame) {
-  if (count === 1) return [[0, 0, frame]];
-  if (count === 2) return [[0, 0, frame * 2 / 3], [frame / 3, frame / 3, frame * 2 / 3]];
-  if (count === 3) {
-    const size = frame * 5 / 9;
-    const rest = frame - size;
-    return [[rest / 2, 0, size], [0, rest, size], [rest, rest, size]];
-  }
-  const half = frame / 2;
-  return [[0, 0, half], [half, 0, half], [0, half, half], [half, half, half]];
-}
 function RoomAvatar({ room: room2, roster, size = 36 }) {
-  const members = room2.members.map((id) => roster.byId[id]).filter(Boolean);
-  // Bloub: one seat per group, so a list row shows one readable face.
-  if (members.length > 0) return (0, import_react2.createElement)(BotMark, { bot: members[0], size });
-  return (0, import_react2.createElement)(BotMark, { size });
+  return renderRoomAvatar((0, import_react2.createElement), BotMark, room2, roster, size);
 }
 
 // src/client/dsh-primitives.js
