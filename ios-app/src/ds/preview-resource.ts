@@ -18,7 +18,8 @@ export async function materializePreview(api:PreviewFileAPI|null,data:{base64:st
  if(!api)return null;signal?.throwIfAborted();
  if(!['image/png','image/jpeg','image/webp'].includes(data.mimeType)||!data.base64.length||data.base64.length>1398104)throw Error('This image preview is unavailable.');
  const cleanup=previewRemover(api);await cleanup.retryPending();signal?.throwIfAborted();
- const file=await api.createPreviewFile(data);let disposed=false;
+ // Native [String:String] conversion checks every value; keep UI metadata in JS.
+ const file=await api.createPreviewFile({base64:data.base64,mimeType:data.mimeType});let disposed=false;
  const dispose=async()=>{signal?.removeEventListener('abort',onAbort);if(disposed)return true;disposed=await cleanup.remove(file.id);return disposed;};
  const onAbort=()=>{void dispose();};
  if(!/^dsbot-preview-[\da-f-]{36}\.(png|jpg|webp)$/iu.test(file.id)||!file.uri.startsWith('file://')||!file.uri.endsWith('/'+file.id)||/[?#]/u.test(file.uri)){await dispose();throw Error('This image preview is unavailable.');}

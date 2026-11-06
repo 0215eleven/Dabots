@@ -2,6 +2,8 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {QueryClient,QueryObserver} from '@tanstack/react-query';
 import {materializePreview,ownPreviewData,watchPreviewCache} from '../src/ds/preview-resource.ts';
 import {createPreviewRemover} from '../src/ds/preview-cleanup.ts';
+import {MobileClient,MemoryTokenStore} from '../sdk/index.js';
+import {readPreview} from '../src/ds/attachment-preview.ts';
 const id='dsbot-preview-10000000-0000-4000-8000-000000000001.png',data={mimeType:'image/png',base64:'YWJj'};
 test('card and viewer share a private file until the last real query observer leaves',async()=>{
  let removed=0;const client=new QueryClient(),cache=client.getQueryCache();watchPreviewCache(cache);
@@ -41,4 +43,18 @@ test('failed native deletion retries boundedly, retains its handle and coalesces
 test('a false native deletion result does not mark the resource disposed or forget the owned handle',async()=>{
  let calls=0;const resource=await materializePreview({createPreviewFile:async()=>({id,uri:'file:///tmp/'+id}),removePreviewFile:async()=>++calls>1},data);
  await resource!.dispose();assert.equal(calls,2);await resource!.dispose();assert.equal(calls,2);
+});
+
+test('a real scoped download envelope crosses the native String dictionary boundary without its JS metadata',async t=>{
+ const png=Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64'));
+ const client=new MobileClient({baseUrl:'https://synthetic.invalid',tokenStore:new MemoryTokenStore({accessToken:'synthetic',refreshToken:'synthetic-refresh',serverId:'computer',deviceId:'synthetic-device',expiresAt:Date.now()+3600000}),fetch:async input=>String(input).endsWith('/info')?Response.json({protocolVersion:1,serverId:'computer'}):new Response(png,{headers:{'content-type':'image/png'}})});t.after(()=>client.dispose());
+ const scoped='ds-preview-v1:'+encodeURIComponent(JSON.stringify(['computer','epoch','bot','session',7,'sha256:'+'a'.repeat(64)]));
+ const envelope=Object.freeze(await readPreview(client,'computer','epoch',scoped,{current:()=>true}));assert.deepEqual(envelope.dimensions,{width:1,height:1});assert.equal(await materializePreview(null,envelope),null);
+ let nativeBodyCalls=0,received:unknown,removed=0;
+ const resource=await materializePreview({createPreviewFile:async input=>{
+  // Expo core 58.0.28 DynamicDictionaryType converts every defined value via DynamicStringType.
+  for(const [key,value] of Object.entries(input))if(value!==undefined&&typeof value!=='string')throw new TypeError('Native string dictionary rejected '+key);
+  nativeBodyCalls++;received=input;return{id,uri:'file:///tmp/'+id};
+ },removePreviewFile:async()=>{removed++;return true}},envelope);
+ assert.equal(nativeBodyCalls,1);assert.notEqual(received,envelope);assert.deepEqual(received,{base64:envelope.base64,mimeType:envelope.mimeType});assert.deepEqual(envelope.dimensions,{width:1,height:1});assert.equal(envelope.name,'preview.png');await resource!.dispose();assert.equal(removed,1);
 });
