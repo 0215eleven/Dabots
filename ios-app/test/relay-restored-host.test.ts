@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { runInNewContext } from 'node:vm';
 import { createPhoneKey, signPhoneConnection } from '../src/logic/relay-access.ts';
 import { relayOrigin } from '../src/logic/pairing.ts';
+import {createResponseRemover} from '../src/ds/preview-cleanup.ts';
 
 const {transformSync}=createRequire(import.meta.url)('esbuild');
 test('restored official hosts keep credentials and demand auth; self-hosted legacy retains compatibility',async()=>{
@@ -17,6 +18,8 @@ test('restored official hosts keep credentials and demand auth; self-hosted lega
     expo:{requireOptionalNativeModule:()=>null},'react-native':{Platform:{OS:'web'}},'@ds-bot/mobile-sdk':{MobileClient},
     '@ds-bot/mobile-sdk/relay-transport':{createRelayTransport:(options:any)=>{captured.push(options);return {baseUrl:'https://synthetic.invalid',tlsPin:'pin',fetch:()=>{},WebSocket:class{},dispose(){}};}},
     'expo-crypto':{getRandomBytes:(n:number)=>new Uint8Array(n)},
+    'expo-file-system':{File:class{constructor(){assert.fail('Restoring a host must not read any file')}}},
+    '../ds/preview-cleanup':{createResponseRemover},
     '../storage/relay-key':{relayPhoneKey:async(origin:string)=>{keyOrigins.push(origin);return key;}},
     '../logic/relay-access':{signPhoneConnection},'../logic/pairing':{relayOrigin},'../logic/hosts':{officialRelay:()=> 'wss://official.example'},
     '../storage':{cache:{},tokenStoreFor:()=>tokenStore},

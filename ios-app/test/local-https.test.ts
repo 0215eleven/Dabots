@@ -5,14 +5,15 @@ import { runInNewContext } from 'node:vm';
 import { URL, URLSearchParams, fileURLToPath } from 'node:url';
 const require=createRequire(import.meta.url);
 const {build}=require('esbuild');
-const compiled=await build({entryPoints:[fileURLToPath(new URL('../src/network/client.ts',import.meta.url))],bundle:true,format:'cjs',platform:'node',write:false,external:['expo','expo-crypto','expo-secure-store','react-native']});
+const compiled=await build({entryPoints:[fileURLToPath(new URL('../src/network/client.ts',import.meta.url))],bundle:true,format:'cjs',platform:'node',write:false,external:['expo','expo-crypto','expo-secure-store','expo-file-system','react-native']});
 const pin='sha256:'+'a'.repeat(64);
+const responseFile='dsbot-response-10000000-0000-4000-8000-000000000001';
 const credentials={serverId:'computer',deviceId:'phone',accessToken:'fixture-access',refreshToken:'fixture-refresh',expiresAt:Date.now()+3600000,serverUrl:'https://192.168.2.3:8788',tlsPin:pin};
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture(platform='android',available=true,origin=credentials.serverUrl){
  const sent:Record<string,unknown>[]=[];const sockets:Record<string,string>[]=[];const removed:string[]=[];let handler:(event:unknown)=>void=()=>{};let socketId='';let auth='';
  const transport={
-  request:async(input:Record<string,unknown>)=>{sent.push(input);return String(input.url).includes('/attachments/')?{status:200,headers:{'Content-Type':'image/png'},bodyFile:'file:///private/attachment-fixture',fileId:'fixture-file'}:{status:200,headers:{},bodyText:JSON.stringify(String(input.url).endsWith('/info')?{protocolVersion:1,serverId:'computer'}:{ok:true})};},
+  request:async(input:Record<string,unknown>)=>{sent.push(input);return String(input.url).includes('/attachments/')?{status:200,headers:{'Content-Type':'image/png'},bodyFile:'file:///private/attachment-fixture',fileId:responseFile}:{status:200,headers:{},bodyText:JSON.stringify(String(input.url).endsWith('/info')?{protocolVersion:1,serverId:'computer'}:{ok:true})};},
   cancel:async()=>{},removeResponseFile:async(id:string)=>{removed.push(id);return true;},
   addListener:(_name:string,callback:(event:unknown)=>void)=>{handler=callback;return{remove(){handler=()=>{};}};},
   connect:async(origin:string,pin:string,id:string,url:string)=>{socketId=id;sockets.push({origin,pin,url});},send:async(_id:string,text:string)=>{auth=text;},close:async()=>{},
@@ -20,7 +21,7 @@ function fixture(platform='android',available=true,origin=credentials.serverUrl)
  const module={exports:{} as {createMobileClient:(options:unknown)=>any}};
  runInNewContext(compiled.outputFiles[0].text,{module,exports:module.exports,process:{env:{}},TextEncoder,TextDecoder,WebSocket:class{},Headers,Response,Blob,ArrayBuffer,Uint8Array,URL,URLSearchParams,AbortController,AbortSignal,setTimeout,clearTimeout,btoa,
   fetch:async(url:string)=>{assert.equal(url,'file:///private/attachment-fixture');return new Response('attachment-bytes');},
-  require:(name:string)=>name==='expo'?{requireOptionalNativeModule:()=>available?transport:null}:name==='expo-crypto'?{getRandomBytes:(n:number)=>new Uint8Array(n).fill(7)}:name==='expo-secure-store'?{getItemAsync:async()=>null,setItemAsync:async()=>{},WHEN_UNLOCKED_THIS_DEVICE_ONLY:'device-only'}:{Platform:{OS:platform}},
+  require:(name:string)=>name==='expo'?{requireOptionalNativeModule:()=>available?transport:null}:name==='expo-crypto'?{getRandomBytes:(n:number)=>new Uint8Array(n).fill(7)}:name==='expo-secure-store'?{getItemAsync:async()=>null,setItemAsync:async()=>{},WHEN_UNLOCKED_THIS_DEVICE_ONLY:'device-only'}:name==='expo-file-system'?{File:class{constructor(){assert.fail('Legacy Blob download must not read the native file through File')}}}:{Platform:{OS:platform}},
  });
  const tokenStore={get:async()=>({...credentials,serverUrl:origin}),set:async()=>{},clear:async()=>{}};
  return{createRelay:(relay:unknown)=>module.exports.createMobileClient({baseUrl:'https://relay.invalid',tokenStore,relay}),create:()=>module.exports.createMobileClient({baseUrl:origin,tokenStore,tlsPin:pin}),sent,sockets,removed,emit:(type:string,data?:string)=>handler({id:socketId,type,data}),auth:()=>auth};
@@ -31,7 +32,7 @@ test('native client supplies the immutable origin and pin on a Unicode JSON uplo
  assert.deepEqual(JSON.parse(Buffer.from(request.body as string,'base64').toString('utf8')),{endpoint:'fixture',payload:{text:'你好 🐟'}});client.dispose();
 });
 test('native attachment bytes become a file blob and the temporary file is removed',async()=>{
- const f=fixture(),client=f.create();const blob=await client.attachment('bot','session','file',{seq:1});assert.equal(blob.type,'image/png');assert.equal(await blob.text(),'attachment-bytes');assert.deepEqual(f.removed,['fixture-file']);client.dispose();
+ const f=fixture(),client=f.create();const blob=await client.attachment('bot','session','file',{seq:1});assert.equal(blob.type,'image/png');assert.equal(await blob.text(),'attachment-bytes');assert.deepEqual(f.removed,[responseFile]);client.dispose();
 });
 test('native stream authenticates after the pinned socket opens and delivers events',async()=>{
  const f=fixture(),client=f.create();const states:string[]=[];
