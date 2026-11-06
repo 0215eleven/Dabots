@@ -33,3 +33,11 @@ test('a waiting message is steered or withdrawn by its request ID, and a missing
  f.snapshot.team.mobileCapabilities.actions=['queue'];
  await assert.rejects(core.updateQueued(f.id,{requestId:'mine'},'steer'),{code:'UNSUPPORTED'});
 });
+
+test('group progress rounds render from an array, from older plugins\' spread object, and drop anything else',async()=>{
+ const {groupRounds}=await import('../src/logic/group-work.ts');
+ const round={callId:'c1',speaking:'b',replies:[{botId:'b',text:'hi',time:1},{kind:'user',text:'me'},null]};
+ assert.deepEqual(groupRounds([round]),[{callId:'c1',speaking:'b',replies:[{botId:'b',text:'hi',time:1},{botId:'',kind:'user',text:'me'}]}]);
+ assert.deepEqual(groupRounds({0:round,1:{callId:'c2',replies:'bad'}}).map(item=>[item.callId,item.replies.length]),[['c1',2],['c2',0]]);
+ for(const value of [{},null,undefined,'x',[{nope:true}]])assert.deepEqual(groupRounds(value),[]);
+});

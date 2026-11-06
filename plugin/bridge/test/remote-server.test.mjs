@@ -140,3 +140,14 @@ test('approval endpoints carry the per-phone grant the owner sets on the compute
   assert.equal(f.server.anyApprovals(), false)
   assert.deepEqual(grants, [['list', 'chief', false], ['answer', 'ap-1', 'allow', true]])
 })
+
+test('an action that returns a list reaches the phone as a list', async t => {
+  const rounds = [{ callId: 'c1', speaking: null, replies: [{ botId: 'b', text: 'hi' }] }]
+  const f = await fixture(t, { publicUrl: 'https://first.example' }, { extend: { capabilities: () => ({ stream: true, actions: ['room-progress'] }), action: async () => rounds } })
+  const pairing = await f.server.operator('pairing.create')
+  const started = await f.request('/mobile/v1/pairings', { code: pairing.code, deviceName: 'Synthetic phone' })
+  await f.server.operator('pairing.approve', { requestId: started.body.requestId })
+  const session = (await f.request('/mobile/v1/pairings/complete', { claimToken: started.body.claimToken })).body
+  const response = await fetch(f.root + '/mobile/v1/actions', { method: 'POST', headers: { authorization: `Bearer ${session.accessToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ endpoint: 'room-progress', payload: { roomId: 'room' } }) })
+  assert.deepEqual(await response.json(), rounds, 'not spread into {0: …}')
+})

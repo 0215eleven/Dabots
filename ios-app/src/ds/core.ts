@@ -1,7 +1,7 @@
 import type { Attachment, Conversation } from '@ds-bot/mobile-sdk';
 import { mobileActionAllowed, mobileCancelAllowed } from '../logic/mobile-access.ts';
 import { conversationStreams } from '../logic/conversation-streams.ts';
-import type { GroupRound } from '../logic/group-work.ts';
+import { groupRounds, type GroupRound } from '../logic/group-work.ts';
 import type { OutboxItem } from '../outbox/outbox.ts';
 import { DsCoreError, type DsBotPatch, type DsCore, type DsCoreOptions, type DsConversationListener, type DsCreateBot, type DsCreateGroup, type DsGroupPatch, type DsHistory, type DsMessage, type DsModelOptions, type DsPreferences, type DsSendState, type DsSnapshot, type DsWriteResult } from './contracts.ts';
 import { dsId, parseDsId, type DsKind } from './identity.ts';
@@ -367,10 +367,10 @@ export function createDsCore(options: DsCoreOptions): DsCore {
         async groupProgress(id: string): Promise<GroupRound[]> {
             guard('room-progress', false);
             const original = group(id);
-            const rounds = await client.action<GroupRound[]>('room-progress', { roomId: original.id });
+            const result = await client.action<unknown>('room-progress', { roomId: original.id });
             guard('room-progress', false);
             group(id);
-            return rounds;
+            return groupRounds(result);
         },
         async approvals(id: string) {
             const target = conversation(id);

@@ -22,6 +22,8 @@ const required = (value, name, maximum = 256) => {
 const safeError = error => ({ code: error.status ? error.code ?? 'REQUEST_FAILED' : 'INTERNAL_ERROR', message: error.status ? error.message : 'The mobile bridge could not complete this request.' })
 function forDevice(value, deviceId, submissions, conversationId) {
   const prefix = `${deviceId}_`
+  // An array result (group progress) is not a record: spreading it would turn it into {0:…, 1:…}.
+  if (Array.isArray(value) || !value || typeof value !== 'object') return value
   const message = raw => {const item=decorateAttachmentMessage(raw,submissions,conversationId);return typeof item.requestId === 'string' && item.requestId.startsWith(prefix) ? { ...item, requestId: item.requestId.slice(prefix.length) } : item}
   return { ...value, ...(value.messages ? { messages: value.messages.map(message) } : {}), ...(value.message ? { message: message(value.message) } : {}), ...(value.items ? { items: value.items.map(message) } : {}), ...(value.queue ? { queue: value.queue.map(message) } : {}) }
 }

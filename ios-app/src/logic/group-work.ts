@@ -7,6 +7,23 @@ export interface GroupRound {
   replies: {botId: string; groupReplyId?: string; kind?: string; text?: string; time?: number}[];
 }
 
+/**
+ * Group progress rounds as the phone renders them. Desktop plugins before this fix sent the array
+ * spread into an object ({0: round, 1: round}); anything not shaped like a round is dropped.
+ */
+export function groupRounds(value: unknown): GroupRound[] {
+    const list = Array.isArray(value) ? value : value && typeof value === 'object'
+        ? Object.keys(value).filter(key => /^\d+$/.test(key)).sort((a, b) => Number(a) - Number(b)).map(key => (value as Record<string, unknown>)[key]) : [];
+    return list.slice(0, 50).flatMap(entry => {
+        const round = entry as Partial<GroupRound> | null;
+        if (!round || typeof round !== 'object' || typeof round.callId !== 'string') return [];
+        const replies = (Array.isArray(round.replies) ? round.replies : []).filter(reply => reply && typeof reply === 'object')
+            .map(reply => ({ botId: typeof reply.botId === 'string' ? reply.botId : '',
+                ...(typeof reply.groupReplyId === 'string' ? { groupReplyId: reply.groupReplyId } : {}), ...(typeof reply.kind === 'string' ? { kind: reply.kind } : {}),
+                ...(typeof reply.text === 'string' ? { text: reply.text } : {}), ...(typeof reply.time === 'number' ? { time: reply.time } : {}) }));
+        return [{ callId: round.callId, speaking: typeof round.speaking === 'string' ? round.speaking : null, replies }];
+    });
+}
 const messageTime = (message: Message) => new Date(message.createdAt ?? 0).getTime();
 
 // Keep durable IDs intact. Reply identity survives progress redaction/formatting;

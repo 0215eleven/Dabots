@@ -6,7 +6,7 @@ import { useTheme } from "../theme";
 import { useI18n } from "../i18n";
 import { BotAvatar } from "./BotAvatar";
 import { Button, Notice } from "./UI";
-import { type GroupRound, groupWorkMembers, workDescription } from "../logic/group-work";
+import { type GroupRound, groupRounds, groupWorkMembers, workDescription } from "../logic/group-work";
 import { mobileActionAllowed } from "../logic/mobile-access";
 import { WorkCapsule } from "./WorkCapsule";
 
@@ -68,7 +68,7 @@ export function GroupProgress({
           roomId: room.id,
         });
         if (!alive || !foreground || run !== generation) return;
-        const current = Array.isArray(result) ? result.filter(round => round && Array.isArray(round.replies)) : [];
+        const current = groupRounds(result);
         setRounds(current);
         if (current.length) onProgress?.(current);
         setUnavailable(false);
