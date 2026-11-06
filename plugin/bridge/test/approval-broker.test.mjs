@@ -101,3 +101,25 @@ test('group approvals are answered through the engine, and DSH Agent chats can b
   assert.deepEqual(f.calls.find(call => call[0] === 'cancel'), ['cancel', { sessionId: 'agent-session' }])
   await assert.rejects(f.adapter.cancel('agent:coder:agent-session', signal(), () => ({ agents: false })), { code: 'CONVERSATION_NOT_FOUND' })
 })
+
+test('a DSH Agent chat lists, steers and withdraws its waiting messages like a Bot chat', async t => {
+  const writes = [], redacted = []
+  let inbox = { 'next-turn': [{ id: 'q1', source: { kind: 'user', rpcId: 'device_mine' }, content: [{ type: 'text', text: 'wait for me' }] }, { id: 'sys', source: { kind: 'system' }, content: [] }] }
+  const state = { revision: 1, bots: [{ id: 'chief', name: 'Chief', sessionId: 'chat', parts: [] }], rooms: [], agents: [{ id: 'coder', name: 'Coder', sessions: ['agent-session'] }], work: { approvals: [] } }
+  const adapter = createAdapter({ fixtureText: true,
+    connection: { createSharedFetchHandler: () => ({ fetch: async request => { const { endpoint, payload } = await request.json()
+      if (endpoint === 'bridge.redact') redacted.push(payload)
+      return Response.json({ ok: true, value: endpoint === 'state' ? state : endpoint === 'bridge.redact' ? { texts: payload.texts.map(text => text.replace('me', '[redacted]')) } : { version: 1, redactedText: true, stableRequestId: true, agents: 1 } }) } }) },
+    sessionController: { cancel: async () => {}, projections: async () => ({ values: { inbox } }), updateQueue: async body => { writes.push(body); inbox = { 'next-turn': [] } } } })
+  t.after(() => adapter.dispose())
+  await adapter.initialize()
+  const id = 'agent:coder:agent-session', allowed = () => ({ agents: true })
+  assert.ok(adapter.capabilities().actions.includes('queue-steer'))
+  assert.deepEqual(await adapter.action('queue', { conversationId: id }, signal(), allowed), { conversationId: id, sessionId: 'agent-session', items: [{ id: 'q1', target: 'next-turn', requestId: 'device_mine', text: 'wait for [redacted]' }] })
+  assert.equal(redacted.at(-1).conversationId, 'agent:coder', 'redacted on the Agent channel')
+  await assert.rejects(adapter.action('queue-steer', { conversationId: id, sessionId: 'other', itemId: 'q1' }, signal(), allowed), { code: 'INVALID_ACTION' })
+  assert.deepEqual(await adapter.action('queue-steer', { conversationId: id, sessionId: 'agent-session', itemId: 'q1' }, signal(), allowed), { steered: true, conversationId: id, sessionId: 'agent-session', itemId: 'q1' })
+  assert.deepEqual(writes.at(-1), { sessionId: 'agent-session', itemId: 'q1', action: { kind: 'steer' } })
+  await assert.rejects(adapter.action('queue-remove', { conversationId: id, sessionId: 'agent-session', itemId: 'q1' }, signal(), allowed), { code: 'QUEUE_CHANGED' })
+  await assert.rejects(adapter.action('queue', { conversationId: id }, signal(), () => ({ agents: false })), { code: 'CONVERSATION_NOT_FOUND' }, 'only a phone allowed to use the Agent')
+})

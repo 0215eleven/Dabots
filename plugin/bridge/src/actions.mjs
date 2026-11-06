@@ -73,6 +73,11 @@ function when(value) {
 
 // snapshot must return only authorized conversations. Rooms use their own id;
 // hidden member Sessions must never be included among Bot parts.
+/** The user's messages waiting in a DSH Session queue (unredacted; callers redact the text). */
+export function queueEntries(inbox) {
+  const pending = ['next-turn', 'next-step'].flatMap(target => (Array.isArray(inbox?.[target]) ? inbox[target] : []).map(entry => ({ entry, target }))).filter(({ entry }) => entry?.source?.kind === 'user')
+  return pending.slice(0, 100).map(({ entry, target }) => ({ id: entry.id, target, ...(string(entry.source.rpcId) ? { requestId: entry.source.rpcId } : {}), text: (entry.content ?? []).filter(block => block.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n').slice(0, 16000) })).filter(entry => string(entry.id))
+}
 export function createTeamActions({ callTeam, snapshot, sessionController = {}, redactTexts, groups = () => true }) {
   if (typeof callTeam !== 'function' || typeof snapshot !== 'function') throw new TypeError('callTeam and snapshot are required')
   const textViews = typeof redactTexts === 'function'
@@ -123,9 +128,7 @@ export function createTeamActions({ callTeam, snapshot, sessionController = {}, 
   }
   async function queue(item, v, signal) {
     const data = await sessionController.projections({ sessionId: item.sessionId }, signal)
-    const inbox = data?.values?.inbox
-    const pending = ['next-turn', 'next-step'].flatMap(target => (Array.isArray(inbox?.[target]) ? inbox[target] : []).map(entry => ({ entry, target }))).filter(({ entry }) => entry?.source?.kind === 'user')
-    const items = pending.slice(0, 100).map(({ entry, target }) => ({ id: entry.id, target, ...(string(entry.source.rpcId) ? { requestId: entry.source.rpcId } : {}), text: (entry.content ?? []).filter(block => block.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n').slice(0, 16000) })).filter(entry => string(entry.id))
+    const items = queueEntries(data?.values?.inbox)
     return safe({ conversationId: item.id, sessionId: item.sessionId, items }, v, signal, item)
   }
   return {

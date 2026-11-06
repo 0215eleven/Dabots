@@ -1,7 +1,7 @@
 import { projectAvatar } from './project-avatar.mjs'
 import { BridgeError } from './auth.js'
 import { projectRecords, detail } from './projection.js'
-import { createTeamActions, MOBILE_ACTIONS } from './actions.mjs'
+import { createTeamActions, MOBILE_ACTIONS, queueEntries } from './actions.mjs'
 import { projectGroupRecords } from './group-projection.mjs'
 import { projectLiveState, conversationStatus, recentConversation } from './live-state.mjs'
 import { projectTaskEvent, projectApprovalEvent } from './task-events.mjs'
@@ -141,6 +141,30 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
     const room = item.kind === 'room' ? item.work.approvals.filter(entry => entry.roomId === item.id && entry.answerable === true)
       .map(entry => ({ id: entry.id, conversationId: item.id, botId: entry.botId, tool: redact(entry.tool ?? ''), reason: redact(entry.reason ?? ''), ...(entry.at ? { at: entry.at } : {}) })) : []
     return [...own.map(({ sessionId: _session, ...entry }) => entry), ...room]
+  }
+  async function agentQueue(name, payload, signal, access) {
+    if (!actionCapabilities().actions.includes(name)) throw error(403, 'ACTION_NOT_ALLOWED', 'This mobile action is unavailable.')
+    const keys = name === 'queue' ? ['conversationId'] : ['conversationId', 'sessionId', 'itemId']
+    if (!payload || typeof payload !== 'object' || Object.keys(payload).some(key => !keys.includes(key))) throw error(400, 'INVALID_ACTION', 'Invalid action fields or values.')
+    const item = await target(payload.conversationId, signal, access)
+    requireGrant(item, access)
+    if (item.kind !== 'agent') throw error(404, 'TARGET_DENIED', 'This target is not on the visible team.')
+    if (name !== 'queue' && item.readOnly) throw error(409, 'READ_ONLY', 'The team is read-only.')
+    const entries = queueEntries((await sessionController.projections({ sessionId: item.sessionId }, signal))?.values?.inbox)
+    if (name === 'queue') {
+      // Queued text leaves only redacted, like the Agent's transcript.
+      const texts = entries.length ? await call('bridge.redact', { conversationId: channelId(item), expectedSessionId: item.sessionId, texts: entries.map(entry => entry.text) }, signal) : { texts: [] }
+      if (!Array.isArray(texts?.texts) || texts.texts.length !== entries.length || texts.texts.some(text => typeof text !== 'string')) throw error(503, 'REDACTION_UNAVAILABLE', 'The host redaction result is invalid.')
+      requireGrant(item, access)
+      return { conversationId: item.id, sessionId: item.sessionId, items: entries.map((entry, index) => ({ ...entry, text: texts.texts[index] })) }
+    }
+    if (typeof payload.itemId !== 'string' || !payload.itemId || payload.sessionId !== item.sessionId) throw error(400, 'INVALID_ACTION', 'Invalid action fields or values.')
+    if (!entries.some(entry => entry.id === payload.itemId)) throw error(409, 'QUEUE_CHANGED', 'This queued item is no longer pending.')
+    const kind = name === 'queue-steer' ? 'steer' : 'remove'
+    requireGrant(item, access)
+    try { await sessionController.updateQueue({ sessionId: item.sessionId, itemId: payload.itemId, action: { kind } }, signal) }
+    catch (problem) { if (String(problem?.code ?? '').startsWith('session/')) throw error(409, 'QUEUE_CHANGED', 'This queued item is no longer pending.'); throw problem }
+    return { [kind === 'steer' ? 'steered' : 'removed']: true, conversationId: item.id, sessionId: item.sessionId, itemId: payload.itemId }
   }
   function requireSession(item, id) {
     if (![item.sessionId, ...item.parts].includes(id)) throw error(403, 'SESSION_DENIED', 'This Session does not belong to the conversation.')
@@ -444,6 +468,8 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
     async action(name, payload, signal, access) {
       if (name === 'agent-rename' && !agentActions().includes(name)) throw error(403, 'ACTION_NOT_ALLOWED', 'Agent renaming requires an updated desktop plugin.')
       if (AGENT_ACTIONS.includes(name)) return agentAction(name, payload, signal, access)
+      // A DSH Agent's queue: same queue, steer and withdraw as a Bot chat, on the Agent Session.
+      if (['queue', 'queue-remove', 'queue-steer'].includes(name) && typeof payload?.conversationId === 'string' && payload.conversationId.startsWith('agent:')) return agentQueue(name, payload, signal, access)
       if (!actionCapabilities().actions.includes(name)) throw error(403, 'ACTION_NOT_ALLOWED', 'This mobile action is unavailable.')
       return teamActions.action(name, payload, signal)
     },
