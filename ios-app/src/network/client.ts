@@ -86,7 +86,7 @@ export function createMobileClient(options:ClientOptions&{relay?:RelayHost&{requ
       const text=response.bodyText??"";
       const responseHeaders=new Headers(response.headers);
       let released=false;const releaseAttachment=async()=>{if(released||!response.fileId)return;released=await responseCleanup!.remove(response.fileId);};
-      return {status:response.status,ok:response.status>=200&&response.status<300,headers:responseHeaders,text:async()=>text,json:async()=>JSON.parse(text),releaseAttachment,
+      return Object.assign(new Response(text||null,{status:response.status,headers:responseHeaders}),{releaseAttachment,
         attachmentData:async({maximum,signal}:{maximum:number;signal?:AbortSignal})=>{
           try{
             signal?.throwIfAborted();
@@ -106,7 +106,7 @@ export function createMobileClient(options:ClientOptions&{relay?:RelayHost&{requ
           }
           finally {await releaseAttachment();}
         },
-      } as Response;
+      });
     } finally {init.signal?.removeEventListener("abort",abort);}
   };
   class PinnedSocket {

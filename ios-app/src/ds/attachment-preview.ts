@@ -13,7 +13,7 @@ const problems={scope:'This preview belongs to a different connection. Reopen th
 const previewMessages={...problems,decode:'The image preview could not be opened on this device. Try again.'} as const;
 export class PreviewError extends Error{code:string;constructor(reason:keyof typeof previewMessages){super(previewMessages[reason]);this.name='PreviewError';this.code='PREVIEW_'+reason.toUpperCase();}}
 const unavailable=()=>new PreviewError('unavailable');
-const problem=(reason:keyof typeof problems):never=>{throw new PreviewError(reason)};
+function problem(reason:keyof typeof problems):never{throw new PreviewError(reason);}
 type PreviewClient=Pick<MobileClient,'attachment'>&Partial<Pick<MobileClient,'attachmentData'>>;
 const mimeTypes=new Set(['image/png','image/jpeg','image/webp']);
 const validString=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!/[\p{Cc}\p{Zl}\p{Zp}]/u.test(v);
