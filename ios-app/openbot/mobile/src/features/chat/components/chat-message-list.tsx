@@ -1,4 +1,5 @@
 import { KeyboardAwareLegendList } from "@legendapp/list/keyboard";
+import {ChatPreviewRange,PREVIEW_VIEWABILITY} from '@ds/preview-range';
 import type { AnchoredEndSpaceConfig } from "@legendapp/list/react-native";
 import { expandAttachmentReferences } from "@openbot/contracts/attachment-references";
 import { expandChatTagReferences } from "@openbot/contracts/chat-tag-references";
@@ -782,7 +783,7 @@ function ChatRow({ message }: { message: VisibleMessage }) {
   if (!row) return null;
   const response = row.responseIds.has(message.id);
   return (
-    <Animated.View
+    <ChatPreviewRange active={!response||row.responseVisible}><Animated.View
       style={[ROW_STYLE, response ? row.responseStyle : undefined]}
       accessibilityElementsHidden={response && !row.responseVisible}
       importantForAccessibility={response && !row.responseVisible ? "no-hide-descendants" : "auto"}
@@ -803,7 +804,7 @@ function ChatRow({ message }: { message: VisibleMessage }) {
         revealed={row.revealedIds.has(message.id)}
         shared={row.shared}
       />
-    </Animated.View>
+    </Animated.View></ChatPreviewRange>
   );
 }
 
@@ -1348,6 +1349,7 @@ export const ChatMessageList = memo(function ChatMessageList({
               estimatedItemSize={ESTIMATED_ROW_SIZE}
               estimatedListSize={estimatedListSize}
               drawDistance={Math.round(screen.height * DRAW_SCREENS)}
+              viewabilityConfig={PREVIEW_VIEWABILITY}
               experimental_adaptiveRender={ADAPTIVE_RENDER}
               // A reply can be many times taller than the estimate. Until the list has its size, the row
               // is laid out but not drawn, so the reader never sees it cut by the next row.

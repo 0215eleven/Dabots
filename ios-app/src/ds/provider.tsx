@@ -24,7 +24,7 @@ import type { DsCore, DsView } from './contracts';
 import { createScreenCommands, mutationProblem } from './screen-binding';
 import { dsId } from './identity';
 import { unavailableWorkspace, unsupported } from './unavailable-workspace';
-import {previewEpoch,readPreview} from './attachment-preview';
+import {previewEpoch,readPreview,decodePreviewId} from './attachment-preview';
 import type { ChannelSummary } from '@openbot/contracts/ipc';
 interface Binding {
     core: DsCore | null;
@@ -93,6 +93,14 @@ export function DsProvider({ children }: {
     }) => { const target = view?.bots.find(b => b.id === id) ?? view?.groups.find(g => g.id === id); if (!target?.conversationId || !core)
         return unsupported('Conversation flags'); return (await core.setFlags(target.conversationId, patch)).value; };
     const value: MobileWorkspaceContextValue = { ...unavailableWorkspace, ...stores,
+        canPreviewAttachment: (requestedServer,id) => {
+            if(!client||!core||!serverId||requestedServer!==serverId)return false;
+            try{const scope=decodePreviewId(id),current=latest.current,snapshot=current.workspace.getSnapshot();
+                if(scope.serverId!==serverId||scope.epoch!==previewEpoch(core)||current.client!==client||current.host?.serverId!==serverId||snapshot?.accessDenied||current.workspace.team.mobileCapabilities?.attachmentPreviews!==1)return false;
+                if(scope.conversationId.startsWith('agent:')&&current.workspace.team.agentAccess!==true)return false;
+                return current.workspace.conversations.some(conversation=>conversation.id===scope.conversationId&&conversation.sessionId===scope.sessionId)&&core.capabilities().history;
+            }catch{return false;}
+        },
         downloadAttachment: async (requestedServer,id,options={}) => {
             if(!client||!core||!serverId||requestedServer!==serverId)return unsupported('Image preview');
             return readPreview(client,serverId,previewEpoch(core),id,{signal:options.signal,current:scope=>{

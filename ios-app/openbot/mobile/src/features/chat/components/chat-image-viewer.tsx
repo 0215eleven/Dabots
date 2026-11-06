@@ -27,6 +27,7 @@ interface ImageSource {
 }
 
 interface ChatImageViewerValue {
+  previewId:string|null;
   /** The id of the image whose chat copy the viewer holds, or null. */
   hiddenSource: SharedValue<string | null>;
   register: (id: string, source: ImageSource) => () => void;
@@ -52,6 +53,7 @@ export function ChatImageViewerProvider({
   // The pages are fixed when the viewer opens, so a message that arrives behind it does not
   // renumber the pages under the reader.
   const [viewing, setViewing] = useState<{ pages: ImageViewerPage[]; index: number } | null>(null);
+  const [previewId,setPreviewId]=useState<string|null>(null);
 
   const register = useCallback((id: string, source: ImageSource) => {
     sources.current.set(id, source);
@@ -72,6 +74,7 @@ export function ChatImageViewerProvider({
       };
     });
     void haptics.impact("soft");
+    setPreviewId(attachment.id);
     setViewing({
       pages,
       index: Math.max(
@@ -81,7 +84,7 @@ export function ChatImageViewerProvider({
     });
   }, []);
 
-  const value = useMemo(() => ({ hiddenSource, register, open }), [hiddenSource, register, open]);
+  const value = useMemo(() => ({ hiddenSource, register, open,previewId }), [hiddenSource, register, open,previewId]);
   return (
     <ChatImageViewerContext value={value}>
       {children}
@@ -91,7 +94,8 @@ export function ChatImageViewerProvider({
           pages={viewing.pages}
           initialIndex={viewing.index}
           hiddenSource={hiddenSource}
-          onDismissed={() => setViewing(null)}
+          onActiveImage={setPreviewId}
+          onDismissed={() => {setViewing(null);setPreviewId(null)}}
         />
       ) : null}
     </ChatImageViewerContext>
@@ -105,12 +109,14 @@ function ConversationImageViewer({
   initialIndex,
   hiddenSource,
   onDismissed,
+  onActiveImage,
 }: {
   serverId: string;
   pages: ImageViewerPage[];
   initialIndex: number;
   hiddenSource: SharedValue<string | null>;
   onDismissed: () => void;
+  onActiveImage:(id:string)=>void;
 }) {
   const [index, setIndex] = useState(initialIndex);
   const page = pages[index] ?? pages[initialIndex];
@@ -125,7 +131,7 @@ function ConversationImageViewer({
       busy={file.busy}
       onShare={file.share}
       onSave={file.saveToPhotos}
-      onIndexChange={setIndex}
+      onIndexChange={next=>{setIndex(next);if(pages[next])onActiveImage(pages[next].attachment.id)}}
       onDismissed={onDismissed}
     />
   );
@@ -156,5 +162,5 @@ export function useChatImageSource(id: string | null, originRadius: number) {
     () => (id && register ? register(id, { origin, originRadius }) : undefined),
     [id, register, origin, originRadius],
   );
-  return { origin, hiddenStyle, open: viewer?.open };
+  return { origin, hiddenStyle, open: viewer?.open,previewActive:viewer?.previewId==null||viewer.previewId===id };
 }

@@ -76,7 +76,9 @@ public class LocalTLSModule: Module {
     }
     AsyncFunction("createPreviewFile") { (input: [String: String]) -> [String: String] in
       self.retryPreviewRemovals()
-      guard !self.destroyed, self.previewFiles.count < 16,
+      guard !self.destroyed else { throw self.invalid() }
+      guard self.previewFiles.count < 16 else { throw Exception(name: "PreviewCapacityException", description: "Preview capacity is busy.", code: "ERR_DS_PREVIEW_CAPACITY") }
+      guard
         let mime = input["mimeType"], ["image/png", "image/jpeg", "image/webp"].contains(mime),
         let encoded = input["base64"], !encoded.isEmpty, encoded.utf8.count <= 1398104,
         let bytes = Data(base64Encoded: encoded), !bytes.isEmpty, bytes.count <= 1048576 else { throw self.invalid() }

@@ -7,12 +7,14 @@ function fixture(config:{permission?:()=>Promise<any>;available?:()=>Promise<boo
  const mocks:any={react:{useMemo:(fn:any,deps:any[])=>{const n=cursor++;if(!equal(slots[n]?.deps,deps))slots[n]={deps,value:fn()};return slots[n].value},useState:(value:any)=>[value,()=>{}],useEffect:(effect:any,deps:any[])=>{const n=cursor++;if(!equal(slots[n]?.deps,deps)){slots[n]?.cleanup?.();slots[n]={deps,cleanup:effect()}}}},'react-native':{View:'View'},expo:{},'expo-modules-core':{},'expo-image':{Image:'Image'},
   'expo-sharing':{isAvailableAsync:config.available??(async()=>true),shareAsync:async()=>{exports++}},'expo-media-library':{requestPermissionsAsync:config.permission??(async()=>({granted:true})),Asset:{create:async()=>{exports++}}},
   'expo-file-system':{Paths:{cache:'file:///cache'},File:class{exists=false;uri='file:///synthetic-preview';writeSync(){writes++}delete(){}}},
-  '@openbot/team-client/remote-peer':{MOBILE_ATTACHMENT_BYTES:10485760},'@tanstack/react-query':{useQueryClient:()=>({getQueryCache:()=>({subscribe(){}})}),useQuery:(value:any)=>{options=value;return {data:config.cached?cached:undefined};}},'heroui-native/hooks':{useThemeColor:()=>''},'lucide-react-native/icons/file-text':{},
-  '@ds/preview-file':{createPreviewFile:async()=>null},
+  '@openbot/team-client/remote-peer':{MOBILE_ATTACHMENT_BYTES:10485760},'@tanstack/react-query':{useQueryClient:()=>({getQueryCache:()=>({subscribe(){}}),getQueryData:()=>undefined}),useQuery:(value:any)=>{options=value;return {data:config.cached?cached:undefined};}},'heroui-native/hooks':{useThemeColor:()=>''},'lucide-react-native/icons/file-text':{},
+  '@ds/preview-file':{loadPreviewFile:async(read:any)=>read()},'@ds/preview-budget':{previewBudget:{subscribe:()=>()=>{}}},
   '@/features/analytics/failure-reports':{showFailureAlert(){}},'@/shared/lib/haptics':{haptics:{notification(){}}},'@/shared/lib/text':{useText:()=>({t:(x:string)=>x,sourceText:(x:string)=>x}),currentText:(x:string)=>x},
   '@/features/workspace/context/mobile-workspace-context':{useMobileWorkspaceActions:()=>({downloadAttachment:async(_server:string,_id:string,request:any)=>{lastSignal=request?.signal;if(config.denied)throw Error('revoked');return cached;}})},
   '@/features/workspace/model/query-keys':{queryKeys:{chatAttachment:(server:string,id:string)=>['chat-attachment',server,id]}},'./use-media-file':{mediaFile:()=>file},
  };
+ mocks.react.useLayoutEffect=mocks.react.useEffect;
+ mocks.react.useRef=(initial:any)=>{const n=cursor++;return slots[n]??={current:initial}};
  const result=buildSync({absWorkingDir:root,entryPoints:['openbot/mobile/src/features/chat/components/attachment-preview.tsx'],bundle:true,write:false,platform:'node',format:'cjs',alias:{'@ds/preview-resource':root+'src/ds/preview-resource.ts'},supported:{'dynamic-import':false},external:Object.keys(mocks),jsx:'automatic',jsxImportSource:'react',logLevel:'silent'}),module={exports:{} as any};
  new Function('require','module','exports',result.outputFiles[0].text)((name:string)=>Object.hasOwn(mocks,name)?mocks[name]:require(name),module,module.exports);
  return{remember:module.exports.rememberImageDimensions,known:module.exports.knownImageDimensions,use:(...args:any[])=>{cursor=0;return module.exports.useAttachmentFile(...args)},get options(){return options},get writes(){return writes},get exports(){return exports},get signal(){return lastSignal},unmount(){slots.forEach(slot=>slot.cleanup?.())}};
@@ -20,7 +22,7 @@ function fixture(config:{permission?:()=>Promise<any>;available?:()=>Promise<boo
 const attachment={id:'scoped-message-preview',name:'original.png',size:70,kind:'image',mimeType:'image/png',previewKind:'image',previewUrl:null};
 test('scoped previews are memory-only, cancel with their query and leave no retained cache entry',async()=>{
  const f=fixture(),controller=new AbortController();f.use('server',{...attachment,downloadMode:'preview'},true);
- assert.equal(f.options.gcTime,0);assert.equal(f.options.staleTime,0);
+ assert.equal(f.options.gcTime,0);assert.equal(f.options.staleTime,Infinity);assert.equal(f.options.subscribed,true);
  const result=await f.options.queryFn({signal:controller.signal});assert.equal(f.signal,controller.signal);assert.equal(f.writes,0);assert.equal(result.fileUri,undefined);
 });
 

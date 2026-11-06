@@ -29,6 +29,7 @@ import { useHistoryShown } from "./use-history-shown";
 import { useListSettled } from "./use-list-settled";
 import { useMediaFile } from "./use-media-file";
 import type {PresentedAttachment} from '../model/attachment-presentation';
+import {usePreviewRange} from '@ds/preview-range';
 
 // The width reserved while the shape is still unknown: a portrait phone photo.
 const UNKNOWN_RATIO = 3 / 4;
@@ -177,9 +178,10 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
   const tooLarge = attachment.size > MOBILE_ATTACHMENT_BYTES;
   // An image above the transfer limit cannot be shown here, so it is a file the user opens on desktop.
   const image = attachment.kind === "image" && !tooLarge && !unavailable;
-  const { pending, localUri, uri, dimensions, query, sharing, share } = useAttachmentFile(serverId, attachment, image);
   // The conversation's viewer measures this copy and hides it on the UI thread while it holds the picture.
   const source = useChatImageSource(image && isViewableImage(attachment) ? attachment.id : null, FRAME_RADIUS);
+  const range=usePreviewRange(source.origin);
+  const { pending, localUri, uri, dimensions, query, sharing, share } = useAttachmentFile(serverId, attachment, image,!memoryOnly||(range.visible&&source.previewActive));
   const maxWidth = Math.min(MAX_FRAME_WIDTH, width - 80);
   const shape = decoded ?? dimensions;
   const frame = attachmentFrame(shape, maxWidth, UNKNOWN_RATIO);
@@ -191,7 +193,7 @@ function ChatFileAttachment({ attachment, serverId, alignment = "left", upload }
 
   if (image)
     return (
-      <View className={`max-w-full gap-2 ${alignment === "right" ? "items-end" : "items-start"}`}>
+      <View onLayout={range.onLayout} className={`max-w-full gap-2 ${alignment === "right" ? "items-end" : "items-start"}`}>
         <View
           style={{
             width: frame.width,

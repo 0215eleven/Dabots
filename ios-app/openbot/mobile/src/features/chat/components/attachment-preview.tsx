@@ -3,14 +3,15 @@ import type { AttachmentSummary } from "@openbot/contracts/ipc";
 import type { MobileTranslate } from "@openbot/i18n/mobile";
 import { MOBILE_ATTACHMENT_BYTES, type RemoteFileUpload } from "@openbot/team-client/remote-peer";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
-import {createPreviewFile} from '@ds/preview-file';
-import {ownPreviewData,watchPreviewCache} from '@ds/preview-resource';
+import {loadPreviewFile} from '@ds/preview-file';
+import {previewResource,watchPreviewCache,type PreviewResource} from '@ds/preview-resource';
+import {previewBudget} from '@ds/preview-budget';
 import { File, Paths } from "expo-file-system";
 import { Image } from "expo-image";
 import * as Sharing from "expo-sharing";
 import { useThemeColor } from "heroui-native/hooks";
 import FileText from "lucide-react-native/icons/file-text";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
@@ -126,19 +127,32 @@ async function fileBase64(data: RemoteFileUpload & { fileUri?: string }): Promis
  * One host file: its image for a preview, and the share sheet for opening it. The query key is the
  * one the chat uses, so a file read in a message is not downloaded a second time for a queue row.
  */
-export function useAttachmentFile(serverId: string, attachment: AttachmentSummary, preview: boolean) {
-  const { downloadAttachment } = useMobileWorkspaceActions();
+function useDisplayedPreview(resource:PreviewResource|undefined){
+  const held=useRef<{resource:PreviewResource;release:()=>void}|null>(null),retired=useRef<Array<()=>void>>([]);
+  useLayoutEffect(()=>{
+    if(held.current?.resource===resource)return;
+    if(held.current)retired.current.push(held.current.release);
+    held.current=resource?{resource,release:resource.retain()}:null;
+  },[resource]);
+  // Only unlink the previous image after the replacement/native-view removal has committed.
+  useEffect(()=>{retired.current.splice(0).forEach(release=>release());},[resource]);
+  useEffect(()=>()=>{held.current?.release();held.current=null;retired.current.splice(0).forEach(release=>release());},[]);
+}
+export function useAttachmentFile(serverId: string, attachment: AttachmentSummary, preview: boolean, active=true) {
+  const { downloadAttachment,canPreviewAttachment } = useMobileWorkspaceActions();
   const { t, sourceText } = useText();
   const [sharing, setSharing] = useState(false);
   const mode=(attachment as PresentedAttachment).downloadMode,memoryOnly=mode==='preview';
-  watchPreviewCache(useQueryClient().getQueryCache());
+  const queryClient=useQueryClient(),queryKey=queryKeys.chatAttachment(serverId,attachment.id);
+  const eligible=preview&&active&&(!memoryOnly||canPreviewAttachment?.(serverId,attachment.id)!==false);
+  watchPreviewCache(queryClient.getQueryCache());
   // The scoped id changes on connection/access changes. Provider callbacks can change
   // identity during ordinary chat updates; that alone must not cancel a system prompt.
   const exports = useMemo(() => ({active:true, controllers:new Set<AbortController>()}), [serverId,attachment.id]);
   useEffect(() => {
-    exports.active=true;
+    exports.active=!memoryOnly||eligible;
     return () => {exports.active=false;for(const controller of exports.controllers)controller.abort();};
-  }, [exports]);
+  }, [exports,memoryOnly,eligible]);
   function beginExport() {
     if(!memoryOnly)return undefined;
     const controller=new AbortController();exports.controllers.add(controller);return controller;
@@ -160,27 +174,35 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       ? attachment.previewUrl
       : null;
   const query = useQuery({
-    queryKey: queryKeys.chatAttachment(serverId, attachment.id),
+    queryKey,
     queryFn: async ({signal}): Promise<RemoteFileUpload & { dimensions?:ImageDimensions;localUri?: string; fileUri?: string }> => {
       if(mode==='unavailable')throw new Error(t('mobile.chat.attachment.unavailable'));
       if (attachment.size > MOBILE_ATTACHMENT_BYTES) throw new Error(t("mobile.chat.attachment.tooLargeForMobile"));
+      if(memoryOnly)return loadPreviewFile(()=>downloadAttachment(serverId,attachment.id,{signal}),{signal,previous:previewResource(queryClient.getQueryData(queryKey))});
       const kept = memoryOnly?null:keptImageFile(serverId, attachment);
       if (kept) return kept;
       const data = await downloadAttachment(serverId, attachment.id, {signal});
-      const resource=memoryOnly?await createPreviewFile(data,signal):null;
-      return ownPreviewData({
+      return {
         ...data,
-        fileUri: memoryOnly?resource?.uri: data.mimeType.startsWith("image/") ? keepImageFile(serverId, attachment, data) : undefined,
-      },resource);
+        fileUri: data.mimeType.startsWith("image/") ? keepImageFile(serverId, attachment, data) : undefined,
+      };
     },
-    enabled: mode!=='unavailable' && preview && !local && !pending,
+    enabled: mode!=='unavailable' && eligible && !local && !pending,
+    subscribed:memoryOnly?eligible:undefined,
     retry: false,
-    staleTime: memoryOnly?0:Infinity,
+    staleTime: Infinity,
     gcTime: memoryOnly?0:5 * 60 * 1000,
     structuralSharing:memoryOnly?false:undefined,
     meta:memoryOnly?{dsPrivatePreview:true}:undefined,
   });
-  const data = query.data;
+  const data = memoryOnly&&!eligible?undefined:query.data;
+  useDisplayedPreview(memoryOnly&&eligible?previewResource(data):undefined);
+  useEffect(()=>{
+    if(!memoryOnly||!eligible)return;let retries=0;
+    return previewBudget.subscribe(()=>{const failure=queryClient.getQueryState(queryKey)?.error as {code?:string}|undefined;
+      if(failure?.code==='PREVIEW_CAPACITY'&&previewBudget.available&&retries<2){retries++;void queryClient.refetchQueries({queryKey,exact:true,type:'active'});}
+    });
+  },[memoryOnly,eligible,serverId,attachment.id,queryClient]);
   const dimensions = useMemo(() => {
     // The DS byte reader already validated this bounded image. Do not parse it again with browser globals.
     if(memoryOnly&&data?.dimensions)return data.dimensions;
@@ -190,9 +212,9 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
     if (read) rememberImageDimensions(attachment.id, read);
     return read;
   }, [attachment.id, data,memoryOnly]);
-  const localUri = local ?? query.data?.localUri;
+  const localUri = local ?? data?.localUri;
   const uri =
-    localUri ?? query.data?.fileUri ?? (query.data ? `data:${query.data.mimeType};base64,${query.data.base64}` : null);
+    localUri ?? data?.fileUri ?? (data ? `data:${data.mimeType};base64,${data.base64}` : null);
   async function share() {
     setSharing(true);
     const controller=beginExport();

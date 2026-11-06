@@ -670,6 +670,8 @@ export interface MobileWorkspaceContextValue {
     onProgress?: (fraction: number) => void,
   ) => Promise<DraftAttachment>;
   downloadAttachment: (serverId: string, attachmentId: string, options?: { signal?: AbortSignal }) => Promise<RemoteFileUpload>;
+  /** Synchronous current grant check for scoped private preview resources. */
+  canPreviewAttachment?: (serverId:string,attachmentId:string)=>boolean;
   discardAttachment: (agentId: string, attachmentId: string, serverId?: string) => Promise<void>;
   /**
    * True when a hide goes to the host (`agent-hidden-v1`, and the user is an owner or admin), so each

@@ -3,6 +3,7 @@ import type { messages as source } from "../../en/error/attachment";
 
 export const messages = {
   // Attachment and file preview errors.
+  "error.attachment.previewCapacity": "图片预览暂时繁忙，请稍候或重试。",
   "error.attachment.previewScope": "此预览属于其他连接，请重新打开聊天。",
   "error.attachment.previewAuth": "此图片预览的访问权限已失效，请重新连接后重试。",
   "error.attachment.previewNetwork": "图片预览下载失败，请重试。",

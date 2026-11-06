@@ -2,6 +2,7 @@ import { defineMessages } from "../../../message";
 
 export const messages = defineMessages("error.attachment", {
   // Attachment and file preview errors.
+  "error.attachment.previewCapacity": "Image previews are busy. Please wait or retry.",
   "error.attachment.previewScope": "This preview belongs to a different connection. Reopen the chat.",
   "error.attachment.previewAuth": "Access to this image preview is no longer available. Reconnect and try again.",
   "error.attachment.previewNetwork": "The image preview could not be downloaded. Try again.",

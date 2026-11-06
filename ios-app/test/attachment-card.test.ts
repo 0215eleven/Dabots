@@ -16,6 +16,7 @@ function fixture(width=390){
   '../model/attachment-frame':{attachmentFrame,FRAME_RADIUS:18,MAX_FRAME_WIDTH:280,FILL:{position:'absolute',top:0,right:0,bottom:0,left:0}},'../model/code-preview-store':{},'../model/image-dimensions':{},
   './attachment-preview':{useAttachmentFile:()=>({pending:false,localUri:null,uri:'data:image/png;base64,synthetic',dimensions:{width:640,height:480},query:{},sharing:false}),attachmentTypeLabel:()=> 'FILE'},
   './chat-image-viewer':{isViewableImage:()=>true,useChatImageSource:()=>({origin:{},hiddenStyle:{},open:(attachment:any)=>opened.push(attachment)})},
+  '@ds/preview-range':{usePreviewRange:()=>({visible:true,onLayout(){}})},
   './upload-progress':{useUploadRevealStyle:()=>({})},'./use-attachment-preview':{useAttachmentPreview:()=>({kind:null,opening:false})},'./use-history-shown':{},'./use-list-settled':{},'./use-media-file':{},'./chat-code-preview':{},'./html-page':{},
  };
  const code=transformSync(readFileSync(new URL('../openbot/mobile/src/features/chat/components/chat-attachment.tsx',import.meta.url),'utf8'),{loader:'tsx',format:'cjs',jsx:'transform'}).code,module={exports:{} as any};

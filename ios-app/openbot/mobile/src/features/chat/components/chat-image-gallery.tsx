@@ -13,6 +13,7 @@ import { type GalleryTile, galleryTiles } from "../model/image-gallery-layout";
 import { rememberImageDimensions, useAttachmentFile } from "./attachment-preview";
 import { useChatImageSource } from "./chat-image-viewer";
 import type {PresentedAttachment} from '../model/attachment-presentation';
+import {usePreviewRange} from '@ds/preview-range';
 
 const GAP = 4;
 const TILE_RADIUS = 10;
@@ -54,15 +55,17 @@ function ChatGalleryTile({
 }) {
   const { t } = useText();
   const muted = useThemeColor("muted");
-  const { pending, localUri, uri, dimensions, query } = useAttachmentFile(serverId, attachment, true);
   const [loaded, setLoaded] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const source = useChatImageSource(attachment.id, TILE_RADIUS);
+  const range=usePreviewRange(source.origin);
+  const { pending, localUri, uri, dimensions, query } = useAttachmentFile(serverId, attachment, true,range.visible&&source.previewActive);
   const failed = Boolean(query.error) || imageFailed;
 
   return (
     <Animated.View
       ref={source.origin}
+      onLayout={range.onLayout}
       collapsable={false}
       style={[
         {

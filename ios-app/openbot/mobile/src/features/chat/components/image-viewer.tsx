@@ -51,6 +51,7 @@ import {
   shouldDismiss,
 } from "../model/image-viewer-geometry";
 import { knownImageDimensions, useAttachmentFile } from "./attachment-preview";
+import {viewerPreviewActive} from '@ds/preview-region';
 import { ChatGlassIconButton, ChatGlassLabel } from "./chat-glass-icon-button";
 
 // Out of the chat: just short of critically damped, so the picture arrives rather than stops.
@@ -605,6 +606,7 @@ export function ImageViewer({
                 key={page.key}
                 serverId={serverId}
                 attachment={page.attachment}
+                active={viewerPreviewActive(slot,shown)}
                 dimensions={sizeOf(page)}
                 slot={slot}
                 fit={fits[slot] ?? box}
@@ -713,6 +715,7 @@ function ViewerPicture({
   originRadius,
   motion,
   onSize,
+  active,
 }: {
   serverId: string;
   attachment: AttachmentSummary;
@@ -724,9 +727,10 @@ function ViewerPicture({
   originRadius: number;
   motion: ViewerMotion;
   onSize: (key: string, size: ImageDimensions) => void;
+  active:boolean;
 }) {
   // The query the chat uses, so a picture the chat has shown is not downloaded again.
-  const file = useAttachmentFile(serverId, attachment, true);
+  const file = useAttachmentFile(serverId, attachment, true,active);
   const [loaded, setLoaded] = useState(false);
   const knownWidth = file.dimensions?.width;
   const knownHeight = file.dimensions?.height;
