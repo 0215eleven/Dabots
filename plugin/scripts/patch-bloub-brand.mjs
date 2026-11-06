@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { renderRoomAvatar } from '../engine/src/client/room-avatar.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const MARKER = 'BT-BLOUB-BRAND'
@@ -119,15 +120,17 @@ export function patchBloubBrand(source) {
   out = replaceFunctionBody(out, 'function characterMarkup(shape, color) {',
     '  return bloubAvatarMarkup(shape, color);')
 
-  // 6. A group chat draws one face, not a cluster of overlapping avatars.
+  // 6. Source builds and prebuilt compatibility clients share the bounded member
+  // grid. Branding must not replace it with the first member's single face.
   const roomAnchor = 'function RoomAvatar({ room: room2, roster, size = 36 }) {'
   if (out.includes(roomAnchor)) {
-    out = replaceFunctionBody(out, roomAnchor, [
-      '  const members = room2.members.map((id) => roster.byId[id]).filter(Boolean);',
-      '  // Bloub: one seat per group, so a list row shows one readable face.',
-      '  if (members.length > 0) return (0, import_react2.createElement)(BotMark, { bot: members[0], size });',
-      '  return (0, import_react2.createElement)(BotMark, { size });',
-    ].join('\n'))
+    const start = out.indexOf(roomAnchor)
+    const body = out.slice(start, out.indexOf('\n}', start))
+    const react = /\b(import_react\d*)\.createElement\b/.exec(body)?.[1]
+    if (!react) throw new Error('RoomAvatar React platform import not found')
+    if (!out.includes('function renderRoomAvatar(')) out = out.replace(roomAnchor, `${renderRoomAvatar.toString()}\n${roomAnchor}`)
+    out = replaceFunctionBody(out, roomAnchor,
+      `  return renderRoomAvatar((0, ${react}.createElement), BotMark, room2, roster, size);`)
   }
 
   return out

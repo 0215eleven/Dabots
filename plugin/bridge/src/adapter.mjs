@@ -28,7 +28,7 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
   let description = {}
   const shutdown = new AbortController()
   // This allowlist is entirely internal. No mobile-supplied endpoint reaches it.
-  const allowed = new Set(['state', 'bridge.describe', 'bridge.submit', 'bridge.redact', 'bridge.agent-open', 'bridge.agent-new', 'bridge.agent-rename', 'bridge.upload-check', 'approval-answer', ...MOBILE_ACTIONS])
+  const allowed = new Set(['state', 'bridge.describe', 'bridge.submit', 'bridge.redact', 'bridge.approval-text', 'bridge.agent-open', 'bridge.agent-new', 'bridge.agent-rename', 'bridge.upload-check', 'approval-answer', ...MOBILE_ACTIONS])
   async function call(endpoint, payload = {}, signal = AbortSignal.timeout(30_000)) {
     if (disposed) throw error(503, 'DISPOSED', 'The bridge has stopped.')
     if (!allowed.has(endpoint)) throw error(403, 'ACTION_NOT_ALLOWED', 'Unsupported team operation.')
@@ -122,25 +122,50 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
   // Tool approvals a phone may answer (approval-broker.mjs). Only Sessions a phone can open
   // qualify: a Bot's own chat, or a DSH Agent Session. Group members stay with the engine.
   const broker = approvalHook && typeof approvalHook.on === 'function' ? createApprovalBroker({
-    on: approvalHook.on, available: () => !disposed && approvalHook.available?.() === true, redact,
-    owner: async sessionId => {
-      const view = await snapshot(AbortSignal.timeout(10_000))
-      const bot = view.conversations.find(item => item.kind === 'bot' && (item.sessionId === sessionId || item.parts.includes(sessionId)))
+    on: approvalHook.on, available: place => !disposed && approvalHook.available?.(place) === true,
+    owner: async (sessionId, signal) => {
+      const view = await snapshot(AbortSignal.any([AbortSignal.timeout(10_000), shutdown.signal, ...(signal ? [signal] : [])]))
+      const bot = view.conversations.find(item => item.kind === 'bot' && item.sessionId === sessionId)
       if (bot) return { conversationId: bot.id }
       const agent = view.agentConversations.find(item => item.sessionId === sessionId)
       return agent ? { conversationId: agent.id, agent: true } : null
     },
   }) : null
   const approvalsAllowed = access => grantOf(access).approvals === true
+  async function approvalTextCall(endpoint, payload, signal) {
+    try { return await call(endpoint, payload, signal) }
+    catch { signal?.throwIfAborted(); throw error(503, 'REDACTION_UNAVAILABLE', 'The host approval text could not be confirmed.') }
+  }
   async function approvalsFor(id, signal, access) {
     if (!approvalsAllowed(access)) return []
     const item = await target(id, signal, access)
     requireGrant(item, access)
-    const own = broker ? broker.list(item.id) : []
+    const own = broker ? broker.list(item.id).filter(entry => entry.sessionId === item.sessionId) : []
     // A group's member approvals are held by the engine, which answers them itself.
-    const room = item.kind === 'room' ? item.work.approvals.filter(entry => entry.roomId === item.id && entry.answerable === true)
-      .map(entry => ({ id: entry.id, conversationId: item.id, botId: entry.botId, tool: redact(entry.tool ?? ''), reason: redact(entry.reason ?? ''), ...(entry.at ? { at: entry.at } : {}) })) : []
-    return [...own.map(({ sessionId: _session, ...entry }) => entry), ...room]
+    const room = item.kind === 'room' ? item.work.approvals.filter(entry => entry.roomId === item.id && entry.answerable === true) : []
+    const safe = []
+    for (const entry of own) {
+      const result = await approvalTextCall('bridge.redact', { conversationId: channelId(item), expectedSessionId: item.sessionId, texts: [entry.tool, entry.reason] }, signal)
+      if (!Array.isArray(result?.texts) || result.texts.length !== 2 || result.texts.some(text => typeof text !== 'string')) throw error(503, 'REDACTION_UNAVAILABLE', 'The host approval text could not be confirmed.')
+      safe.push({ id: entry.id, conversationId: item.id, tool: redact(result.texts[0]).slice(0, 80), reason: redact(result.texts[1]).slice(0, 500), at: entry.at })
+    }
+    if (room.length) {
+      // Old engines truncate their owner-only state before Bridge sees it. Never
+      // expose that truncated prefix: use a host projection of the full originals.
+      if (description.approvalText !== 1) throw error(501, 'REDACTION_UNAVAILABLE', 'Update the desktop plugin to show group approval details.')
+      for (let offset = 0; offset < room.length; offset += 100) {
+        const batch = room.slice(offset, offset + 100)
+        const result = await approvalTextCall('bridge.approval-text', { conversationId: item.id, expectedSessionId: item.sessionId, expectedMembers: item.members, ids: batch.map(entry => entry.id) }, signal)
+        if (!Array.isArray(result?.approvals) || result.approvals.length !== batch.length || result.approvals.some((entry, index) => !entry || entry.id !== batch[index].id || typeof entry.tool !== 'string' || typeof entry.reason !== 'string')) throw error(503, 'REDACTION_UNAVAILABLE', 'The host approval text could not be confirmed.')
+        batch.forEach((entry, index) => safe.push({ id: entry.id, conversationId: item.id, botId: entry.botId, tool: redact(result.approvals[index].tool).slice(0, 80), reason: redact(result.approvals[index].reason).slice(0, 500), ...(entry.at ? { at: entry.at } : {}) }))
+      }
+    }
+    const current = await target(id, signal, access)
+    requireGrant(current, access)
+    if (!approvalsAllowed(access)) throw error(403, 'APPROVALS_NOT_ALLOWED', 'This phone can no longer answer approvals.')
+    if (current.sessionId !== item.sessionId || JSON.stringify(current.members) !== JSON.stringify(item.members)) throw error(409, 'APPROVAL_CLOSED', 'Refresh the conversation approvals.')
+    signal?.throwIfAborted()
+    return safe.filter(entry => room.some(value => value.id === entry.id) ? current.work.approvals.some(value => value.id === entry.id && value.roomId === item.id && value.answerable) : broker?.get(entry.id)?.sessionId === item.sessionId)
   }
   async function agentQueue(name, payload, signal, access) {
     if (!actionCapabilities().actions.includes(name)) throw error(403, 'ACTION_NOT_ALLOWED', 'This mobile action is unavailable.')
@@ -481,6 +506,7 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
       return teamActions.cancel({ conversationId: id, sessionId: item.sessionId }, signal)
     },
     approvals: approvalsFor,
+    approvalAuthorizationChanged: () => broker?.reconcile(),
     async answerApproval(id, choice, signal, access) {
       if (!approvalsAllowed(access)) throw error(403, 'APPROVALS_NOT_ALLOWED', 'Allow this phone to answer approvals on the computer first.')
       if (!['allow', 'reject'].includes(choice)) throw error(400, 'INVALID_CHOICE', 'Choose allow or reject.')
@@ -488,6 +514,7 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
       if (own) {
         const item = await target(own.conversationId, signal, access)
         requireGrant(item, access)
+        if (item.sessionId !== own.sessionId) throw error(409, 'APPROVAL_CLOSED', 'This approval belongs to a previous Session.')
         if (!approvalsAllowed(access) || !broker.answer(id, choice)) throw error(409, 'APPROVAL_CLOSED', 'This approval is no longer open.')
         return { answered: true }
       }

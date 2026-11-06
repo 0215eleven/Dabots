@@ -2271,13 +2271,8 @@ body[data-bt-motion=quiet] .bt-mark[data-poke]{cursor:default}
 .bt-badge-main path{fill:var(--bt-star);stroke:var(--bt-sidebar);stroke-width:2.6;stroke-linejoin:round;paint-order:stroke}
 .bt-badge-alert{background:color-mix(in srgb,var(--bt-accent) 78%,var(--bt-sidebar));color:var(--bt-accent-ink,#fff);font-size:8.5px;line-height:12px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
 .bt-badge-working{background:color-mix(in srgb,var(--bt-green) 82%,var(--bt-sidebar));width:8px;height:8px;right:1px;bottom:1px}
-.bt-cluster{position:relative;display:inline-block;flex:none;line-height:0}
+.bt-cluster{position:relative;display:inline-block;flex:none;line-height:0;overflow:hidden}
 .bt-cluster>*{position:absolute}
-.bt-cluster-more,.bt-cluster-you{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--bt-active);color:var(--bt-ink-3);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
-.bt-cluster-you{background:color-mix(in srgb,var(--bt-ink) 12%,transparent)}
-.bt-stack{display:inline-flex;align-items:center;flex:none;line-height:0}
-.bt-stack>*+*{margin-left:calc(var(--bt-stack-size) * -.3)}
-.bt-stack-more{font-size:11px;line-height:16px;color:var(--bt-ink-3);margin-left:3px!important}
 
 .bt-side{display:flex;flex-direction:column;min-height:0;flex:1 1 auto;gap:2px;padding:0 12px 8px 0;color:var(--bt-ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
 .bt-side-top{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:6px 5px 0 0}
@@ -3268,6 +3263,38 @@ function installCompiledStyles(text, tag) {
   };
 }
 
+// src/client/room-avatar.js
+function renderRoomAvatar(h38, BotMark2, room2, roster, size) {
+  const ids = [...new Set(room2.members)].filter((id) => typeof id === "string" && id.length > 0).slice(0, 4);
+  const gap = Math.min(2, size / 12);
+  const cell = (size - gap * 3) / 2;
+  const rows = Math.ceil(ids.length / 2);
+  const top = (size - rows * cell - Math.max(0, rows - 1) * gap) / 2;
+  return h38("span", {
+    className: "bt-cluster",
+    "aria-hidden": true,
+    style: { width: size, height: size, overflow: "hidden", flexShrink: 0 }
+  }, ids.length ? ids.map((id, index) => {
+    const columns = Math.min(2, ids.length - Math.floor(index / 2) * 2);
+    const left = (size - columns * cell - (columns - 1) * gap) / 2;
+    const bot = roster.byId[id] ?? { id };
+    return h38("span", {
+      key: id,
+      className: "bt-cluster-member",
+      "data-member-id": id,
+      style: { left: left + index % 2 * (cell + gap), top: top + Math.floor(index / 2) * (cell + gap), width: cell, height: cell, overflow: "hidden" }
+    }, h38(BotMark2, { bot, size: cell }));
+  }) : h38("svg", {
+    width: size * 0.56,
+    height: size * 0.56,
+    viewBox: "0 0 20 20",
+    style: { left: size * 0.22, top: size * 0.22 },
+    fill: "none",
+    stroke: "var(--bt-ink-3)",
+    strokeWidth: 1.5
+  }, h38("path", { d: "M2.5 6V4.5h6l2 2h7V16h-15Z", strokeLinejoin: "round" })));
+}
+
 // src/client/mark.js
 var import_react2 = require("react");
 var STATES = ["idle", "thinking", "searching", "working", "sending", "orbit", "waiting", "alert", "done"];
@@ -3385,22 +3412,8 @@ function BotAvatar({ bot, size, state = "idle", main, admin, badge = true, live 
     badgeKind === "main" ? (0, import_react2.createElement)("span", { className: "bt-badge bt-badge-main", "aria-label": t("Main Bot"), role: "img" }, (0, import_react2.createElement)(MainStar)) : null
   );
 }
-function clusterSeats(count, frame) {
-  if (count === 1) return [[0, 0, frame]];
-  if (count === 2) return [[0, 0, frame * 2 / 3], [frame / 3, frame / 3, frame * 2 / 3]];
-  if (count === 3) {
-    const size = frame * 5 / 9;
-    const rest = frame - size;
-    return [[rest / 2, 0, size], [0, rest, size], [rest, rest, size]];
-  }
-  const half = frame / 2;
-  return [[0, 0, half], [half, 0, half], [0, half, half], [half, half, half]];
-}
 function RoomAvatar({ room: room2, roster, size = 36 }) {
-  const members = room2.members.map((id) => roster.byId[id]).filter(Boolean);
-  // Bloub: one seat per group, so a list row shows one readable face.
-  if (members.length > 0) return (0, import_react2.createElement)(BotMark, { bot: members[0], size });
-  return (0, import_react2.createElement)(BotMark, { size });
+  return renderRoomAvatar((0, import_react2.createElement), BotMark, room2, roster, size);
 }
 
 // src/client/dsh-primitives.js
@@ -6659,11 +6672,12 @@ function useLandOnMainBot(roster, useSessions, actions) {
   const lastBot = (0, import_react11.useRef)(null);
   (0, import_react11.useEffect)(() => {
     if (!roster.ready || !roster.mainBotId) return void 0;
+    const ticket = actions.navigationTicket?.();
     const [id, blank3] = mainView.split("|");
     const bot = id === "" ? void 0 : roster.byId[id];
     if (bot !== void 0) {
       lastBot.current = { botId: bot.id, sessionId: id };
-      if (currentPart(bot) !== id) actions.landOn(bot.id);
+      if (currentPart(bot) !== id) actions.landOn(bot.id, void 0, ticket);
       return void 0;
     }
     if (id !== "" && (roster.roomsById[id] || (actions.isAgentSession?.(id) ?? roster.agentOf[id] !== void 0) || blank3 !== "1")) {
@@ -6671,7 +6685,7 @@ function useLandOnMainBot(roster, useSessions, actions) {
       return void 0;
     }
     const last = lastBot.current;
-    const timer = setTimeout(() => actions.landOn(roster.mainBotId, last), last ? 0 : 400);
+    const timer = setTimeout(() => actions.landOn(roster.mainBotId, last, ticket), last ? 0 : 400);
     return () => clearTimeout(timer);
   }, [mainView, roster]);
 }
@@ -15140,35 +15154,47 @@ function noticeApprovals({ work, roster, shownSession, openSession, since = Date
 }
 
 // src/client/open-listed.js
-function listedOpener({ list, open, refresh, current }) {
+function listedOpener({ list, open, refresh, current, subscribe }) {
   let drop = () => {
   };
-  return (target) => {
+  let pending = false, revision = 0;
+  const cancel = () => {
+    revision++;
     drop();
     drop = () => {
     };
-    const listed = () => list.getSnapshot().byId?.[target] !== void 0;
-    if (listed()) {
-      open(target);
-      return;
-    }
-    const from = current?.();
-    const off = list.subscribe(() => {
-      if (current?.() !== from) {
-        off();
-        drop = () => {
-        };
-        return;
-      }
-      if (!listed()) return;
-      off();
-      drop = () => {
-      };
-      open(target);
-    });
-    drop = off;
-    refresh?.();
+    pending = false;
   };
+  const show = (resolve, { isCurrent = () => true, beforeOpen } = {}) => {
+    cancel();
+    const intent = revision;
+    const from = current?.();
+    const targetOf = typeof resolve === "function" ? resolve : () => resolve;
+    const attempt = () => {
+      if (intent !== revision) return true;
+      if (!isCurrent() || current?.() !== from) {
+        cancel();
+        return true;
+      }
+      const target = targetOf();
+      if (!target || list.getSnapshot().byId?.[target] === void 0) return false;
+      cancel();
+      beforeOpen?.(target);
+      open(target);
+      return true;
+    };
+    if (attempt()) return;
+    pending = true;
+    const offList = list.subscribe(attempt), offOther = subscribe?.(attempt);
+    drop = () => {
+      offList();
+      offOther?.();
+    };
+    if (!attempt()) refresh?.();
+  };
+  show.cancel = cancel;
+  Object.defineProperty(show, "pending", { get: () => pending });
+  return show;
 }
 
 // src/client/index.js
@@ -15490,35 +15516,55 @@ function apply(ctx) {
     return ids;
   };
   const mainView = () => Object.values(ctx.sessions.list.getSnapshot().byId ?? {}).find((session) => (session?.retainedBy?.mainView ?? 0) > 0)?.id;
-  const show = listedOpener({ list: ctx.sessions.list, refresh: () => Promise.resolve(ctx.sessions.refresh?.()).catch(quietly("refresh sessions")), open: (target) => {
+  const show = listedOpener({ list: ctx.sessions.list, subscribe: roster.subscribe, refresh: () => Promise.resolve(ctx.sessions.refresh?.()).catch(quietly("refresh sessions")), open: (target) => {
     expected = target;
     ctx.uiWorkspace.openSession(target);
   }, current: mainView });
+  let navigationRevision = 0, navigationClosed = false;
+  const pendingHomes = /* @__PURE__ */ new Set();
+  const beginNavigation = () => {
+    navigationRevision++;
+    expected = null;
+    show.cancel();
+    for (const stop of pendingHomes) stop();
+    pendingHomes.clear();
+    return navigationRevision;
+  };
+  const navigationTicket = () => {
+    const revision = navigationRevision, from = mainView(), waiting = show.pending;
+    return () => !navigationClosed && !waiting && !show.pending && revision === navigationRevision && mainView() === from && surface.getSnapshot().mode === "bot";
+  };
+  ctx.effect(() => () => {
+    navigationClosed = true;
+    beginNavigation();
+  }, "ds-bot: navigation");
   const actions = {
     ...teamActions({ call, after, partFor, roster, ui: ui2, live, cards, heldCards, turnClock }),
     // The full-pane overlays sit above the conversation, so opening one must dismiss them
     // or the click appears to do nothing.
     isAgentSession: (id) => isAgentSessionId(id),
+    navigationTicket,
     openSession: (id) => {
+      beginNavigation();
       if (isAgentSessionId(id)) return actions.openAgentSession(id);
       ui2.set((state) => state.newChat || state.exchange || state.menu || state.palette ? { ...state, newChat: null, exchange: null, menu: null, palette: null } : state);
-      setPlain(false);
-      const target = partFor(id);
-      show(target);
+      show(() => roster.getSnapshot().ready ? partFor(id) : void 0, { beforeOpen: () => setPlain(false) });
     },
     // The conversation replacements withdraw for a plain Session; set the surface
     // before the navigation so the Bot skin never flashes.
     openAgentSession: (sessionId) => {
+      beginNavigation();
       ui2.set((state) => ({ ...state, newChat: null, exchange: null, menu: null, palette: null, details: null, view: "details", renaming: false, tab: null }));
-      setPlain(true);
-      show(sessionId);
+      show(sessionId, { beforeOpen: () => setPlain(true) });
     },
     addAgent: async () => {
+      const intent = beginNavigation();
       const agent = await after(call("add-agent"));
-      if (agent?.sessions?.[0] !== void 0) actions.openAgentSession(agent.sessions[0]);
+      if (intent === navigationRevision && agent?.sessions?.[0] !== void 0) actions.openAgentSession(agent.sessions[0]);
       return agent;
     },
     openAgent: (agentId) => {
+      beginNavigation();
       const agent = roster.getSnapshot().agentsById[agentId];
       if (agent === void 0) return;
       const list = ctx.sessions.list.getSnapshot();
@@ -15527,6 +15573,7 @@ function apply(ctx) {
       actions.openAgentSession(recent[0]);
     },
     newAgentSession: async (agentId) => {
+      const intent = beginNavigation();
       const agent = roster.getSnapshot().agentsById[agentId];
       if (agent === void 0) return;
       const list = ctx.sessions.list.getSnapshot();
@@ -15536,11 +15583,13 @@ function apply(ctx) {
         return recent[0];
       }
       const { sessionId } = await after(call("agent-session", { agentId, workspaceId: workspaceOf(recent[0]) }));
-      actions.openAgentSession(sessionId);
+      if (intent === navigationRevision) actions.openAgentSession(sessionId);
       return sessionId;
     },
     archiveAgentSession: async (agentId, sessionId) => {
+      const intent = navigationRevision;
       await after(call("agent-archive", { agentId, sessionId }));
+      if (intent !== navigationRevision || show.pending) return;
       const list = ctx.sessions.list.getSnapshot();
       const main = Object.values(list.byId ?? {}).find((session) => (session?.retainedBy?.mainView ?? 0) > 0)?.id;
       if (main !== sessionId) return;
@@ -15554,8 +15603,10 @@ function apply(ctx) {
     // Removing the Agent archives every Session it owns; one of them may fill the
     // main view, and it must not stay there wearing the Bot surface afterwards.
     removeAgent: async (agentId) => {
+      const intent = navigationRevision;
       const owned = agentSessions(agentId);
       const result = await after(call("remove-agent", { agentId }));
+      if (intent !== navigationRevision || show.pending) return result;
       const list = ctx.sessions.list.getSnapshot();
       const main = Object.values(list.byId ?? {}).find((session) => (session?.retainedBy?.mainView ?? 0) > 0)?.id;
       if (main !== void 0 && owned.includes(main) && roster.getSnapshot().mainBotId) actions.openSession(roster.getSnapshot().mainBotId);
@@ -15563,13 +15614,16 @@ function apply(ctx) {
     },
     // `last` is the Bot conversation the view held before it cleared: when that part
     // was archived for a fresh one, the view goes on in the fresh one.
-    landOn: async (id, last) => {
+    landOn: async (id, last, isCurrent = navigationTicket()) => {
+      if (!isCurrent()) return;
       if (last) await pull().catch(() => {
       });
-      const bot = last ? roster.getSnapshot().byId[last.botId] : void 0;
-      setPlain(false);
-      const target = bot && currentPart(bot) !== last.sessionId ? currentPart(bot) : partFor(id);
-      show(target);
+      if (!isCurrent()) return;
+      const intent = beginNavigation();
+      show(() => {
+        const bot = last ? roster.getSnapshot().byId[last.botId] : void 0;
+        return bot && currentPart(bot) !== last.sessionId ? currentPart(bot) : partFor(id);
+      }, { isCurrent: () => !navigationClosed && intent === navigationRevision && surface.getSnapshot().mode === "bot", beforeOpen: () => setPlain(false) });
     },
     selectPanel: (id) => {
       ctx.layout.selectPanel(id);
@@ -15582,6 +15636,7 @@ function apply(ctx) {
     setSurface: (mode) => {
       if (mode !== "bot" && mode !== "agent") return;
       if (surface.getSnapshot().mode === mode) return;
+      const intent = beginNavigation();
       if (mode === "agent") {
         ui2.set((state) => ({ ...state, details: null, view: "details", settings: null, palette: null, newChat: null, menu: null, voice: null, exchange: null, memory: null, toast: null }));
       }
@@ -15589,6 +15644,7 @@ function apply(ctx) {
       surface.set((state) => ({ ...state, mode }));
       if (mode !== "bot") return;
       const home = () => {
+        if (navigationClosed || intent !== navigationRevision || show.pending || surface.getSnapshot().mode !== "bot") return;
         const snapshot = roster.getSnapshot();
         if (!snapshot.ready || !snapshot.mainBotId) return;
         const list = ctx.sessions.list.getSnapshot();
@@ -15602,8 +15658,10 @@ function apply(ctx) {
         const off = roster.subscribe(() => {
           if (!roster.getSnapshot().ready) return;
           off();
+          pendingHomes.delete(off);
           home();
         });
+        pendingHomes.add(off);
       }
     },
     markUnread: (id) => writeUnread(id, true),
@@ -15841,7 +15899,9 @@ function apply(ctx) {
       previous = main;
       const ours = expected !== null && main === expected;
       expected = null;
-      if (ours || main === void 0) return;
+      if (ours) return;
+      beginNavigation();
+      if (main === void 0) return;
       if (surface.getSnapshot().mode !== "bot") return;
       const agentId = before !== void 0 ? agentOfSession(before) : void 0;
       if (agentId === void 0) return;

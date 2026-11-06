@@ -12,19 +12,23 @@ import { randomUUID } from 'node:crypto'
 const OUTCOMES = { allow: 'allowed-once', reject: 'rejected' }
 const MAX_PENDING = 64
 
-export function createApprovalBroker({ on, owner, available = () => true, redact = text => text }) {
+export function createApprovalBroker({ on, owner, available = () => false }) {
   const pending = new Map()
+  const inflight = new Set()
   const waiters = new Set()
   const notify = () => { for (const wake of waiters) wake() }
-  const text = (value, max) => redact(String(value ?? '')).slice(0, max)
+  const eligible = target => { try { return available(target) === true } catch { return false } }
+  const reconcile = () => { for (const entry of pending.values()) if (!eligible(entry)) entry.withdraw() }
 
   const dispose = on('approval/request', async (request, next) => {
     const sessionId = request?.agent?.session?.id ?? request?.agent?.id
-    if (typeof sessionId !== 'string' || !available() || pending.size >= MAX_PENDING) return next()
-    let place = null
-    try { place = await owner(sessionId) } catch { place = null }
+    if (typeof sessionId !== 'string' || inflight.size >= MAX_PENDING) return next()
     const original = request.signal
-    if (!place || original?.aborted) return next()
+    if (original?.aborted) return 'cancelled'
+    let place = null
+    try { place = await owner(sessionId, original) } catch { place = null }
+    if (original?.aborted) return 'cancelled'
+    if (!place || !eligible(place) || inflight.size >= MAX_PENDING) return next()
     // A combined signal lets a phone answer close the computer's card. The request is a plain
     // object DSH builds per call; the original signal is restored once the request settles.
     const closing = new AbortController()
@@ -32,39 +36,58 @@ export function createApprovalBroker({ on, owner, available = () => true, redact
     let swapped = false
     try { request.signal = combined; swapped = request.signal === combined } catch { swapped = false }
     const entry = { id: randomUUID(), sessionId, conversationId: place.conversationId, agent: place.agent === true,
-      tool: text(request.toolName, 80), reason: text(request.displayReason ?? request.reason, 500), at: Date.now() }
-    return await new Promise(resolve => {
+      // Private, untruncated text. Only the adapter's host-redacted projection may leave.
+      tool: String(request.toolName ?? ''), reason: String(typeof request.displayReason === 'string' ? request.displayReason : request.reason ?? ''), at: Date.now() }
+    return await new Promise((resolve, reject) => {
       let done = false
-      const finish = outcome => {
+      let phone = true, desktopDone = false
+      const finish = (outcome, problem) => {
         if (done) return
         done = true
         pending.delete(entry.id)
+        inflight.delete(entry)
         original?.removeEventListener('abort', onAbort)
         closing.abort()
         if (swapped) { try { request.signal = original } catch { /* kept combined; it aborts with the original */ } }
         notify()
-        resolve(outcome)
+        if (problem) reject(problem); else resolve(outcome)
       }
       const onAbort = () => finish('cancelled')
       original?.addEventListener('abort', onAbort, { once: true })
       entry.answer = finish
+      entry.withdraw = () => {
+        phone = false
+        pending.delete(entry.id)
+        notify()
+        // The existing computer waterfall stays alive, with its original outcome.
+        // Only a confirmed unavailable result needs completing here.
+        if (desktopDone) finish('unavailable')
+      }
       pending.set(entry.id, entry)
+      inflight.add(entry)
       notify()
+      if (original?.aborted) { onAbort(); return }
+      reconcile()
       Promise.resolve().then(next).then(outcome => {
+        desktopDone = true
         // No computer answerer (no window open): keep waiting for the phone.
-        if (outcome !== 'unavailable') finish(outcome)
-      }, () => {})
+        if (outcome !== 'unavailable' || !phone || !eligible(entry)) finish(outcome)
+      }, problem => finish(undefined, problem))
     })
   }, { prepend: true })
 
   return {
-    list: conversationId => [...pending.values()].filter(entry => entry.conversationId === conversationId)
-      .map(({ id, conversationId: owner, tool, reason, at, sessionId }) => ({ id, conversationId: owner, sessionId, tool, reason, at })),
+    reconcile,
+    list: conversationId => { reconcile(); return [...pending.values()].filter(entry => entry.conversationId === conversationId)
+      .map(({ id, conversationId: owner, tool, reason, at, sessionId }) => ({ id, conversationId: owner, sessionId, tool, reason, at }))
+    },
     get: id => {
+      reconcile()
       const entry = pending.get(String(id ?? ''))
       return entry ? { id: entry.id, conversationId: entry.conversationId, sessionId: entry.sessionId, agent: entry.agent } : null
     },
     answer(id, choice) {
+      reconcile()
       const entry = pending.get(String(id ?? ''))
       if (!entry) return false
       const outcome = OUTCOMES[choice]
@@ -84,7 +107,7 @@ export function createApprovalBroker({ on, owner, available = () => true, redact
     get size() { return pending.size },
     dispose() {
       try { dispose?.() } catch { /* already disposed with its context */ }
-      for (const entry of pending.values()) entry.answer('cancelled')
+      for (const entry of inflight) entry.answer('cancelled')
     },
   }
 }
