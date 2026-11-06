@@ -4,7 +4,7 @@ const RELAY_ID = /^[A-Za-z0-9_-]{22}$/, RELAY_KEY = /^[A-Za-z0-9_-]{43}$/
 
 export function createDeviceController({ call, now = Date.now, uuid = () => crypto.randomUUID() }) {
   const listeners = new Set(), requests = new Set()
-  let state = { status: null, pairing: null, busy: false, operation: null, error: '', confirmRevoke: null, confirmAgents: null, copied: false }
+  let state = { status: null, pairing: null, busy: false, operation: null, error: '', confirmRevoke: null, confirmAgents: null, confirmApprovals: null, copied: false }
   let disposed = false, generation = 0, refreshEpoch = 0, refreshFlight = null, operating = false, pairingEpoch = 0
   let leaseId = null, autoAttempted = false
   function cancelLease() {
@@ -68,7 +68,7 @@ export function createDeviceController({ call, now = Date.now, uuid = () => cryp
           emit({ pairing: { url, code: value.code, serverId: value.serverId, expiresAt: value.expiresAt } })
         }
       }
-      emit({ confirmRevoke: null, confirmAgents: null })
+      emit({ confirmRevoke: null, confirmAgents: null, confirmApprovals: null })
       refreshEpoch++
       await refresh({ afterCurrent: true })
     } catch (error) { if (method === 'pairing.create' && issued === generation) void cancelLease(); if (!disposed && issued === generation) emit({ error: error.message || (changesTransport ? remoteErrorMessage(error.code) : '设备操作未完成，请刷新后重试。') }) }
@@ -136,6 +136,10 @@ export function createDeviceController({ call, now = Date.now, uuid = () => cryp
     confirmAgents(id) { if (state.status?.devices?.some(item => item.id === id && !item.revokedAt && item.agents !== true)) emit({ confirmAgents: id }) },
     cancelAgents: () => emit({ confirmAgents: null }),
     allowAgents(id) { if (state.confirmAgents === id) return operation('device.agents', { id, enabled: true }) },
+    confirmApprovals(id) { if (state.status?.devices?.some(item => item.id === id && !item.revokedAt && item.approvals !== true)) emit({ confirmApprovals: id }) },
+    cancelApprovals: () => emit({ confirmApprovals: null }),
+    allowApprovals(id) { if (state.confirmApprovals === id) return operation('device.approvals', { id, enabled: true }) },
+    denyApprovals(id) { if (state.status?.devices?.some(item => item.id === id && item.approvals === true)) return operation('device.approvals', { id, enabled: false }) },
     denyAgents(id) { if (state.status?.devices?.some(item => item.id === id && item.agents === true)) return operation('device.agents', { id, enabled: false }) },
     tick() { if (state.pairing && state.pairing.expiresAt <= now()) { void cancelLease(); emit({ pairing: null, copied: false, pairingResult: 'expired' }) } },
     clearPairing() { autoAttempted = true; void cancelLease(); generation++; refreshEpoch++; pairingEpoch++; operating = false; for (const request of requests) request.abort(); emit({ pairing: null, copied: false, busy: false, operation: null, confirmRevoke: null, confirmAgents: null }) },
@@ -145,6 +149,6 @@ export function createDeviceController({ call, now = Date.now, uuid = () => cryp
       try { await clipboard.writeText(JSON.stringify(pairing)); if (!disposed && state.pairing === pairing) emit({ copied: true, error: '' }) }
       catch { emit({ error: '无法访问剪贴板，请展开手动配对资料复制。' }) }
     },
-    dispose() { if (disposed) return; void cancelLease(); disposed = true; generation++; for (const request of requests) request.abort(); state = { ...state, pairing: null, status: null, confirmRevoke: null, confirmAgents: null }; listeners.clear() },
+    dispose() { if (disposed) return; void cancelLease(); disposed = true; generation++; for (const request of requests) request.abort(); state = { ...state, pairing: null, status: null, confirmRevoke: null, confirmAgents: null, confirmApprovals: null }; listeners.clear() },
   }
 }

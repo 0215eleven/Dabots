@@ -36,7 +36,9 @@ export function projectLiveState(state, conversations) {
     } else if (entry.sessionId !== bot.sessionId) continue
     approvalIds.add(entry.id)
     work.approvals.push({ id: entry.id, botId: bot.id, ...(entry.roomId ? { roomId: entry.roomId } : {}),
-      ...(clock(entry.at) ? { at: entry.at } : {}), answerable: false })
+      ...(clock(entry.at) ? { at: entry.at } : {}), answerable: entry.answerable === true,
+      // Shown only to a phone holding the owner's approvals grant; stripped from the shared state.
+      ...(typeof entry.tool === 'string' ? { tool: entry.tool.slice(0, 80) } : {}), ...(typeof entry.reason === 'string' ? { reason: entry.reason.slice(0, 500) } : {}) })
   }
   for (const [key, entry] of Object.entries(object(source.waiting))) {
     if (!bots.has(key) || !entry || typeof entry !== 'object') continue

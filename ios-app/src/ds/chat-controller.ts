@@ -6,6 +6,8 @@ import { projectTranscript } from './projection.ts';
 import { mutationProblem } from './screen-binding.ts';
 export interface ChatScreenState extends QueueState {
     messages: DsMessage[]; ready: boolean; error: string; cursor: string | null;
+    /** The live stream's turn state and the open tool approvals this phone may answer. */
+    running: boolean; approvals: import('@ds-bot/mobile-sdk').ToolApproval[];
     olderLoading: boolean; olderError: boolean;
 }
 /** One owner/conversation. Raw SDK rows retain ordering, versions and receipt semantics. */
@@ -13,7 +15,7 @@ export function createChatBinding(core: DsCore, id: string) {
     const owner = core.read();
     const target = [...owner.conversations, ...owner.agents].find(conversation => conversation.id === id);
     if (!target) throw Error('This conversation is no longer visible.');
-    let state: ChatScreenState = { hostQueue: null, queueStatus: 'unavailable', messages: [], ready: false, error: '', cursor: null, olderLoading: false, olderError: false };
+    let state: ChatScreenState = { hostQueue: null, queueStatus: 'unavailable', running: false, approvals: [], messages: [], ready: false, error: '', cursor: null, olderLoading: false, olderError: false };
     let active = true, started = false, foreground = true, liveRevision = 0, sessionRevision = 0;
     let sessionId: string | undefined, loadedOlder = false, hasHistory = false, streamEstablished = false;
     let cached: Message[] = [], canonical: Message[] = [], transient: Message[] = [];
@@ -71,7 +73,8 @@ export function createChatBinding(core: DsCore, id: string) {
                     queue.event(snapshot.sessionId);
                     changeSession(snapshot.sessionId ?? snapshot.messages[0]?.ds.sessionId);
                     // ready/heartbeat sequence and cursor metadata do not establish a transcript.
-                    if (!snapshot.established && !snapshot.messages.length) { publishRows(); return; }
+                    const live = { running: snapshot.running === true, approvals: snapshot.approvals ?? [] };
+                    if (!snapshot.established && !snapshot.messages.length) { publishRows(live); return; }
                     streamEstablished = true;
                     liveRevision++;
                     const rows = inSession(snapshot.messages.map(message => message.ds.source));
@@ -82,7 +85,7 @@ export function createChatBinding(core: DsCore, id: string) {
                     // Historical canonical pages survive, but absent stream transients must not.
                     transient = rows.filter(message => message.pending);
                     cached = cached.filter(message => !message.pending);
-                    publishRows({ ...(loadedOlder || snapshot.cursor === undefined ? {} : { cursor: snapshot.cursor }), error: '' });
+                    publishRows({ ...live, ...(loadedOlder || snapshot.cursor === undefined ? {} : { cursor: snapshot.cursor }), error: '' });
                 },
                 onError: error => publish({ error: mutationProblem(error).message }),
             });

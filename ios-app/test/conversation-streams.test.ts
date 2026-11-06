@@ -86,3 +86,22 @@ test('reconnectAll resumes every live stream immediately and acquire passes the 
   const next = f.listener(); f.streams.acquire(f.client, 'fixture', 'a', next);
   assert.equal(next.snapshots.at(-1).eventSeq, 44);
 });
+
+test('the stream keeps the running state and the open tool approvals, and a new Session clears them', () => {
+  const f = fixture(), seen = f.listener();
+  const lease = f.streams.acquire(f.client, 'fixture', 'agent', seen);
+  const send = (event: any) => f.calls[0].options.onEvent(event);
+  send({ type: 'reset', conversationId: 'agent', sessionId: 's1', messages: [], busy: true, phase: 'running' });
+  send({ type: 'approvals', conversationId: 'agent', approvals: [{ id: 'ap-1', conversationId: 'agent', tool: 'bash', reason: 'ls' }] });
+  assert.equal(seen.snapshots.at(-1).running, true);
+  assert.deepEqual(seen.snapshots.at(-1).approvals.map((item: any) => item.id), ['ap-1']);
+  send({ type: 'approvals', conversationId: 'other', approvals: [{ id: 'foreign' }] });
+  assert.deepEqual(seen.snapshots.at(-1).approvals.map((item: any) => item.id), ['ap-1'], 'another conversation cannot add approvals');
+  send({ type: 'approvals', conversationId: 'agent', approvals: [] });
+  assert.deepEqual(seen.snapshots.at(-1).approvals, []);
+  send({ type: 'approvals', conversationId: 'agent', approvals: [{ id: 'ap-2' }] });
+  send({ type: 'reset', conversationId: 'agent', sessionId: 's2', messages: [], busy: false, phase: 'idle' });
+  assert.deepEqual(seen.snapshots.at(-1).approvals, [], 'a different Session starts without the old approvals');
+  assert.equal(seen.snapshots.at(-1).running, false);
+  lease.release(); f.streams.clear(f.client);
+});

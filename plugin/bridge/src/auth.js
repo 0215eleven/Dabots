@@ -60,9 +60,10 @@ export async function createAuthStore(home, { now = Date.now, onRevoke = () => {
     for (const [id, expiry] of cancelled) if (expiry <= now()) cancelled.delete(id)
     if (lease?.expiresAt <= now()) invalidateLease(lease.leaseId)
   }
+  // approvals: the owner's per-device grant to answer tool approvals; also missing means denied.
   // agents: the owner's per-device grant to use the team's DSH Agent. Missing means denied;
   // a re-paired phone is a new device and starts without it.
-  const publicDevice = device => ({ id: device.id, name: device.name, createdAt: device.createdAt, lastSeenAt: device.lastSeenAt, revokedAt: device.revokedAt ?? null, agents: device.agents === true })
+  const publicDevice = device => ({ id: device.id, name: device.name, createdAt: device.createdAt, lastSeenAt: device.lastSeenAt, revokedAt: device.revokedAt ?? null, agents: device.agents === true, approvals: device.approvals === true })
   function verifyAccess(value) {
     const device = data.devices.find(item => !item.revokedAt && item.accessExpiresAt > now() && matches(value, item.accessHash))
     if (!device) throw new BridgeError(401, 'UNAUTHORIZED', 'Pair this device again or refresh its session.')
@@ -168,6 +169,17 @@ export async function createAuthStore(home, { now = Date.now, onRevoke = () => {
       return issueSession(device)
     },
     agentsAllowed: id => data.devices.some(device => device.id === id && !device.revokedAt && device.agents === true),
+    approvalsAllowed: id => data.devices.some(device => device.id === id && !device.revokedAt && device.approvals === true),
+    anyApprovals: () => data.devices.some(device => !device.revokedAt && device.approvals === true && device.refreshExpiresAt > now()),
+    async setApprovals(id, enabled) {
+      const device = data.devices.find(item => item.id === id && !item.revokedAt)
+      if (!device) throw new BridgeError(404, 'DEVICE_NOT_FOUND', 'The device does not exist.')
+      if (typeof enabled !== 'boolean') throw new BridgeError(400, 'INVALID_GRANT', 'enabled must be true or false.')
+      if (enabled) device.approvals = true
+      else delete device.approvals
+      await save()
+      return publicDevice(device)
+    },
     async setAgents(id, enabled) {
       const device = data.devices.find(item => item.id === id && !item.revokedAt)
       if (!device) throw new BridgeError(404, 'DEVICE_NOT_FOUND', 'The device does not exist.')

@@ -25,8 +25,10 @@ export async function startBridge(ctx, config) {
   if (home === resolveDshHome()) throw new Error('Bridge home must be separate from DSH_HOME.')
   await assertRemoteCleanupSafe(home)
   // Synthetic transcript mode is intentionally unavailable in the production entry.
-  const adapter = createAdapter({ connection: ctx.connection, sessionController: ctx.sessionController, attachmentStore: ctx.get?.('attachments')??ctx.attachments })
   let server
+  // Tool approvals reach a phone only when the owner allowed at least one phone to answer them.
+  const approvalHook = typeof ctx.on === 'function' ? { on: (name, listener, options) => ctx.on(name, listener, options), available: () => server?.anyApprovals?.() === true } : null
+  const adapter = createAdapter({ connection: ctx.connection, sessionController: ctx.sessionController, attachmentStore: ctx.get?.('attachments')??ctx.attachments, approvalHook })
   try {
     await adapter.initialize()
     server = await createMobileServer({ home, config, adapter, managedRemote: true })

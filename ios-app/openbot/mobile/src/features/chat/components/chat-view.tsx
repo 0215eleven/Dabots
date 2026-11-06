@@ -20,6 +20,7 @@ import { useChatMotion } from './use-chat-motion';
 import type { ChatTarget } from '../model/chat-target';
 import { useDs } from '@ds/provider';
 import { GroupActivity } from '@ds/group-activity';
+import { ApprovalCards, useWaitingApprovals } from '@ds/approval-cards';
 import { useDsDraft } from '@ds/use-draft';
 import { useDsChat } from '@ds/use-chat';
 import { screenMessages } from '@ds/chat-binding';
@@ -95,6 +96,7 @@ export function ChatView({ conversationId, ownerId }: {
         setStopping(false);
     } }
     const work = state.view?.work[ownerId];
+    const approvals = useWaitingApprovals(state.core, conversationId, work?.phase === 'waiting', state.approvals);
     const liquidGlass = useLiquidGlass();
     if (!target)
         return <Unavailable />;
@@ -112,12 +114,13 @@ export function ChatView({ conversationId, ownerId }: {
      <Typography.Paragraph type="body-xs" className="font-medium text-muted">{tr('Queued on computer · separate from current turn')}</Typography.Paragraph>
      {state.hostQueue.items.map(item => <Typography.Paragraph key={item.id} type="body-sm" numberOfLines={2} selectable>{tr(item.target === 'next-step' ? 'Next step' : 'Next turn')}{' · '}{item.text||item.attachments?.map(file=>file.name).join(', ')}</Typography.Paragraph>)}
     </View> : null}
+    <ApprovalCards approvals={approvals} background={fieldBackground} botName={id => state.view?.bots.find(b => b.id === id || b.sourceId === id)?.name} onAnswer={(approvalId, choice) => state.core!.answerApproval(conversationId, approvalId, choice)}/>
     {state.pending.map(item => <View key={item.requestId} className="mx-4 mb-2 gap-2 rounded-2xl px-3.5 py-3" style={{ backgroundColor: fieldBackground }}>
      <Typography.Paragraph type="body-sm" numberOfLines={3} selectable>{item.text||item.attachments?.map(file=>file.name).join(', ')}</Typography.Paragraph>
      <Typography.Paragraph type="body-xs" className={item.state === 'rejected' || item.state === 'unconfirmed' ? 'text-danger-text' : 'text-muted'}>{tr(item.state === 'accepted' ? 'Accepted by computer · waiting for transcript' : item.state)}{item.persistence ? ' · '+tr('local storage unconfirmed') : ''}{item.error ? ` · ${tr(item.error)}` : ''}</Typography.Paragraph>
      {item.state === 'unconfirmed' || item.state === 'rejected' ? <View className="flex-row gap-2">{item.state === 'unconfirmed' ? <Button size="sm" variant="secondary" onPress={() => void pendingAction(item.requestId, 'retry')}><Button.Label>{tr("Retry existing message")}</Button.Label></Button> : null}<Button size="sm" variant="ghost" onPress={() => void pendingAction(item.requestId, 'discard')}><Button.Label>{tr("Discard")}</Button.Label></Button></View> : null}
     </View>)}
-    {state.view?.capabilities.editDraft ? <ChatComposer attachments={attachmentEnabled?selected:undefined} menuProgress={selected.menuProgress} menuOpen={selected.menuOpen} key={conversationId} sendRetryVersion={sendRetryVersion} replyTarget={null} replyFocusVersion={0} onCancelReply={() => { }} mentionAgents={[]} action={action} actionForeground={actionForeground} agentName={target.name} bottomInset={insets.bottom} disabled={busy} sendDisabled={!canSend} draft={draft} fallbackBackground={fieldBackground} foreground={foreground} liquidGlassAvailable={liquidGlass} muted={muted} raised={raised} onChangeDraft={setDraft} onSend={text => void send(text)} onStop={work && work.phase !== 'idle' && state.view?.capabilities.cancel ? () => void stop() : undefined} stopping={stopping} keyboardProgress={motion.keyboardProgress}/> : <Typography.Paragraph className="p-4">{tr(state.view?.readOnly || 'Sending is unavailable. Resolve pending messages or check this computer’s capabilities.')}</Typography.Paragraph>}
+    {state.view?.capabilities.editDraft ? <ChatComposer attachments={attachmentEnabled?selected:undefined} menuProgress={selected.menuProgress} menuOpen={selected.menuOpen} key={conversationId} sendRetryVersion={sendRetryVersion} replyTarget={null} replyFocusVersion={0} onCancelReply={() => { }} mentionAgents={[]} action={action} actionForeground={actionForeground} agentName={target.name} bottomInset={insets.bottom} disabled={busy} sendDisabled={!canSend} draft={draft} fallbackBackground={fieldBackground} foreground={foreground} liquidGlassAvailable={liquidGlass} muted={muted} raised={raised} onChangeDraft={setDraft} onSend={text => void send(text)} onStop={((work && work.phase !== 'idle') || (target.kind === 'agent' && state.running)) && state.view?.capabilities.cancel ? () => void stop() : undefined} stopping={stopping} keyboardProgress={motion.keyboardProgress}/> : <Typography.Paragraph className="p-4">{tr(state.view?.readOnly || 'Sending is unavailable. Resolve pending messages or check this computer’s capabilities.')}</Typography.Paragraph>}
    </Animated.View>
   </KeyboardGestureArea>
   {attachmentEnabled&&selected.menuAnchor?<ChatAttachmentPanel anchor={selected.menuAnchor} appActive={appActive} attachments={selected} fallbackBackground={fieldBackground} foreground={foreground} keyboardHeight={motion.keyboardHeight} keyboardOffset={Math.max(insets.bottom,10)-10} liquidGlassAvailable={liquidGlass} onClose={selected.closeMenu} progress={selected.menuProgress}/>:null}

@@ -242,5 +242,14 @@
   "Each attachment must contain 1 byte to 2 MiB.": "每个附件需为 1 字节至 2 MiB。",
   "The computer did not confirm this attachment.": "电脑未能确认此附件，请重试。",
   "The selected file changed. Select it again.": "所选文件已变化，请重新选择。",
-  "The model refused this attachment. For images, select a vision-capable model; otherwise reselect the file.": "模型拒绝了此附件。图片请使用支持视觉的模型，其他文件请重新选择。"
+  "The model refused this attachment. For images, select a vision-capable model; otherwise reselect the file.": "模型拒绝了此附件。图片请使用支持视觉的模型，其他文件请重新选择。",
+  "Tool call": "工具调用",
+  "Waiting for your approval": "等待你的审批",
+  "{name} is waiting for your approval": "{name} 正在等待你的审批",
+  "Reject": "拒绝",
+  "Allow once": "允许一次",
+  "Answering…": "正在提交…",
+  "This approval is no longer open.": "这个审批已经处理过了。",
+  "Allow this phone to answer approvals on the computer first.": "请先在电脑上允许这台手机审批。",
+  "Update the desktop plugin to answer approvals on the phone.": "请更新电脑插件后再在手机上审批。"
 }

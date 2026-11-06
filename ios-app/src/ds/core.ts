@@ -356,6 +356,16 @@ export function createDsCore(options: DsCoreOptions): DsCore {
             group(id);
             return rounds;
         },
+        async approvals(id: string) {
+            const target = conversation(id);
+            if ((current().team.mobileCapabilities as { toolApprovals?: number } | undefined)?.toolApprovals !== 1) return [];
+            return (await client.approvals(target.id)).approvals;
+        },
+        async answerApproval(id: string, approvalId: string, choice: 'allow' | 'reject') {
+            conversation(id);
+            await client.answerApproval(approvalId, choice);
+            current();
+        },
         async stopGroupMember(groupId: string, botId: string) {
             const room = group(groupId), member = bot(botId);
             if (!room.members.includes(member.id))

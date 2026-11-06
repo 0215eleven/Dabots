@@ -1,6 +1,6 @@
 import { remoteErrorMessage } from './remote-model.mjs'
 
-const METHODS = new Set(['status', 'pairing.create', 'pairing.cancel', 'pairing.approve', 'pairing.deny', 'device.revoke', 'device.agents', 'remote.configure', 'remote.start', 'remote.stop', 'relay.official', 'relay.configure', 'relay.select'])
+const METHODS = new Set(['status', 'pairing.create', 'pairing.cancel', 'pairing.approve', 'pairing.deny', 'device.revoke', 'device.agents', 'device.approvals', 'remote.configure', 'remote.start', 'remote.stop', 'relay.official', 'relay.configure', 'relay.select'])
 export function createOperatorClient({ root, fetchImpl = fetch, location = globalThis.location, uuid = () => crypto.randomUUID() }) {
   const base = new URL(root)
   const desktop = base.protocol === 'dsh-app:' && base.host === 'app' && base.pathname === '/'

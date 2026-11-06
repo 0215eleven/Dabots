@@ -9,12 +9,13 @@ import { WebSocket } from 'ws'
 import { createMobileServer } from '../src/server.js'
 import { registerOwnerOperator } from '../src/operator.mjs'
 
-async function fixture(t, config = {}, options = {}) {
+async function fixture(t, config = {}, { extend = {}, ...options } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'bridge-remote-http-'))
   t.after(() => rm(home, { recursive: true, force: true }))
   const adapter = {
     capabilities: () => ({ stream: true }), target: async () => ({ sessionId: 'session' }),
     async *follow(_id, _cursor, signal) { yield { type: 'reset', messages: [] }; await new Promise(resolve => signal.addEventListener('abort', resolve, { once: true })) },
+    ...extend,
   }
   const server = await createMobileServer({ home, config, adapter, ...options })
   t.after(() => server.close())
@@ -112,4 +113,30 @@ test('an extractable package build key is not required for direct pairing; compu
   assert.equal(other.body.status, 'pending')
   const unfinished = await f.request('/mobile/v1/pairings/complete', { claimToken: other.body.claimToken })
   assert.equal(unfinished.body.status, 'pending')
+})
+
+test('approval endpoints carry the per-phone grant the owner sets on the computer', async t => {
+  const grants = []
+  const f = await fixture(t, { publicUrl: 'https://first.example' }, { extend: {
+    capabilities: () => ({ stream: true, toolApprovals: 1 }),
+    approvals: async (id, _signal, access) => { grants.push(['list', id, access().approvals]); return [] },
+    answerApproval: async (id, choice, _signal, access) => { grants.push(['answer', id, choice, access().approvals]); return { answered: true } },
+  } })
+  const pairing = await f.server.operator('pairing.create')
+  const started = await f.request('/mobile/v1/pairings', { code: pairing.code, deviceName: 'Synthetic phone' })
+  await f.server.operator('pairing.approve', { requestId: started.body.requestId })
+  const session = (await f.request('/mobile/v1/pairings/complete', { claimToken: started.body.claimToken })).body
+  const call = async (path, body) => {
+    const response = await fetch(f.root + path, { method: body === undefined ? 'GET' : 'POST', headers: { authorization: `Bearer ${session.accessToken}`, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
+    return { status: response.status, body: await response.json() }
+  }
+  const [device] = (await f.server.operator('status')).devices
+  assert.equal(device.approvals, false, 'a new phone may not answer approvals')
+  assert.deepEqual((await call('/mobile/v1/conversations/chief/approvals')).body, { approvals: [] })
+  assert.equal((await f.server.operator('device.approvals', { id: device.id, enabled: true })).approvals, true)
+  assert.equal(f.server.anyApprovals(), true)
+  assert.equal((await call('/mobile/v1/approvals/ap-1', { choice: 'allow' })).status, 200)
+  await f.server.operator('device.approvals', { id: device.id, enabled: false })
+  assert.equal(f.server.anyApprovals(), false)
+  assert.deepEqual(grants, [['list', 'chief', false], ['answer', 'ap-1', 'allow', true]])
 })

@@ -99,3 +99,22 @@ test('allowing the DSH Agent needs the selected confirmation; turning it off doe
   await c.denyAgents('unknown')
   assert.equal(calls.filter(([method]) => method === 'device.agents').length, 2)
 })
+test('answering tool approvals on a phone needs its own confirmation per device', async () => {
+  const calls = []
+  let devices = [{ id: 'device-one', name: 'Phone' }, { id: 'device-two', name: 'Tablet', approvals: true }]
+  const c = createDeviceController({ call: async (method, payload) => {
+    calls.push([method, payload])
+    if (method === 'device.approvals') devices = devices.map(item => item.id === payload.id ? { ...item, approvals: payload.enabled } : item)
+    return { enabled: true, pending: [], devices, capabilities: { toolApprovals: 1 } }
+  } })
+  await c.refresh()
+  await c.allowApprovals('device-one')
+  assert.equal(calls.some(([method]) => method === 'device.approvals'), false, 'never without the confirmation')
+  c.confirmApprovals('device-two'); assert.equal(c.snapshot().confirmApprovals, null, 'already allowed')
+  c.confirmApprovals('device-one'); await c.allowApprovals('device-one')
+  assert.deepEqual(calls.filter(([method]) => method === 'device.approvals'), [['device.approvals', { id: 'device-one', enabled: true }]])
+  assert.equal(c.snapshot().confirmApprovals, null)
+  await c.denyApprovals('device-two')
+  assert.deepEqual(calls.filter(([method]) => method === 'device.approvals').at(-1), ['device.approvals', { id: 'device-two', enabled: false }])
+  c.dispose()
+})

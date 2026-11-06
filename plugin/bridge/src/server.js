@@ -86,7 +86,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
   let uploading = 0
   let previewing = 0
   const previewDevices = new Map()
-  const grant = deviceId => () => ({ agents: auth.agentsAllowed(deviceId) })
+  const grant = deviceId => () => ({ agents: auth.agentsAllowed(deviceId), approvals: auth.approvalsAllowed(deviceId) })
   const allowedOrigins = new Set(config.allowedOrigins ?? [])
   if (publicUrl) allowedOrigins.add(publicUrl)
   const rates = new Map()
@@ -265,6 +265,15 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
           result = forDevice(await adapter.history(parts[1], { cursor: url.searchParams.get('cursor') ?? undefined, limit }, signal, grant(device.id)), device.id,auth.data.submissions,parts[1])
         } else if (parts[0] === 'conversations' && parts.length === 3 && method === 'GET' && parts[2] === 'target') result = await adapter.target(parts[1], signal, grant(device.id))
         else if (parts[0] === 'conversations' && parts.length === 3 && method === 'POST' && parts[2] === 'cancel') result = await adapter.cancel(parts[1], signal, grant(device.id))
+        else if (parts[0] === 'conversations' && parts.length === 3 && method === 'GET' && parts[2] === 'approvals') {
+          if (adapter.capabilities?.().toolApprovals !== 1) fail(501, 'UNSUPPORTED', 'Update the desktop plugin to answer approvals on the phone.')
+          result = { approvals: await adapter.approvals(parts[1], signal, grant(device.id)) }
+        } else if (parts[0] === 'approvals' && parts.length === 2 && method === 'POST') {
+          if (adapter.capabilities?.().toolApprovals !== 1) fail(501, 'UNSUPPORTED', 'Update the desktop plugin to answer approvals on the phone.')
+          const body = await jsonBody(request)
+          assertActive()
+          result = await adapter.answerApproval(parts[1], body?.choice, signal, grant(device.id))
+        }
         else if (parts[0]==='upload-transfers') {
           if(adapter.capabilities?.().uploadTransfers!==1)fail(501,'UNSUPPORTED','Update the desktop plugin for large attachments.')
           if(parts.length===1&&method==='POST'){
@@ -472,6 +481,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
       if (next) allowedOrigins.add(next)
     },
     serverId: auth.data.serverId,
+    anyApprovals: () => auth.anyApprovals(),
     invalidatePairings: () => auth.invalidatePairings(),
     createPairing: options => auth.createPairing(null, options),
     relayEndpoint: remoteKey => createRelayEndpoint({ remoteKey, route, acceptSocket }),
@@ -488,6 +498,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
         case 'pairing.deny': return auth.decidePairing(payload.requestId, false)
         case 'device.revoke': return auth.revoke(payload.id ?? payload.deviceId)
         case 'device.agents': return auth.setAgents(payload.id ?? payload.deviceId, payload.enabled)
+        case 'device.approvals': return auth.setApprovals(payload.id ?? payload.deviceId, payload.enabled)
         case 'approvals.list': return adapter.approvalOperator?.(endpoint, payload) ?? { requests: [] }
         case 'approvals.resolve':
           if (!adapter.approvalOperator) fail(503, 'APPROVAL_UNAVAILABLE', 'Tool approvals are unavailable on this host.')

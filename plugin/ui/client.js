@@ -2233,7 +2233,7 @@ function canPair(status) {
 }
 
 // src/operator-client.mjs
-var METHODS = /* @__PURE__ */ new Set(["status", "pairing.create", "pairing.cancel", "pairing.approve", "pairing.deny", "device.revoke", "device.agents", "remote.configure", "remote.start", "remote.stop", "relay.official", "relay.configure", "relay.select"]);
+var METHODS = /* @__PURE__ */ new Set(["status", "pairing.create", "pairing.cancel", "pairing.approve", "pairing.deny", "device.revoke", "device.agents", "device.approvals", "remote.configure", "remote.start", "remote.stop", "relay.official", "relay.configure", "relay.select"]);
 function createOperatorClient({ root, fetchImpl = fetch, location: location2 = globalThis.location, uuid = () => crypto.randomUUID() }) {
   const base = new URL(root);
   const desktop = base.protocol === "dsh-app:" && base.host === "app" && base.pathname === "/";
@@ -2259,7 +2259,7 @@ var RELAY_ID = /^[A-Za-z0-9_-]{22}$/;
 var RELAY_KEY = /^[A-Za-z0-9_-]{43}$/;
 function createDeviceController({ call, now = Date.now, uuid = () => crypto.randomUUID() }) {
   const listeners = /* @__PURE__ */ new Set(), requests = /* @__PURE__ */ new Set();
-  let state = { status: null, pairing: null, busy: false, operation: null, error: "", confirmRevoke: null, confirmAgents: null, copied: false };
+  let state = { status: null, pairing: null, busy: false, operation: null, error: "", confirmRevoke: null, confirmAgents: null, confirmApprovals: null, copied: false };
   let disposed = false, generation = 0, refreshEpoch = 0, refreshFlight = null, operating = false, pairingEpoch = 0;
   let leaseId = null, autoAttempted = false;
   function cancelLease() {
@@ -2345,7 +2345,7 @@ function createDeviceController({ call, now = Date.now, uuid = () => crypto.rand
           emit({ pairing: { url, code: value.code, serverId: value.serverId, expiresAt: value.expiresAt } });
         }
       }
-      emit({ confirmRevoke: null, confirmAgents: null });
+      emit({ confirmRevoke: null, confirmAgents: null, confirmApprovals: null });
       refreshEpoch++;
       await refresh({ afterCurrent: true });
     } catch (error) {
@@ -2449,6 +2449,16 @@ function createDeviceController({ call, now = Date.now, uuid = () => crypto.rand
     allowAgents(id) {
       if (state.confirmAgents === id) return operation("device.agents", { id, enabled: true });
     },
+    confirmApprovals(id) {
+      if (state.status?.devices?.some((item) => item.id === id && !item.revokedAt && item.approvals !== true)) emit({ confirmApprovals: id });
+    },
+    cancelApprovals: () => emit({ confirmApprovals: null }),
+    allowApprovals(id) {
+      if (state.confirmApprovals === id) return operation("device.approvals", { id, enabled: true });
+    },
+    denyApprovals(id) {
+      if (state.status?.devices?.some((item) => item.id === id && item.approvals === true)) return operation("device.approvals", { id, enabled: false });
+    },
     denyAgents(id) {
       if (state.status?.devices?.some((item) => item.id === id && item.agents === true)) return operation("device.agents", { id, enabled: false });
     },
@@ -2484,7 +2494,7 @@ function createDeviceController({ call, now = Date.now, uuid = () => crypto.rand
       disposed = true;
       generation++;
       for (const request of requests) request.abort();
-      state = { ...state, pairing: null, status: null, confirmRevoke: null, confirmAgents: null };
+      state = { ...state, pairing: null, status: null, confirmRevoke: null, confirmAgents: null, confirmApprovals: null };
       listeners.clear();
     }
   };
@@ -3006,7 +3016,7 @@ function DevicesPage({ controller }) {
         } }, "关闭二维码")), (0, import_react3.createElement)("details", { open: showManual, onToggle: (event) => setShowManual(event.currentTarget.open) }, (0, import_react3.createElement)("summary", null, "手动配对"), showManual ? (0, import_react3.createElement)("textarea", { readOnly: true, "aria-label": "手动配对 JSON", value: JSON.stringify(state.pairing) }) : null)) : null
       ),
       pending.length ? (0, import_react3.createElement)("div", { className: "dsma-section" }, (0, import_react3.createElement)("h3", null, "待批准请求"), ...pending.map((item) => (0, import_react3.createElement)("div", { className: "dsma-device", key: item.requestId }, (0, import_react3.createElement)("span", { className: "dsma-device-icon" }, (0, import_react3.createElement)(DeviceIcon)), (0, import_react3.createElement)("div", { className: "dsma-device-copy" }, (0, import_react3.createElement)("strong", null, item.deviceName), (0, import_react3.createElement)("small", null, "核对设备名称后批准")), (0, import_react3.createElement)("div", { className: "dsma-actions" }, (0, import_react3.createElement)("button", { type: "button", className: "dsma-primary", disabled: state.busy, onClick: () => controller.decide(item.requestId, true) }, "批准"), (0, import_react3.createElement)("button", { type: "button", disabled: state.busy, onClick: () => controller.decide(item.requestId, false) }, "拒绝"))))) : null,
-      (0, import_react3.createElement)("div", { className: "dsma-section" }, (0, import_react3.createElement)("h3", null, "已授权设备", (0, import_react3.createElement)("span", { className: "dsma-count" }, devices.length)), ...devices.map((item) => (0, import_react3.createElement)("div", { className: "dsma-device", key: item.id }, (0, import_react3.createElement)("span", { className: "dsma-device-icon" }, (0, import_react3.createElement)(DeviceIcon)), (0, import_react3.createElement)("div", { className: "dsma-device-copy" }, (0, import_react3.createElement)("strong", null, item.name), (0, import_react3.createElement)("small", null, item.lastSeenAt ? "最近连接 " + new Date(item.lastSeenAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "等待首次连接"), (0, import_react3.createElement)(AgentAccess, { item, state, controller })), state.confirmRevoke === item.id ? (0, import_react3.createElement)("div", { className: "dsma-confirm", role: "group", "aria-label": "确认撤销设备" }, (0, import_react3.createElement)("p", null, "此设备将需要重新配对。"), (0, import_react3.createElement)("div", { className: "dsma-actions" }, (0, import_react3.createElement)("button", { type: "button", className: "dsma-danger", disabled: state.busy, onClick: () => controller.revoke(item.id) }, "确认撤销"), (0, import_react3.createElement)("button", { type: "button", onClick: controller.cancelRevoke }, "取消"))) : (0, import_react3.createElement)("button", { type: "button", className: "dsma-text-button", disabled: state.busy, onClick: () => controller.confirmRevoke(item.id), "aria-label": "撤销 " + item.name + " 的访问" }, "撤销"))), !devices.length ? (0, import_react3.createElement)("p", { className: "dsma-empty" }, "还没有已连接的手机。") : null),
+      (0, import_react3.createElement)("div", { className: "dsma-section" }, (0, import_react3.createElement)("h3", null, "已授权设备", (0, import_react3.createElement)("span", { className: "dsma-count" }, devices.length)), ...devices.map((item) => (0, import_react3.createElement)("div", { className: "dsma-device", key: item.id }, (0, import_react3.createElement)("span", { className: "dsma-device-icon" }, (0, import_react3.createElement)(DeviceIcon)), (0, import_react3.createElement)("div", { className: "dsma-device-copy" }, (0, import_react3.createElement)("strong", null, item.name), (0, import_react3.createElement)("small", null, item.lastSeenAt ? "最近连接 " + new Date(item.lastSeenAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "等待首次连接"), (0, import_react3.createElement)(AgentAccess, { item, state, controller }), (0, import_react3.createElement)(ApprovalAccess, { item, state, controller })), state.confirmRevoke === item.id ? (0, import_react3.createElement)("div", { className: "dsma-confirm", role: "group", "aria-label": "确认撤销设备" }, (0, import_react3.createElement)("p", null, "此设备将需要重新配对。"), (0, import_react3.createElement)("div", { className: "dsma-actions" }, (0, import_react3.createElement)("button", { type: "button", className: "dsma-danger", disabled: state.busy, onClick: () => controller.revoke(item.id) }, "确认撤销"), (0, import_react3.createElement)("button", { type: "button", onClick: controller.cancelRevoke }, "取消"))) : (0, import_react3.createElement)("button", { type: "button", className: "dsma-text-button", disabled: state.busy, onClick: () => controller.confirmRevoke(item.id), "aria-label": "撤销 " + item.name + " 的访问" }, "撤销"))), !devices.length ? (0, import_react3.createElement)("p", { className: "dsma-empty" }, "还没有已连接的手机。") : null),
       (0, import_react3.createElement)("details", { className: "dsma-notes" }, (0, import_react3.createElement)("summary", null, "配对说明"), (0, import_react3.createElement)("p", null, "仅向自己的手机提供本次二维码。扫码会自动授权一次手机连接，不包含 DSH Agent 权限。二维码两分钟后过期；关闭、重新生成或切换连接方式会立即让旧码失效。"))
     ) : null
   );
@@ -3016,7 +3026,7 @@ function AgentAccess({ item, state, controller }) {
   if (state.confirmAgents === item.id) return (0, import_react3.createElement)(
     "div",
     { className: "dsma-confirm", role: "group", "aria-label": "确认允许使用 DSH Agent" },
-    (0, import_react3.createElement)("p", null, "允许后，这台手机可以创建 DSH Agent 并与它文字对话。Agent 能使用这台电脑上 DSH 的全部工具；它回复中的模型服务商或连接器密钥不会被遮挡，可能显示在手机上。工具审批仍需在电脑上完成。"),
+    (0, import_react3.createElement)("p", null, "允许后，这台手机可以创建 DSH Agent 并与它文字对话。Agent 能使用这台电脑上 DSH 的全部工具；它回复中的模型服务商或连接器密钥不会被遮挡，可能显示在手机上。工具审批要另外允许（见下方「工具审批」）。"),
     (0, import_react3.createElement)("div", { className: "dsma-actions" }, (0, import_react3.createElement)("button", { type: "button", className: "dsma-danger", disabled: state.busy, onClick: () => controller.allowAgents(item.id) }, "确认允许"), (0, import_react3.createElement)("button", { type: "button", onClick: controller.cancelAgents }, "取消"))
   );
   return (0, import_react3.createElement)(
@@ -3024,6 +3034,21 @@ function AgentAccess({ item, state, controller }) {
     { className: "dsma-agent" },
     item.agents === true ? "DSH Agent：已允许 " : "DSH Agent：未允许 ",
     (0, import_react3.createElement)("button", { type: "button", className: "dsma-text-button", disabled: state.busy, onClick: () => item.agents === true ? controller.denyAgents(item.id) : controller.confirmAgents(item.id), "aria-label": (item.agents === true ? "停止 " : "允许 ") + item.name + " 使用 DSH Agent" }, item.agents === true ? "停用" : "允许")
+  );
+}
+function ApprovalAccess({ item, state, controller }) {
+  if (state.status?.capabilities?.toolApprovals !== 1) return null;
+  if (state.confirmApprovals === item.id) return (0, import_react3.createElement)(
+    "div",
+    { className: "dsma-confirm", role: "group", "aria-label": "确认允许在手机上审批" },
+    (0, import_react3.createElement)("p", null, "允许后，这台手机可以批准或拒绝 Bot 和 DSH Agent 的工具调用，例如运行命令、修改文件。电脑上的审批卡片照常可用，谁先回答以谁为准；电脑没开窗口时也能在手机上审批。只给你自己的手机开启。"),
+    (0, import_react3.createElement)("div", { className: "dsma-actions" }, (0, import_react3.createElement)("button", { type: "button", className: "dsma-danger", disabled: state.busy, onClick: () => controller.allowApprovals(item.id) }, "确认允许"), (0, import_react3.createElement)("button", { type: "button", onClick: controller.cancelApprovals }, "取消"))
+  );
+  return (0, import_react3.createElement)(
+    "small",
+    { className: "dsma-agent" },
+    item.approvals === true ? "工具审批：已允许 " : "工具审批：未允许 ",
+    (0, import_react3.createElement)("button", { type: "button", className: "dsma-text-button", disabled: state.busy, onClick: () => item.approvals === true ? controller.denyApprovals(item.id) : controller.confirmApprovals(item.id), "aria-label": (item.approvals === true ? "停止 " : "允许 ") + item.name + " 审批工具调用" }, item.approvals === true ? "停用" : "允许")
   );
 }
 function DevicesEntry({ createController }) {

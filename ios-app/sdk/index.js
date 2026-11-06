@@ -455,6 +455,12 @@ export class MobileClient {
     const session = await this.#session(generation);
     await this.#cacheMessages(session.serverId, submission.conversationId, old => mergeMessages(old, [message]), generation);
   }
+  /** Tool approvals this phone may answer in one conversation (the owner allows it per phone). */
+  approvals(conversationId) { return this.#request(`/conversations/${encodeURIComponent(requireString(conversationId, 'Conversation'))}/approvals`); }
+  answerApproval(approvalId, choice) {
+    if (choice !== 'allow' && choice !== 'reject') throw new MobileError('invalid_choice', 'Choose allow or reject.');
+    return this.#request(`/approvals/${encodeURIComponent(requireString(approvalId, 'Approval'))}`, { method: 'POST', json: { choice } });
+  }
   cancel(conversationId) { return this.#request(`/conversations/${encodeURIComponent(requireString(conversationId, 'Conversation'))}/cancel`, { method: 'POST', json: {} }); }
   action(endpoint, payload = {}, { signal } = {}) { return this.#request('/actions', { method: 'POST', json: { endpoint, payload }, signal }); }
   upload({ conversationId, sessionId, name, mediaType, body, signal }) {
@@ -649,7 +655,7 @@ export class MobileClient {
           let event;
           try { event = JSON.parse(data); }
           catch { emitError(new MobileError('invalid_event', 'The server sent an unreadable event.')); return; }
-          if (!event || !['ready', 'delta', 'message', 'reset', 'status', 'error', 'heartbeat'].includes(event.type)) return;
+          if (!event || !['ready', 'delta', 'message', 'reset', 'status', 'error', 'heartbeat', 'approvals'].includes(event.type)) return;
           if (event.conversationId && event.conversationId !== conversationId) return;
           if (event.type === 'ready') {
             clearTimeout(handshake);

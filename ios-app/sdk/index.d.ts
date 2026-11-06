@@ -1,6 +1,8 @@
 export const protocolVersion: 1;
 export function previewBase64(bytes:Uint8Array):string;
 export function previewMime(value:unknown):'image/png'|'image/jpeg'|'image/webp';
+/** A tool call waiting for the owner's decision; text is redacted on the computer. */
+export interface ToolApproval { id: string; conversationId: string; tool: string; reason: string; botId?: string; at?: number }
 export interface Session {
   accessToken: string;
   refreshToken: string;
@@ -160,7 +162,9 @@ export interface QueueItem {
   attachments?: Attachment[];
 }
 export interface MobileEvent {
-  type: 'ready' | 'delta' | 'message' | 'reset' | 'status' | 'error' | 'heartbeat';
+  type: 'ready' | 'delta' | 'message' | 'reset' | 'status' | 'error' | 'heartbeat' | 'approvals';
+  /** `approvals`: the conversation's open tool approvals this phone may answer. */
+  approvals?: ToolApproval[];
   /** Sync protocol announced by `ready`; 2 means events are acknowledged and heartbeats flow. */
   protocol?: number;
   heartbeatMs?: number;
@@ -299,6 +303,8 @@ export class MobileClient {
   markRead(conversationId: string, seq: number): Promise<Record<string, unknown>>;
   attachment(conversationId: string, sessionId: string, attachmentId: string, options?: { seq?: number; signal?: AbortSignal }): Promise<Blob>;
   attachmentData(conversationId:string,sessionId:string,attachmentId:string,options:{seq:number;signal?:AbortSignal}):Promise<{name:string;mimeType:string;base64:string}>;
+  approvals(conversationId: string): Promise<{ approvals: ToolApproval[] }>;
+  answerApproval(approvalId: string, choice: 'allow' | 'reject'): Promise<{ answered: true }>;
   download(path: string): Promise<Blob>;
   getCachedMessages(conversationId: string): Promise<Message[]>;
   /** Discards queued cache updates before clearing this server's cached messages and drafts. */

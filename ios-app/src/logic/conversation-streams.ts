@@ -1,4 +1,4 @@
-import { applyConversationEvent, mergeMessages, type ConnectionStatus, type Message, type MobileClient, type MobileEvent } from "@ds-bot/mobile-sdk";
+import { applyConversationEvent, mergeMessages, type ConnectionStatus, type Message, type MobileClient, type MobileEvent, type ToolApproval } from "@ds-bot/mobile-sdk";
 
 export interface ConversationSnapshot {
   /** Host transcript observed, distinct from the connecting placeholder. */
@@ -6,6 +6,8 @@ export interface ConversationSnapshot {
   sessionId?: string;
   messages: Message[];
   running: boolean;
+  /** Open tool approvals this phone may answer, when the owner allowed it. */
+  approvals?: ToolApproval[];
   queue?: MobileEvent["queue"];
   queueSession?: string;
   cursor?: string | null;
@@ -106,7 +108,8 @@ export function createConversationStreamPool({
             else if (event.phase === "idle") running = false;
             current.snapshot = {
               ...previous, running,
-              ...(changedSession ? { cursor: null, established: false } : {}),
+              ...(changedSession ? { cursor: null, established: false, approvals: [] } : {}),
+              ...(event.type === "approvals" && Array.isArray(event.approvals) ? { approvals: event.approvals.slice(0, 32) } : {}),
               ...(event.type === "reset" || event.type === "delta" ? { established: true } : {}),
               ...(event.sessionId ? { sessionId: event.sessionId } : {}),
               messages: applyConversationEvent(changedSession ? [] : previous.messages, event).slice(-400),

@@ -7,6 +7,7 @@ import { projectLiveState, conversationStatus, recentConversation } from './live
 import { projectTaskEvent, projectApprovalEvent } from './task-events.mjs'
 import { Readable } from 'node:stream'
 import {createPreviewReader,safePreviewReference} from './attachment-preview.mjs'
+import { createApprovalBroker } from './approval-broker.mjs'
 
 const error = (status, code, text) => new BridgeError(status, code, text)
 const unsupported = () => { throw error(501, 'UNSUPPORTED', 'This bridge capability is unavailable.') }
@@ -19,7 +20,7 @@ function approvalEvents(conversations, work) {
     return event ? [event] : []
   })
 }
-export function createAdapter({ connection, sessionController, attachmentStore, fixtureText = false }) {
+export function createAdapter({ connection, sessionController, attachmentStore, fixtureText = false, approvalHook = null }) {
   if (typeof connection?.createSharedFetchHandler !== 'function') throw error(503, 'CONNECTION_UNAVAILABLE', 'The public Connection dispatcher is unavailable.')
   const dispatcher = connection.createSharedFetchHandler('/api')
   const peer = connection.createPeer?.({ principal: { kind: 'owner' } })
@@ -27,7 +28,7 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
   let description = {}
   const shutdown = new AbortController()
   // This allowlist is entirely internal. No mobile-supplied endpoint reaches it.
-  const allowed = new Set(['state', 'bridge.describe', 'bridge.submit', 'bridge.redact', 'bridge.agent-open', 'bridge.agent-new', 'bridge.agent-rename', 'bridge.upload-check', ...MOBILE_ACTIONS])
+  const allowed = new Set(['state', 'bridge.describe', 'bridge.submit', 'bridge.redact', 'bridge.agent-open', 'bridge.agent-new', 'bridge.agent-rename', 'bridge.upload-check', 'approval-answer', ...MOBILE_ACTIONS])
   async function call(endpoint, payload = {}, signal = AbortSignal.timeout(30_000)) {
     if (disposed) throw error(503, 'DISPOSED', 'The bridge has stopped.')
     if (!allowed.has(endpoint)) throw error(403, 'ACTION_NOT_ALLOWED', 'Unsupported team operation.')
@@ -117,6 +118,29 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
     const item = [...view.conversations, ...(grantOf(access).agents === true ? view.agentConversations : [])].find(item => item.id === id)
     if (!item) throw error(404, 'CONVERSATION_NOT_FOUND', 'This conversation is unavailable.')
     return { ...item, revision: view.revision, hiddenTurns: view.hiddenTurns, readOnly: view.readOnly, work: view.work }
+  }
+  // Tool approvals a phone may answer (approval-broker.mjs). Only Sessions a phone can open
+  // qualify: a Bot's own chat, or a DSH Agent Session. Group members stay with the engine.
+  const broker = approvalHook && typeof approvalHook.on === 'function' ? createApprovalBroker({
+    on: approvalHook.on, available: () => !disposed && approvalHook.available?.() === true, redact,
+    owner: async sessionId => {
+      const view = await snapshot(AbortSignal.timeout(10_000))
+      const bot = view.conversations.find(item => item.kind === 'bot' && (item.sessionId === sessionId || item.parts.includes(sessionId)))
+      if (bot) return { conversationId: bot.id }
+      const agent = view.agentConversations.find(item => item.sessionId === sessionId)
+      return agent ? { conversationId: agent.id, agent: true } : null
+    },
+  }) : null
+  const approvalsAllowed = access => grantOf(access).approvals === true
+  async function approvalsFor(id, signal, access) {
+    if (!approvalsAllowed(access)) return []
+    const item = await target(id, signal, access)
+    requireGrant(item, access)
+    const own = broker ? broker.list(item.id) : []
+    // A group's member approvals are held by the engine, which answers them itself.
+    const room = item.kind === 'room' ? item.work.approvals.filter(entry => entry.roomId === item.id && entry.answerable === true)
+      .map(entry => ({ id: entry.id, conversationId: item.id, botId: entry.botId, tool: redact(entry.tool ?? ''), reason: redact(entry.reason ?? ''), ...(entry.at ? { at: entry.at } : {}) })) : []
+    return [...own.map(({ sessionId: _session, ...entry }) => entry), ...room]
   }
   function requireSession(item, id) {
     if (![item.sessionId, ...item.parts].includes(id)) throw error(403, 'SESSION_DENIED', 'This Session does not belong to the conversation.')
@@ -283,6 +307,8 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
       ...(description.uploadTransfers===1&&description.attachments===1?{uploadTransfers:1,transferLimits:{maxBytes:100000000,maxTotalBytes:100000000,maxFiles:4,chunkBytes:262144,previewBytes:2097152}}:{}),
       actions: [], images: description.attachments === 1, files: description.attachments === 1, transcription: false, attachmentDownloads: [], audioStreaming: false,
       approvals: false, groups: description.groups === true && description.groupProjection === 1,
+      // Answering tool approvals; each phone still needs the owner's grant (state.approvalAccess).
+      ...(broker && (fixtureText || description.redactedText === true) ? { toolApprovals: 1 } : {}),
       // Host support only; each phone still needs the owner's grant (see state.agentAccess).
       agents: agentsSupported(), notifications: false, browser: false, settings: false, secrets: false,
       modelSelection: false, queue: false, parts: false, search: false, context: false, tools: false, reasoning: false,
@@ -304,7 +330,10 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
           sessions: view.agentConversations.filter(item => item.agentId === row.agentId).map(item => item.sessionId) }])).values()] : [],
         agentAccess: agentsSupported() && grantOf(access).agents === true, capabilities: [],
         models: view.models, defaultModel: view.defaultModel, mainBotIds: view.mainBotIds, mainBotId: view.mainBotIds[0] ?? null, prefs: view.prefs,
-        questions: {}, activity: view.activity, work: view.work,
+        questions: {}, activity: view.activity,
+        // The shared state says who waits; what they wait for goes only to a phone allowed to answer.
+        work: { ...view.work, approvals: view.work.approvals.map(({ tool: _tool, reason: _reason, answerable: _answerable, ...entry }) => ({ ...entry, answerable: false })) },
+        approvalAccess: Boolean(broker) && approvalsAllowed(access),
         taskEvents: approvalEvents(view.conversations, view.work), memory: actionCapabilities().actions.includes('memory-view'), browser: false }
     },
     async conversations(signal, access) {
@@ -383,6 +412,12 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
           const busy = current.kind === 'room' ? listed.some(row => row.sessionId === sessionId && row.running === true) : live.busy
           yield { type: 'reset', conversationId: id, sessionId, eventSeq: frame.cursor, messages: await messages(frame.records ?? [], current, sessionId, scoped, calls), cursor: cursorFor(current, sessionId, frame, frame.cursor),
             busy, approvalRequired: live.approvalRequired, phase: busy ? 'running' : 'idle' }
+          if (approvalsAllowed(grant())) yield { type: 'approvals', conversationId: id, approvals: await approvalsFor(id, scoped, grant()) }
+        }
+        if (frame.type === 'event' && ['approval/asked', 'approval/decided'].includes(frame.event?.type) && approvalsAllowed(grant())) {
+          // The broker registers a request just after DSH logs it; give it a moment.
+          if (frame.event.type === 'approval/asked' && broker && !broker.list(id).length) await broker.changed(2000, scoped)
+          yield { type: 'approvals', conversationId: id, approvals: await approvalsFor(id, scoped, grant()) }
         }
         if (frame.type === 'event') {
           for (const message of await messages([{ event: frame.event }], current, sessionId, scoped, calls)) yield { type: 'message', conversationId: id, sessionId, message }
@@ -415,8 +450,30 @@ export function createAdapter({ connection, sessionController, attachmentStore, 
     async cancel(id, signal, access) {
       if (!actionCapabilities().cancel) return unsupported()
       const item = await target(id, signal, access)
+      // A DSH Agent Session is not a team conversation; stop its turn directly.
+      if (item.kind === 'agent') { requireGrant(item, access); await sessionController.cancel({ sessionId: item.sessionId }, signal); return { conversationId: id, sessionId: item.sessionId, queueCleared: false } }
       return teamActions.cancel({ conversationId: id, sessionId: item.sessionId }, signal)
     },
-    async dispose() { if (disposed) return; disposed = true; shutdown.abort(); await peer?.dispose() },
+    approvals: approvalsFor,
+    async answerApproval(id, choice, signal, access) {
+      if (!approvalsAllowed(access)) throw error(403, 'APPROVALS_NOT_ALLOWED', 'Allow this phone to answer approvals on the computer first.')
+      if (!['allow', 'reject'].includes(choice)) throw error(400, 'INVALID_CHOICE', 'Choose allow or reject.')
+      const own = broker?.get(id)
+      if (own) {
+        const item = await target(own.conversationId, signal, access)
+        requireGrant(item, access)
+        if (!approvalsAllowed(access) || !broker.answer(id, choice)) throw error(409, 'APPROVAL_CLOSED', 'This approval is no longer open.')
+        return { answered: true }
+      }
+      const view = await snapshot(signal)
+      const entry = view.work.approvals.find(item => item.id === id && item.answerable === true && item.roomId)
+      if (!entry) throw error(409, 'APPROVAL_CLOSED', 'This approval is no longer open.')
+      await target(entry.roomId, signal, access)
+      if (!approvalsAllowed(access)) throw error(403, 'APPROVALS_NOT_ALLOWED', 'Allow this phone to answer approvals on the computer first.')
+      try { await call('approval-answer', { id, choice }, signal) }
+      catch (problem) { if (problem.code === 'bot/stale') throw error(409, 'APPROVAL_CLOSED', 'This approval is no longer open.'); throw problem }
+      return { answered: true }
+    },
+    async dispose() { if (disposed) return; disposed = true; broker?.dispose(); shutdown.abort(); await peer?.dispose() },
   }
 }

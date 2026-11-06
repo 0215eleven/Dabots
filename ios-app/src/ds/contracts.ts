@@ -78,6 +78,7 @@ export interface DsConversationSnapshot {
     sessionId?: string;
     messages: DsMessage[];
     running: boolean;
+    approvals?: import('@ds-bot/mobile-sdk').ToolApproval[];
     cursor?: string | null;
     eventSeq?: number;
 }
@@ -219,6 +220,9 @@ export interface DsCore {
   cancel(id: string): Promise<Record<string, unknown>>;
   groupProgress(id: string): Promise<import('../logic/group-work.ts').GroupRound[]>;
   stopGroupMember(groupId: string, botId: string): Promise<DsWriteResult<DsWorkView>>;
+  /** Tool approvals this phone may answer in a conversation; empty without the owner's grant. */
+  approvals(id: string): Promise<import('@ds-bot/mobile-sdk').ToolApproval[]>;
+  answerApproval(id: string, approvalId: string, choice: 'allow' | 'reject'): Promise<void>;
   watchConversation(id: string, listener: DsConversationListener): () => void;
   subscribe(listener: () => void): () => void;
   unsupported(feature: string): never;
