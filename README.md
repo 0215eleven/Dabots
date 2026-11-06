@@ -4,7 +4,7 @@
 
 | 目录 | 用途 | 交付物 |
 | --- | --- | --- |
-| [plugin/](plugin/README.md) | 安装到现有 DeepSeek Harness / DSH 的桌面插件，包含 Bot 团队、Bridge 和手机配对界面 | `Dabots-0.2.0-pro.4.tgz` |
+| [plugin/](plugin/README.md) | 安装到现有 DeepSeek Harness / DSH 的桌面插件，包含 Bot 团队、Bridge 和手机配对界面 | `Dabots-0.2.0-pro.5.tgz` |
 | [ios-app/](ios-app/README.md) | iOS 客户端源码、原生模块及 lite 未签名构建流程 | `Dabots-<版本>-lite-unsigned.ipa` |
 
 插件内部保留配对、逐设备授权、消息回执、重连、直连与可选中转能力。用户只需安装一个插件包。中转部署工具在 `plugin/tools/relay/`；它不是第三个客户端产品。

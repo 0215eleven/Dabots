@@ -1,5 +1,11 @@
 # Dabots changelog
 
+## Desktop plugin 0.2.0-pro.5
+
+- Include safe mobile photo previews: persist original/preview relationships and serve bounded image derivatives only after checking the exact conversation, Session, message and current device/Agent permissions. Never decode or download a 100 MB original to display a thumbnail.
+- With the updated phone app, show structured photo/file cards instead of attachment JSON. Older phone apps and history without reliable preview links remain compatible; unsupported previews fall back to file cards.
+- Retain DSH 0.2.1-rc.2 and 0.2.2-rc.1 receipt compatibility, existing pairing identities and 100 MB original uploads. Update the phone app from main to use the new preview UI. This desktop-only release does not build iOS or change the relay server.
+
 ## Desktop plugin 0.2.0-pro.4
 
 - Fix attachment submission on DSH 0.2.2-rc.1 by accepting its tagged file receipts as well as DSH 0.2.1-rc.2 file references. Preserve exact receiving Session ownership, file-only admission and the 100 MB per-file/message original-byte limits.
