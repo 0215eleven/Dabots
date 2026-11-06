@@ -15,7 +15,7 @@ const token = () => randomBytes(32).toString('base64url')
 const matches = (value, hash) => typeof value === 'string' && /^[a-f0-9]{64}$/.test(hash ?? '')
   && timingSafeEqual(Buffer.from(digest(value)), Buffer.from(hash))
 
-export async function createAuthStore(home, { now = Date.now, onRevoke = () => {}, onAgentsDenied = () => {} } = {}) {
+export async function createAuthStore(home, { now = Date.now, onRevoke = () => {}, onAgentsDenied = () => {}, onAuthorizationChanged = () => {} } = {}) {
   await mkdir(home, { recursive: true, mode: 0o700 })
   const path = join(home, 'bridge.json')
   let data
@@ -27,8 +27,25 @@ export async function createAuthStore(home, { now = Date.now, onRevoke = () => {
     if (error.code !== 'ENOENT') throw error
     data = { version: 1, serverId: randomUUID(), devices: [], submissions: {}, uploads: {}, readMarkers: {} }
   }
+  let authorizationTimer, authorizationKey, closed = false
+  const validDevice = device => device.revokedAt == null && device.refreshExpiresAt > now()
+  // Authorization is independent of socket presence and short-lived access tokens:
+  // an offline device with a valid refresh session can still return and answer.
+  function authorizationChanged(force = false) {
+    const key = JSON.stringify(data.devices.map(device => [device.id, device.revokedAt, device.refreshExpiresAt, device.agents, device.approvals]))
+    if (closed || !force && key === authorizationKey) return
+    authorizationKey = key
+    clearTimeout(authorizationTimer)
+    const expiry = Math.min(...data.devices.filter(device => validDevice(device) && device.approvals === true).map(device => device.refreshExpiresAt))
+    if (Number.isFinite(expiry)) {
+      authorizationTimer = setTimeout(() => authorizationChanged(true), Math.min(expiry - now(), 2 ** 31 - 1))
+      authorizationTimer.unref?.()
+    }
+    onAuthorizationChanged()
+  }
   let writes = Promise.resolve()
   function save() {
+    authorizationChanged()
     const json = JSON.stringify(data)
     const write = async () => {
       const temporary = `${path}.${randomUUID()}.tmp`
@@ -168,9 +185,9 @@ export async function createAuthStore(home, { now = Date.now, onRevoke = () => {
       if (!device) throw new BridgeError(401, 'UNAUTHORIZED', 'This session has expired or was revoked. Pair the device again.')
       return issueSession(device)
     },
-    agentsAllowed: id => data.devices.some(device => device.id === id && !device.revokedAt && device.agents === true),
-    approvalsAllowed: id => data.devices.some(device => device.id === id && !device.revokedAt && device.approvals === true),
-    anyApprovals: () => data.devices.some(device => !device.revokedAt && device.approvals === true && device.refreshExpiresAt > now()),
+    agentsAllowed: id => data.devices.some(device => device.id === id && validDevice(device) && device.agents === true),
+    approvalsAllowed: id => data.devices.some(device => device.id === id && validDevice(device) && device.approvals === true),
+    anyApprovals: (target = {}) => data.devices.some(device => validDevice(device) && device.approvals === true && (target.agent !== true || device.agents === true)),
     async setApprovals(id, enabled) {
       const device = data.devices.find(item => item.id === id && !item.revokedAt)
       if (!device) throw new BridgeError(404, 'DEVICE_NOT_FOUND', 'The device does not exist.')
@@ -199,6 +216,6 @@ export async function createAuthStore(home, { now = Date.now, onRevoke = () => {
       await save()
       return { id, revoked: true }
     },
-    async close() { await writes },
+    async close() { closed = true; clearTimeout(authorizationTimer); await writes },
   }
 }

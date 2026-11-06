@@ -10,6 +10,9 @@ export function install(rt) {
   const { ctx } = rt
   /** @type {Map<string, {id:string, sessionId:string, botId:string, roomId?:string, tool:string, reason:string, detail:{text?:string, code?:string}, at:number, answer?:(outcome:string)=>void}>} */
   const pending = new Map()
+  // The desktop view stays bounded as before. Bridge redaction needs the complete
+  // originals so a known secret cannot be cut in half before it is removed.
+  const bridgeTexts = new WeakMap()
 
   // Ahead of DSH's own answerer, which would hold a hidden Session's request unseen.
   ctx.on('approval/request', (request, next) => {
@@ -28,6 +31,7 @@ export function install(rt) {
       detail: rt.callDetail?.(sessionId, request.callId) ?? {},
       at: Date.now(),
     }
+    bridgeTexts.set(entry, { tool: String(request.toolName ?? ''), reason: String(typeof request.displayReason === 'string' ? request.displayReason : request.reason ?? '') })
     pending.set(id, entry)
     rt.noteApproval?.(sessionId, { tool: entry.tool, reason: entry.reason.slice(0, 200) })
     const settled = () => {
@@ -49,6 +53,14 @@ export function install(rt) {
 
   const approvalsView = () => [...pending.values()].map(({ answer, ...entry }) => ({ ...entry, answerable: answer !== undefined }))
   const waitsForApproval = sessionId => [...pending.values()].some(entry => entry.sessionId === sessionId)
+  const approvalTextsForBridge = (room, ids) => ids.map(id => {
+    const entry = pending.get(id)
+    if (!entry?.answer || entry.roomId !== room.id || !room.members.includes(entry.botId)
+      || rt.groupOwners.get(entry.sessionId)?.roomId !== room.id || rt.groupOwners.get(entry.sessionId)?.botId !== entry.botId) throw Object.assign(new Error('Refresh the approval'), { code: 'bot/stale' })
+    const text = bridgeTexts.get(entry)
+    if (!text || text.tool.length > 100000 || text.reason.length > 100000) throw Object.assign(new Error('Approval text unavailable'), { code: 'bot/invalid' })
+    return { id, tool: rt.redactSecrets(text.tool), reason: rt.redactSecrets(text.reason) }
+  })
 
   function answerApproval(id, choice) {
     const entry = pending.get(String(id ?? ''))
@@ -65,5 +77,5 @@ export function install(rt) {
     }
   }
 
-  Object.assign(rt, { approvalsView, waitsForApproval, answerApproval, cancelApprovals })
+  Object.assign(rt, { approvalsView, waitsForApproval, approvalTextsForBridge, answerApproval, cancelApprovals })
 }

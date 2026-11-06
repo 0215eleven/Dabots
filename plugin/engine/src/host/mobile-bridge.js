@@ -22,7 +22,14 @@ export function createMobileBridge(rt, { ok, fail }) {
     switch (endpoint) {
       case 'bridge.describe':
         return ok({ version: 1, stableRequestId: true, redactedText: true, groups: true, groupProjection: 1, attachments: typeof files()?.uploadStream === 'function' && typeof images()?.validateImage === 'function' ? 1 : false,
-          ...(typeof files()?.uploadStream === 'function' && typeof files()?.resolve === 'function' ? { uploadTransfers:1 } : {}), agents: 1, ...(typeof ctx.sessionController.rename === 'function' ? { agentRename: 1 } : {}) })
+          ...(typeof files()?.uploadStream === 'function' && typeof files()?.resolve === 'function' ? { uploadTransfers:1 } : {}), agents: 1, ...(typeof rt.approvalTextsForBridge === 'function' ? { approvalText: 1 } : {}), ...(typeof ctx.sessionController.rename === 'function' ? { agentRename: 1 } : {}) })
+      case 'bridge.approval-text': {
+        await rt.loadSecrets()
+        const room = own(state.rooms, body.conversationId) ? state.rooms[body.conversationId] : undefined
+        if (!room || body.expectedSessionId !== room.id || JSON.stringify(body.expectedMembers) !== JSON.stringify(room.members)) return fail('Refresh the conversation', 'bot/stale')
+        if (!Array.isArray(body.ids) || body.ids.length > 100 || body.ids.some(id => typeof id !== 'string')) return fail('Invalid approval batch', 'bot/invalid')
+        return ok({ approvals: rt.approvalTextsForBridge(room, body.ids) })
+      }
       case 'bridge.redact': {
         await rt.loadSecrets()
         const id = body.conversationId

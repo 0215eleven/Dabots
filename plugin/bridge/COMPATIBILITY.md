@@ -4,6 +4,19 @@ Use the production `plugin/engine/` and Bridge/UI from the same repository commi
 Their component version strings need not match: mobile handshake capabilities
 and the engine's versioned `bridge.describe` contract determine available behavior.
 
+Tool approval text is redacted by the host before the Bridge limits its length.
+Group member approvals require `approvalText: 1` and the scoped
+`bridge.approval-text` projection, since older owner-only state already truncates
+reasons. Missing or failed redaction never falls back to that state text.
+This requires updating the composed desktop plugin, without a phone bundle change.
+
+A Bot approval needs one valid device with the approvals grant. An Agent approval
+needs approvals and Agent access on the same device. Valid refresh authorization
+is sufficient even when the device is offline; short-lived access-token expiry
+does not revoke it. Grant changes and actual refresh-session expiry withdraw the
+phone path. A pending computer card keeps its normal decision; without a computer
+answerer and without any eligible phone, the host receives `unavailable`.
+
 ## Unreleased: 100 MB original attachments
 
 Install the phone, composed desktop plugin (Bridge and Engine), and relay from

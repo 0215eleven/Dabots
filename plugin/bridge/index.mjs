@@ -27,7 +27,7 @@ export async function startBridge(ctx, config) {
   // Synthetic transcript mode is intentionally unavailable in the production entry.
   let server
   // Tool approvals reach a phone only when the owner allowed at least one phone to answer them.
-  const approvalHook = typeof ctx.on === 'function' ? { on: (name, listener, options) => ctx.on(name, listener, options), available: () => server?.anyApprovals?.() === true } : null
+  const approvalHook = typeof ctx.on === 'function' ? { on: (name, listener, options) => ctx.on(name, listener, options), available: target => server?.anyApprovals?.(target) === true } : null
   const adapter = createAdapter({ connection: ctx.connection, sessionController: ctx.sessionController, attachmentStore: ctx.get?.('attachments')??ctx.attachments, approvalHook })
   try {
     await adapter.initialize()

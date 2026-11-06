@@ -29,7 +29,7 @@ async function fixture(t, { grant = { approvals: true, agents: true }, available
     work: { approvals: room } }
   const adapter = createAdapter({ fixtureText: true,
     connection: { createSharedFetchHandler: () => ({ fetch: async request => { const { endpoint, payload } = await request.json(); calls.push([endpoint, payload])
-      return Response.json({ ok: true, value: endpoint === 'state' ? state : endpoint === 'bridge.redact' ? { texts: payload.texts } : endpoint === 'approval-answer' ? true : { version: 1, redactedText: true, stableRequestId: true, agents: 1, groups: true, groupProjection: 1 } }) } }) },
+      return Response.json({ ok: true, value: endpoint === 'state' ? state : endpoint === 'bridge.redact' ? { texts: payload.texts } : endpoint === 'bridge.approval-text' ? { approvals: payload.ids.map(id => { const entry = room.find(entry => entry.id === id); return { id, tool: entry.tool, reason: entry.reason } }) } : endpoint === 'approval-answer' ? true : { version: 1, redactedText: true, stableRequestId: true, agents: 1, groups: true, groupProjection: 1, approvalText: 1 } }) } }) },
     sessionController: { cancel: async args => { calls.push(['cancel', args]) } },
     approvalHook: { on: hooks.on, available: () => available } })
   t.after(() => adapter.dispose())
@@ -83,6 +83,8 @@ test('only an allowed phone sees or answers approvals; others pass through untou
   assert.equal(await off.hooks.ask({ agent: { session: { id: 'chat' } }, toolName: 'bash' }), 'unavailable', 'no allowed phone: DSH behaves as before')
   const member = await fixture(t)
   assert.equal(await member.hooks.ask({ agent: { session: { id: 'hidden-member' } }, toolName: 'bash' }), 'unavailable', 'group member Sessions stay with the engine')
+  member.state.bots[0].parts = ['old-chat']
+  assert.equal(await member.hooks.ask({ agent: { session: { id: 'old-chat' } }, toolName: 'bash' }), 'unavailable', 'a historical Bot part cannot use current-session approval redaction')
 })
 
 test('group approvals are answered through the engine, and DSH Agent chats can be stopped', async t => {

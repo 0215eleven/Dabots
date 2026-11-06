@@ -71,7 +71,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
   const sockets = new Map()
   const requestControllers = new Map()
   let transfers
-  const auth = await createAuthStore(home, { onRevoke: id => {
+  const auth = await createAuthStore(home, { onAuthorizationChanged: () => adapter.approvalAuthorizationChanged?.(), onRevoke: id => {
     for (const [socket, state] of sockets) if (state.deviceId === id) socket.close(4403, 'Device revoked')
     for (const [controller, deviceId] of requestControllers) if (deviceId === id) controller.abort(new BridgeError(401, 'UNAUTHORIZED', 'This device was revoked.'))
     void transfers?.removeDevice(id).catch(()=>{})
@@ -483,7 +483,7 @@ export async function createMobileServer({ home, config = {}, adapter, managedRe
       if (next) allowedOrigins.add(next)
     },
     serverId: auth.data.serverId,
-    anyApprovals: () => auth.anyApprovals(),
+    anyApprovals: target => auth.anyApprovals(target),
     invalidatePairings: () => auth.invalidatePairings(),
     createPairing: options => auth.createPairing(null, options),
     relayEndpoint: remoteKey => createRelayEndpoint({ remoteKey, route, acceptSocket }),
