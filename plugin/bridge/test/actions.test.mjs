@@ -87,6 +87,9 @@ test('queue and cancel use public controller with current target only', async t 
   assert.deepEqual((await f.adapter.action('queue', { conversationId: 'chief' })).items, [{ id: 'q1', target: 'next-turn', requestId: 'device_receipt', text: '[redacted]' }])
   await assert.rejects(f.adapter.action('queue-remove', { conversationId: 'chief', sessionId: 'past', itemId: 'q1' }), { code: 'INVALID_ACTION' })
   await f.adapter.action('queue-remove', { conversationId: 'chief', sessionId: 'current', itemId: 'q1' })
+  await f.adapter.action('queue-steer', { conversationId: 'chief', sessionId: 'current', itemId: 'q1' })
+  assert.deepEqual(f.writes.at(-1), { sessionId: 'current', itemId: 'q1', action: { kind: 'steer' } })
+  await assert.rejects(f.adapter.action('queue-steer', { conversationId: 'chief', sessionId: 'current', itemId: 'gone' }), { code: 'QUEUE_CHANGED' })
   await assert.rejects(f.adapter.cancel({ conversationId: 'chief', sessionId: 'past' }), { code: 'TARGET_CHANGED' })
   await assert.rejects(f.adapter.cancel({ conversationId: 'chief', sessionId: 'current', force: true }), { code: 'INVALID_ACTION' })
   await f.adapter.cancel({ conversationId: 'chief', sessionId: 'current' })
@@ -94,5 +97,5 @@ test('queue and cancel use public controller with current target only', async t 
 })
 test('missing DS Bot redactor prevents text view advertisement and use', async t => {
   const f = await fixture(t, { noRedactor: true })
-  for (const name of ['models', 'efforts', 'usage', 'memory-view', 'memory-forget', 'schedules', 'schedule-create', 'schedule-delete', 'queue', 'queue-remove']) { assert.equal(f.adapter.capabilities().actions.includes(name), false); await assert.rejects(f.adapter.action(name), { code: 'ACTION_NOT_ALLOWED' }) }
+  for (const name of ['models', 'efforts', 'usage', 'memory-view', 'memory-forget', 'schedules', 'schedule-create', 'schedule-delete', 'queue', 'queue-remove', 'queue-steer']) { assert.equal(f.adapter.capabilities().actions.includes(name), false); await assert.rejects(f.adapter.action(name), { code: 'ACTION_NOT_ALLOWED' }) }
 })

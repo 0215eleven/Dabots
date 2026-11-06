@@ -251,5 +251,12 @@
   "Answering…": "正在提交…",
   "This approval is no longer open.": "这个审批已经处理过了。",
   "Allow this phone to answer approvals on the computer first.": "请先在电脑上允许这台手机审批。",
-  "Update the desktop plugin to answer approvals on the phone.": "请更新电脑插件后再在手机上审批。"
+  "Update the desktop plugin to answer approvals on the phone.": "请更新电脑插件后再在手机上审批。",
+  "Withdraw this message?": "撤回这条消息？",
+  "The Bot will not receive it.": "Bot 将不会收到它。",
+  "Withdraw": "撤回",
+  "Steer now": "立即引导",
+  "Remove from this phone": "从手机上移除",
+  "The computer no longer holds this message in its queue. It may already be in the conversation.": "电脑的等待队列里已经没有这条消息了，它可能已经进入对话。",
+  "This queued item is no longer pending.": "这条消息已经不在等待队列里了。"
 }

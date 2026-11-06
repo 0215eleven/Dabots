@@ -270,6 +270,22 @@ export function createOutbox(options: OutboxOptions) {
       } finally { unpersisted.delete(requestId); }
       void flush(item.conversationId).catch(() => {});
     },
+    /**
+     * Drops a message the computer accepted but that will never reach the transcript: it was
+     * withdrawn from the computer's queue, or the queue no longer holds it.
+     */
+    async forgetSent(requestId: string) {
+      await load();
+      const item = find(requestId);
+      if (!item || item.state !== "sent" || unpersisted.has(requestId) || disposed) return;
+      unpersisted.add(requestId);
+      try {
+        await persist(true, requestId, () => {
+          items = items.filter(other => other.requestId !== requestId);
+          emit();
+        });
+      } finally { unpersisted.delete(requestId); }
+    },
     /** Reconcile canonical rows and accepted receipts in either arrival order. */
     async settle(conversationId: string, transcript: Pick<Message, "requestId" | "sessionId" | "role" | "localSubmission" | "pending" | "delivery">[]) {
       await load();

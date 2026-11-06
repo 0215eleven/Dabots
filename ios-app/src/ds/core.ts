@@ -7,7 +7,7 @@ import { DsCoreError, type DsBotPatch, type DsCore, type DsCoreOptions, type DsC
 import { dsId, parseDsId, type DsKind } from './identity.ts';
 import { projectBot, projectGroup, projectSnapshot, projectTranscript, projectWork } from './projection.ts';
 /** Deliberate supported subset of plugin/bridge/src/actions.mjs. No generic upstream RPC passthrough. */
-export const DS_ACTIONS = ['queue', 'efforts', 'update-bot', 'create-bot', 'delete-bot', 'duplicate-bot', 'set-main', 'create-room', 'update-room', 'delete-room', 'set-flags', 'set-prefs', 'stop-member-work', 'room-progress'] as const;
+export const DS_ACTIONS = ['queue', 'queue-remove', 'queue-steer', 'efforts', 'update-bot', 'create-bot', 'delete-bot', 'duplicate-bot', 'set-main', 'create-room', 'update-room', 'delete-room', 'set-flags', 'set-prefs', 'stop-member-work', 'room-progress'] as const;
 export const DS_UNSUPPORTED = ['provider-configuration', 'accounts', 'marketplace', 'workflows', 'remote-terminal', 'browser', 'workspaces', 'agent-management', 'message-edit', 'message-delete', 'reactions'] as const;
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 function fields(value: object, allowed: readonly string[]): Record<string, unknown> {
@@ -341,6 +341,22 @@ export function createDsCore(options: DsCoreOptions): DsCore {
             current();
         },
         async discardSend(requestId: string) { current(); await requireOutbox().discard(requestId); current(); },
+        async updateQueued(id: string, ref: { itemId?: string; requestId?: string }, kind: 'steer' | 'remove') {
+            const action = kind === 'steer' ? 'queue-steer' : 'queue-remove';
+            guard(action);
+            const target = conversation(id), sessionId = target.sessionId;
+            const queue = await client.action<{ sessionId: string; items: Array<{ id: string; requestId?: string }> }>('queue', { conversationId: target.id });
+            if (queue.sessionId !== sessionId || conversation(id).sessionId !== sessionId)
+                throw new DsCoreError('STALE_SNAPSHOT', 'The conversation session changed. Refresh its queue.');
+            const item = (Array.isArray(queue.items) ? queue.items : []).find(row => ref.itemId ? row.id === ref.itemId : row.requestId === ref.requestId);
+            if (!item) return { missing: true as const };
+            await client.action(action, { conversationId: target.id, sessionId, itemId: item.id });
+            // A withdrawn message never reaches the transcript; its accepted card goes with it.
+            if (kind === 'remove' && (ref.requestId ?? item.requestId) && outbox) await outbox.forgetSent((ref.requestId ?? item.requestId)!);
+            current();
+            return { missing: false as const };
+        },
+        async forgetSent(requestId: string) { current(); await requireOutbox().forgetSent(requestId); current(); },
         async cancel(id: string) {
             live(true);
             if (!capabilities().cancel)

@@ -21,6 +21,7 @@ import type { ChatTarget } from '../model/chat-target';
 import { useDs } from '@ds/provider';
 import { GroupActivity } from '@ds/group-activity';
 import { ApprovalCards, useWaitingApprovals } from '@ds/approval-cards';
+import { QueuedActions } from '@ds/queued-actions';
 import { useDsDraft } from '@ds/use-draft';
 import { useDsChat } from '@ds/use-chat';
 import { screenMessages } from '@ds/chat-binding';
@@ -96,6 +97,10 @@ export function ChatView({ conversationId, ownerId }: {
         setStopping(false);
     } }
     const work = state.view?.work[ownerId];
+    // A message sent while the Bot works waits in the computer's queue: steer it in or withdraw it.
+    const queueActions = state.view?.capabilities.actions ?? [];
+    const canRemoveQueued = queueActions.includes('queue-remove'), canSteerQueued = queueActions.includes('queue-steer') && ((work !== undefined && work.phase !== 'idle') || state.running);
+    const pendingIds = new Set(state.pending.map(item => item.requestId));
     const approvals = useWaitingApprovals(state.core, conversationId, work?.phase === 'waiting', state.approvals);
     const liquidGlass = useLiquidGlass();
     if (!target)
@@ -112,13 +117,15 @@ export function ChatView({ conversationId, ownerId }: {
     {state.error ? <View className="mx-4 mb-2 rounded-2xl px-3.5 py-2.5" style={{ backgroundColor: fieldBackground }}><Typography.Paragraph accessibilityRole="alert" type="body-sm" className="text-danger-text">{tr(state.error)}</Typography.Paragraph></View> : null}
     {state.queueStatus === 'ready' && state.hostQueue?.items.length ? <View accessibilityLabel={tr('Computer queue')} className="mx-4 mb-2 gap-1 rounded-2xl px-3.5 py-2.5" style={{ backgroundColor: fieldBackground }}>
      <Typography.Paragraph type="body-xs" className="font-medium text-muted">{tr('Queued on computer · separate from current turn')}</Typography.Paragraph>
-     {state.hostQueue.items.map(item => <Typography.Paragraph key={item.id} type="body-sm" numberOfLines={2} selectable>{tr(item.target === 'next-step' ? 'Next step' : 'Next turn')}{' · '}{item.text||item.attachments?.map(file=>file.name).join(', ')}</Typography.Paragraph>)}
+     {state.hostQueue.items.map(item => <View key={item.id} className="gap-1"><Typography.Paragraph type="body-sm" numberOfLines={2} selectable>{tr(item.target === 'next-step' ? 'Next step' : 'Next turn')}{' · '}{item.text||item.attachments?.map(file=>file.name).join(', ')}</Typography.Paragraph>
+      {state.core && !(item.requestId && pendingIds.has(item.requestId)) ? <QueuedActions core={state.core} conversationId={conversationId} itemId={item.id} canSteer={canSteerQueued && item.target === 'next-turn'} canRemove={canRemoveQueued}/> : null}</View>)}
     </View> : null}
     <ApprovalCards approvals={approvals} background={fieldBackground} botName={id => state.view?.bots.find(b => b.id === id || b.sourceId === id)?.name} onAnswer={(approvalId, choice) => state.core!.answerApproval(conversationId, approvalId, choice)}/>
     {state.pending.map(item => <View key={item.requestId} className="mx-4 mb-2 gap-2 rounded-2xl px-3.5 py-3" style={{ backgroundColor: fieldBackground }}>
      <Typography.Paragraph type="body-sm" numberOfLines={3} selectable>{item.text||item.attachments?.map(file=>file.name).join(', ')}</Typography.Paragraph>
      <Typography.Paragraph type="body-xs" className={item.state === 'rejected' || item.state === 'unconfirmed' ? 'text-danger-text' : 'text-muted'}>{tr(item.state === 'accepted' ? 'Accepted by computer · waiting for transcript' : item.state)}{item.persistence ? ' · '+tr('local storage unconfirmed') : ''}{item.error ? ` · ${tr(item.error)}` : ''}</Typography.Paragraph>
      {item.state === 'unconfirmed' || item.state === 'rejected' ? <View className="flex-row gap-2">{item.state === 'unconfirmed' ? <Button size="sm" variant="secondary" onPress={() => void pendingAction(item.requestId, 'retry')}><Button.Label>{tr("Retry existing message")}</Button.Label></Button> : null}<Button size="sm" variant="ghost" onPress={() => void pendingAction(item.requestId, 'discard')}><Button.Label>{tr("Discard")}</Button.Label></Button></View> : null}
+     {item.state === 'accepted' && state.core ? <QueuedActions core={state.core} conversationId={conversationId} requestId={item.requestId} canSteer={canSteerQueued} canRemove={canRemoveQueued}/> : null}
     </View>)}
     {state.view?.capabilities.editDraft ? <ChatComposer attachments={attachmentEnabled?selected:undefined} menuProgress={selected.menuProgress} menuOpen={selected.menuOpen} key={conversationId} sendRetryVersion={sendRetryVersion} replyTarget={null} replyFocusVersion={0} onCancelReply={() => { }} mentionAgents={[]} action={action} actionForeground={actionForeground} agentName={target.name} bottomInset={insets.bottom} disabled={busy} sendDisabled={!canSend} draft={draft} fallbackBackground={fieldBackground} foreground={foreground} liquidGlassAvailable={liquidGlass} muted={muted} raised={raised} onChangeDraft={setDraft} onSend={text => void send(text)} onStop={((work && work.phase !== 'idle') || (target.kind === 'agent' && state.running)) && state.view?.capabilities.cancel ? () => void stop() : undefined} stopping={stopping} keyboardProgress={motion.keyboardProgress}/> : <Typography.Paragraph className="p-4">{tr(state.view?.readOnly || 'Sending is unavailable. Resolve pending messages or check this computer’s capabilities.')}</Typography.Paragraph>}
    </Animated.View>

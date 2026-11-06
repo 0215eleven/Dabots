@@ -4,6 +4,8 @@ const fields = Object.freeze({
   'memory-view': ['botId'], 'memory-forget': ['botId', 'scope', 'topic', 'text'],
   schedules: [], 'schedule-create': ['target', 'title', 'prompt', 'when'], 'schedule-delete': ['sessionId', 'id'],
   queue: ['conversationId'], 'queue-remove': ['conversationId', 'sessionId', 'itemId'],
+  // Steering moves a waiting message into the running turn instead of after it.
+  'queue-steer': ['conversationId', 'sessionId', 'itemId'],
   // Team management. Working folders, permissions and Agents stay on the computer:
   // they expose host paths or state the mobile projection does not carry.
   'create-bot': ['name', 'role', 'color', 'instructions', 'avatar', 'model', 'effort'],
@@ -74,8 +76,8 @@ function when(value) {
 export function createTeamActions({ callTeam, snapshot, sessionController = {}, redactTexts, groups = () => true }) {
   if (typeof callTeam !== 'function' || typeof snapshot !== 'function') throw new TypeError('callTeam and snapshot are required')
   const textViews = typeof redactTexts === 'function'
-  const actions = MOBILE_ACTIONS.filter(name => !(name.startsWith('memory-') || ['models', 'efforts', 'usage', 'schedules', 'schedule-create', 'schedule-delete', 'queue', 'queue-remove'].includes(name)) || textViews)
-    .filter(name => !['queue', 'queue-remove'].includes(name) || (typeof sessionController.projections === 'function' && (name !== 'queue-remove' || typeof sessionController.updateQueue === 'function')))
+  const actions = MOBILE_ACTIONS.filter(name => !(name.startsWith('memory-') || ['models', 'efforts', 'usage', 'schedules', 'schedule-create', 'schedule-delete', 'queue', 'queue-remove', 'queue-steer'].includes(name)) || textViews)
+    .filter(name => !['queue', 'queue-remove', 'queue-steer'].includes(name) || (typeof sessionController.projections === 'function' && (name === 'queue' || typeof sessionController.updateQueue === 'function')))
     .filter(name => !(MANAGEMENT.has(name) || name === 'room-progress') || textViews)
   // Group support is learned after the host describes itself.
   const enabled = () => actions.filter(name => !GROUP_ACTIONS.has(name) || groups())
@@ -266,13 +268,15 @@ export function createTeamActions({ callTeam, snapshot, sessionController = {}, 
       }
       const item = target(v, body.conversationId)
       if (name === 'queue') return queue(item, v, signal)
-      if (name === 'queue-remove') {
+      if (name === 'queue-remove' || name === 'queue-steer') {
         if (!string(body.itemId) || body.sessionId !== item.sessionId) invalid()
         const pending = await queue(item, v, signal)
         if (!pending.items.some(entry => entry.id === body.itemId)) fail(409, 'QUEUE_CHANGED', 'This queued item is no longer pending.')
         await current(item.id, body.sessionId, signal)
-        await sessionController.updateQueue({ sessionId: body.sessionId, itemId: body.itemId, action: { kind: 'remove' } }, signal)
-        return { removed: true, conversationId: item.id, sessionId: body.sessionId, itemId: body.itemId }
+        const kind = name === 'queue-steer' ? 'steer' : 'remove'
+        try { await sessionController.updateQueue({ sessionId: body.sessionId, itemId: body.itemId, action: { kind } }, signal) }
+        catch (problem) { if (String(problem?.code ?? '').startsWith('session/')) fail(409, 'QUEUE_CHANGED', 'This queued item is no longer pending.'); throw problem }
+        return { [kind === 'steer' ? 'steered' : 'removed']: true, conversationId: item.id, sessionId: body.sessionId, itemId: body.itemId }
       }
       fail(403, 'ACTION_NOT_ALLOWED', 'This mobile action is unavailable.')
     },

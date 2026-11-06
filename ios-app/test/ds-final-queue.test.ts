@@ -17,3 +17,19 @@ test('queue observation bounds event reads, polls at 8s and clears late session/
  let resolve!:(v:any)=>void;f.client.action=()=>new Promise(r=>{resolve=r;});observer.event();await advance(1000);observer.event(dsId('A','session','new'));assert.equal(states.at(-1).hostQueue,null);resolve({conversationId:'b',sessionId:'s',items:[]});await tick();assert.equal(states.at(-1).hostQueue,null);
  observer.setForeground(false);assert.equal(timers.size,0);await advance(10000);assert.equal(states.at(-1).hostQueue,null);observer.setForeground(true);await advance(0);observer.dispose();resolve({conversationId:'b',sessionId:'s',items:[]});await tick();assert.equal(timers.size,0);f.core.dispose();
 });
+
+test('a waiting message is steered or withdrawn by its request ID, and a missing one says so',async()=>{
+ const f=fixture(),writes:any[]=[];const forgotten:string[]=[];
+ f.snapshot.team.mobileCapabilities.actions=['queue','queue-remove','queue-steer'];
+ f.client.action=async(name:string,payload:any)=>{if(name==='queue')return {conversationId:'b',sessionId:'s',items:[{id:'q',requestId:'mine',target:'next-turn',text:'stuck'}]};writes.push([name,payload]);return {};};
+ const core=createDsCore({client:f.client,serverId:'A',getSnapshot:()=>f.snapshot as any,isCurrent:()=>true,isOnline:()=>true,outbox:{forgetSent:async(id:string)=>{forgotten.push(id);},list:()=>[],subscribe:()=>()=>{}} as any,refresh:async()=>f.snapshot as any});
+ assert.deepEqual(await core.updateQueued(f.id,{requestId:'mine'},'steer'),{missing:false});
+ assert.deepEqual(writes.at(-1),['queue-steer',{conversationId:'b',sessionId:'s',itemId:'q'}]);
+ assert.deepEqual(forgotten,[],'a steered message reaches the transcript by itself');
+ assert.deepEqual(await core.updateQueued(f.id,{requestId:'mine'},'remove'),{missing:false});
+ assert.deepEqual(writes.at(-1),['queue-remove',{conversationId:'b',sessionId:'s',itemId:'q'}]);
+ assert.deepEqual(forgotten,['mine'],'a withdrawn message loses its accepted card');
+ assert.deepEqual(await core.updateQueued(f.id,{requestId:'gone'},'remove'),{missing:true});
+ f.snapshot.team.mobileCapabilities.actions=['queue'];
+ await assert.rejects(core.updateQueued(f.id,{requestId:'mine'},'steer'),{code:'UNSUPPORTED'});
+});

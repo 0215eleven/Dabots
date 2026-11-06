@@ -217,6 +217,10 @@ export interface DsCore {
   pending(id: string): DsSendState[];
   retrySend(requestId: string): Promise<void>;
   discardSend(requestId: string): Promise<void>;
+  /** Steer a waiting message into the running turn, or withdraw it, by queue item or request ID. */
+  updateQueued(id: string, ref: { itemId?: string; requestId?: string }, kind: 'steer' | 'remove'): Promise<{ missing: boolean }>;
+  /** Drop an accepted message's card when the computer's queue no longer holds it. */
+  forgetSent(requestId: string): Promise<void>;
   cancel(id: string): Promise<Record<string, unknown>>;
   groupProgress(id: string): Promise<import('../logic/group-work.ts').GroupRound[]>;
   stopGroupMember(groupId: string, botId: string): Promise<DsWriteResult<DsWorkView>>;

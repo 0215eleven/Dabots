@@ -267,3 +267,19 @@ test('local accepted placeholders, streaming and local delivery rows never becom
   await f.outbox.settle('chief',[{role:'user',requestId:'r1',sessionId:'s1'}]);assert.deepEqual(f.outbox.list(),[]);f.outbox.dispose();
  }
 });
+
+test('an accepted message withdrawn from the computer queue can be cleared; unsent ones are not touched by it', async () => {
+  const f = fixture();
+  await f.outbox.enqueue({ conversationId: 'chief', text: 'stuck' });
+  await f.settle();
+  assert.equal(f.outbox.list()[0].state, 'sent');
+  await f.outbox.forgetSent('r1');
+  assert.equal(f.outbox.list().length, 0);
+  assert.deepEqual(f.saves().at(-1), []);
+  const g = fixture({ submit: () => Promise.reject({ status: 503 }) });
+  await g.outbox.enqueue({ conversationId: 'chief', text: 'retrying' });
+  await g.settle();
+  assert.notEqual(g.outbox.list()[0].state, 'sent');
+  await g.outbox.forgetSent('r1');
+  assert.equal(g.outbox.list().length, 1, 'only accepted messages can be cleared this way');
+});

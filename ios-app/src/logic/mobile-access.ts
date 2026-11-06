@@ -3,7 +3,7 @@ import { supportsMobileAction, type MobileCapabilities } from './mobile-capabili
 export const BRIDGE_UNAVAILABLE = "这台电脑上的 Dabots Bridge 版本较旧，暂不支持在手机上使用此功能。请在电脑上更新插件，或直接在电脑端操作。";
 
 const actionFeatures: Record<string, string> = {
-  queue: 'queue', 'queue-remove': 'queue', 'room-progress': 'groupProgress', 'stop-member-work': 'groupManagement',
+  queue: 'queue', 'queue-remove': 'queue', 'queue-steer': 'queue', 'room-progress': 'groupProgress', 'stop-member-work': 'groupManagement',
   'create-room': 'groupManagement', 'update-room': 'groupManagement', 'delete-room': 'groupManagement',
   'create-bot': 'botManagement', 'update-bot': 'botManagement', 'delete-bot': 'botManagement', 'duplicate-bot': 'botManagement',
   'set-main': 'botManagement', 'set-flags': 'conversationManagement', 'set-prefs': 'preferences',
