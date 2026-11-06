@@ -2,7 +2,9 @@ import { attachmentFileExtension } from "@openbot/contracts/attachment-files";
 import type { AttachmentSummary } from "@openbot/contracts/ipc";
 import type { MobileTranslate } from "@openbot/i18n/mobile";
 import { MOBILE_ATTACHMENT_BYTES, type RemoteFileUpload } from "@openbot/team-client/remote-peer";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery,useQueryClient } from "@tanstack/react-query";
+import {createPreviewFile} from '@ds/preview-file';
+import {ownPreviewData,watchPreviewCache} from '@ds/preview-resource';
 import { File, Paths } from "expo-file-system";
 import { Image } from "expo-image";
 import * as Sharing from "expo-sharing";
@@ -31,11 +33,13 @@ const dimensionCache = createImageDimensionCache({
 });
 
 export function rememberImageDimensions(id: string, dimensions: ImageDimensions) {
+  if(id.startsWith('ds-preview-v1:'))return;
   dimensionCache.remember(id, dimensions);
 }
 
 /** The size of an image the phone has decoded or read before, or null. */
 export function knownImageDimensions(id: string): ImageDimensions | null {
+  if(id.startsWith('ds-preview-v1:'))return null;
   return dimensionCache.get(id);
 }
 
@@ -127,6 +131,7 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
   const { t, sourceText } = useText();
   const [sharing, setSharing] = useState(false);
   const mode=(attachment as PresentedAttachment).downloadMode,memoryOnly=mode==='preview';
+  watchPreviewCache(useQueryClient().getQueryCache());
   // The scoped id changes on connection/access changes. Provider callbacks can change
   // identity during ordinary chat updates; that alone must not cancel a system prompt.
   const exports = useMemo(() => ({active:true, controllers:new Set<AbortController>()}), [serverId,attachment.id]);
@@ -156,30 +161,35 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       : null;
   const query = useQuery({
     queryKey: queryKeys.chatAttachment(serverId, attachment.id),
-    queryFn: async ({signal}): Promise<RemoteFileUpload & { localUri?: string; fileUri?: string }> => {
+    queryFn: async ({signal}): Promise<RemoteFileUpload & { dimensions?:ImageDimensions;localUri?: string; fileUri?: string }> => {
       if(mode==='unavailable')throw new Error(t('mobile.chat.attachment.unavailable'));
       if (attachment.size > MOBILE_ATTACHMENT_BYTES) throw new Error(t("mobile.chat.attachment.tooLargeForMobile"));
       const kept = memoryOnly?null:keptImageFile(serverId, attachment);
       if (kept) return kept;
       const data = await downloadAttachment(serverId, attachment.id, {signal});
-      return {
+      const resource=memoryOnly?await createPreviewFile(data,signal):null;
+      return ownPreviewData({
         ...data,
-        fileUri: !memoryOnly&&data.mimeType.startsWith("image/") ? keepImageFile(serverId, attachment, data) : undefined,
-      };
+        fileUri: memoryOnly?resource?.uri: data.mimeType.startsWith("image/") ? keepImageFile(serverId, attachment, data) : undefined,
+      },resource);
     },
     enabled: mode!=='unavailable' && preview && !local && !pending,
     retry: false,
     staleTime: memoryOnly?0:Infinity,
     gcTime: memoryOnly?0:5 * 60 * 1000,
+    structuralSharing:memoryOnly?false:undefined,
+    meta:memoryOnly?{dsPrivatePreview:true}:undefined,
   });
   const data = query.data;
   const dimensions = useMemo(() => {
+    // The DS byte reader already validated this bounded image. Do not parse it again with browser globals.
+    if(memoryOnly&&data?.dimensions)return data.dimensions;
     const known = dimensionCache.get(attachment.id);
     if (known || !data?.mimeType.startsWith("image/")) return known ?? null;
     const read = imageDimensions(data.base64);
     if (read) rememberImageDimensions(attachment.id, read);
     return read;
-  }, [attachment.id, data]);
+  }, [attachment.id, data,memoryOnly]);
   const localUri = local ?? query.data?.localUri;
   const uri =
     localUri ?? query.data?.fileUri ?? (query.data ? `data:${query.data.mimeType};base64,${query.data.base64}` : null);

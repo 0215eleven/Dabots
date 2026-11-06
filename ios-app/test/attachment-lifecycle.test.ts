@@ -78,3 +78,22 @@ test('clearing a queued composer preserves receiver receipts, while abandoning a
  const f=dsFixture();await f.add();let value=f.render();await value.upload(f.client,'bot');value=f.render();value.clearSent();f.render();await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(f.removed,[]);
  await f.add();value=f.render();await value.upload(f.client,'bot');value=f.render();value.clear();f.render();await new Promise(resolve=>setImmediate(resolve));assert.equal(f.removed.length,1);f.h.unmount();
 });
+
+test('file and photo batches keep valid neighbours; camera, cancel and repeated taps use the same preparation boundary',async()=>{
+ const h=hooks(),alerts:any[]=[],prepared:any[]=[],seen:any[]=[],text=textFor('en');let canceled=false,opens=0,release!:()=>void,gate:Promise<void>|undefined;
+ const assets=[{uri:'file:///first',name:'first.bin',fileName:'first.HEIC',mimeType:'image/jpeg'}, {uri:'file:///bad',name:'bad.exe',fileName:'bad.exe'}, {uri:'file:///last',name:'last.png',fileName:'last.png',mimeType:'image/png'}];
+ const mocks:any={react:h.react,'react-native':{Platform:{OS:'ios'}},'expo-file-system':{},
+  'expo-document-picker':{getDocumentAsync:async()=>{opens++;await gate;return{canceled,assets}}},
+  'expo-image-picker':{UIImagePickerPreferredAssetRepresentationMode:{Current:'current'},launchImageLibraryAsync:async()=>({canceled,assets}),requestCameraPermissionsAsync:async()=>({granted:false})},
+  '@/shared/lib/text':{useText:()=>text},'@/features/analytics/events':{attachmentSizeBucket:()=>''},'@/features/analytics/mobile-analytics':{mobileAnalytics:{track(){}}},
+  '@/features/analytics/failure-reports':{showFailureAlert:(...args:any[])=>alerts.push(args)},'@/shared/lib/haptics':{haptics:{notification:async()=>{}}},'@/shared/lib/read-file-base64':{readFileBase64:()=>assert.fail('no whole-file base64')},
+ };
+ const {useChatAttachments}=load('openbot/mobile/src/features/chat/components/use-chat-attachments.ts',mocks);
+ const prepare=async(uri:string)=>{prepared.push(uri);if(uri.endsWith('/bad'))throw Error('Refused bad.exe');return{uri:'file:///cache/'+uri.split('/').at(-1),name:'photo.png',size:330000,mediaType:'image/png',clientId:uri,kind:'photo',owned:true}};
+ const render=()=>h.render(()=>useChatAttachments([],undefined,undefined,{bytes:100000000,count:4,file:async(uri:string,_name:string,info:any)=>{seen.push(info);return prepare(uri)},photo:async(asset:any)=>({uri:asset.uri,name:'photo.png',localFile:await prepare(asset.uri)})}));
+ await render().chooseFiles();assert.equal(render().items.length,2);assert.equal(seen[0]?.mimeType,'image/jpeg');assert.equal(alerts.length,1);assert.match(alerts[0][3],/bad.exe/);
+ render().clear();await render().choosePhotos();assert.equal(render().items.length,2);assert.equal(alerts.length,2);
+ render().clear();await render().addPhoto('file:///camera');assert.equal(render().items.length,1);assert.ok(prepared.includes('file:///camera'));
+ canceled=true;await render().chooseFiles();assert.equal(render().items.length,1);assert.equal(await render().requestCamera(),false);
+ gate=new Promise<void>(resolve=>{release=resolve});const pending=render().chooseFiles();await render().chooseFiles();release();await pending;assert.equal(opens,3);h.unmount();
+});

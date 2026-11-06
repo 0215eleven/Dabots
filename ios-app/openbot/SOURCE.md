@@ -379,3 +379,16 @@ settings, pairing and notification entry points; no new account or transport is
 added. The upstream original stays preserved, and the adapted home hash is
 refreshed in provenance.json. Regression evidence uses the actual provider and
 screen with synthetic IO; native device interaction remains unverified.
+
+## Native attachment delivery adaptation
+
+The DS adapter independently implements bounded image-header inspection, plain
+preview payloads and private, short-lived native file URIs. Files, Photos and
+Camera share the existing original-file ownership and 100 MB streaming path;
+the optional model rendition remains a separate attachment with a stored link.
+No additional upstream upload implementation was copied for this adaptation.
+The existing vendored OpenBot code, copyright notices and PolyForm Noncommercial
+1.0.0 license remain unchanged; this adaptation does not grant commercial rights.
+Original images are not automatically decoded or downloaded for display.
+Native decoding and device-picker behavior require a rebuilt app and device
+acceptance; Node/isolated DSH results do not establish those outcomes.

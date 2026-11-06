@@ -44,7 +44,7 @@ export interface ChatAttachment extends RemoteFileUpload {
 }
 
 type SelectedPhoto = Pick<ImagePickerAsset, "uri" | "fileName" | "mimeType"> & Partial<Pick<ImagePickerAsset,'width'|'height'>>;
-type PreparedPhoto = { uri: string; name: string; localFile?:LocalUpload;discard?: () => void };
+type PreparedPhoto = { uri: string; name: string; mimeType?:string|null;localFile?:LocalUpload;discard?: () => void };
 
 /** Longer pasted or shared text goes in as a text file, not into the composer. */
 const LARGE_TEXT_LENGTH = 4_000;
@@ -60,7 +60,7 @@ export function useChatAttachments(
   persist?: (items: ChatAttachment[]) => Promise<void>,
   /** What the receiving host accepts. Read on each selection, because it loads with the connection. */
   support?: () => AttachmentSupport,
-  limits: {bytes?:number;count?:number;photo?:(asset:SelectedPhoto)=>Promise<PreparedPhoto>;file?:(uri:string,name:string)=>Promise<LocalUpload>;discardFile?:(file:LocalUpload)=>void} = {},
+  limits: {bytes?:number;count?:number;photo?:(asset:SelectedPhoto)=>Promise<PreparedPhoto>;file?:(uri:string,name:string,info?:{mimeType?:string|null})=>Promise<LocalUpload>;discardFile?:(file:LocalUpload)=>void} = {},
 ) {
   const { t, errorMessage, format } = useText();
   const maxBytes=limits.bytes??MOBILE_ATTACHMENT_BYTES,maxItems=limits.count??INPUT_LIMITS.attachments;
@@ -148,8 +148,8 @@ export function useChatAttachments(
     trackSelected(item.size);
     return saved;
   }
-  async function readFile(uri: string, name: string,prepared?:LocalUpload): Promise<RemoteFileUpload & { uri?: string;localFile?:LocalUpload }> {
-    const localFile=prepared??await limits.file?.(uri,name);
+  async function readFile(uri: string, name: string,prepared?:LocalUpload,info?:{mimeType?:string|null}): Promise<RemoteFileUpload & { uri?: string;localFile?:LocalUpload }> {
+    const localFile=prepared??await limits.file?.(uri,name,info);
     if(localFile)return {name:localFile.name,mimeType:localFile.kind==='photo'?(localFile.preview?.mimeType??'application/octet-stream'):localFile.mediaType,
       base64:'',uri:localFile.kind==='photo'?localFile.preview?.uri:localFile.uri,localFile};
     if(Platform.OS==='web'){
@@ -165,9 +165,9 @@ export function useChatAttachments(
     assertSupported(safeName);
     return { name: safeName, mimeType: attachmentMimeTypeForName(safeName), base64: await readFileBase64(file), uri };
   }
-  async function addFile(uri: string, name: string,prepared?:LocalUpload) {
+  async function addFile(uri: string, name: string,prepared?:LocalUpload,info?:{mimeType?:string|null}) {
     if (itemsRef.current.length >= maxItems) throw new Error(limitMessage());
-    const file=await readFile(uri,name,prepared);
+    const file=await readFile(uri,name,prepared,info);
     try{await add(file);}catch(error){if(file.localFile)limits.discardFile?.(file.localFile);throw error;}
   }
   function photoName(asset: SelectedPhoto) {
@@ -199,7 +199,7 @@ export function useChatAttachments(
       const DocumentPicker = await import("expo-document-picker");
       const result = await DocumentPicker.getDocumentAsync({ multiple: false, copyToCacheDirectory: true });
       const asset = result.canceled ? undefined : result.assets[0];
-      if (asset) picked = { uri: asset.uri, name: asset.name };
+      if (asset) picked = { uri: asset.uri, name: asset.name, mimeType:asset.mimeType };
     }
     if (!picked) {
       mobileAnalytics.track("attachment_action", { action: "select", result: "cancelled", attachment_count: 0 });
@@ -207,7 +207,7 @@ export function useChatAttachments(
     }
     let kept=false,read:Awaited<ReturnType<typeof readFile>>|undefined;
     try{
-      read=await readFile(picked.uri,picked.name,picked.localFile);
+      read=await readFile(picked.uri,picked.name,picked.localFile,picked);
       const item = prepare(read);
       // The list can change while the picker is open; replace the file where it is now.
       const next = itemsRef.current.map((candidate) => (candidate.id === id ? item : candidate));
@@ -221,7 +221,7 @@ export function useChatAttachments(
     // in an older native binary must reach the ordinary failure alert, not fail at import.
     const DocumentPicker = await import("expo-document-picker");
     const result = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
-    if (!result.canceled) for (const asset of result.assets) await addFile(asset.uri, asset.name);
+    if (!result.canceled) await selectBatch(result.assets,asset=>addFile(asset.uri,asset.name,undefined,asset));
     else mobileAnalytics.track("attachment_action", { action: "select", result: "cancelled", attachment_count: 0 });
   }
   // Answers whether the card may become the camera. It reports its own refusal
@@ -262,7 +262,12 @@ export function useChatAttachments(
     });
     if (result.canceled)
       mobileAnalytics.track("attachment_action", { action: "select", result: "cancelled", attachment_count: 0 });
-    else for (const asset of result.assets) await addSelectedPhoto(asset);
+    else await selectBatch(result.assets,addSelectedPhoto);
+  }
+  async function selectBatch<T>(assets:readonly T[],select:(asset:T)=>Promise<void>){
+    const failures:unknown[]=[];
+    for(const asset of assets){try{await select(asset);}catch(error){failures.push(error);}}
+    if(failures.length)reportFailures(failures);
   }
   function pasteText(text: string, onText: (text: string) => void) {
     if (text.length > LARGE_TEXT_LENGTH)

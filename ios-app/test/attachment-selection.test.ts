@@ -95,3 +95,11 @@ test('a long original display name cannot truncate the preview extension or fals
  const {preparePhoto}=load('src/logic/prepare-photo.ts');const result=await preparePhoto({uri:'original',fileName:'a'.repeat(300)+'.png'},cap,{inspect:async()=>({header:png,size:100,width:1,height:1}),encode:()=>assert.fail('small image'),discard:()=>{}});
  assert.match(result.preview.name,/\.png$/);assert.ok(result.preview.name.length<=255);
 });
+
+test('an encoder refusal retries smaller candidates; cancel and unknown HEIC dimensions never lose the original',async()=>{
+ const {preparePhoto}=load('src/logic/prepare-photo.ts');let attempts=0;const discarded:string[]=[];
+ const io={inspect:async(uri:string)=>({header:uri==='original'?heic:jpeg,size:100000,width:1000,height:800}),encode:async()=>{if(++attempts===1)throw Error('native encoder refused');return 'derived'},discard:(uri:string)=>discarded.push(uri)};
+ const result=await preparePhoto({uri:'original',fileName:'photo.HEIC'},cap,io);assert.equal(attempts,2);assert.equal(result.preview.uri,'derived');assert.equal(result.uri,'original');result.discard();assert.deepEqual(discarded,['derived']);
+ const unknown=await preparePhoto({uri:'original'},cap,{...io,inspect:async()=>({header:heic,size:343000}),encode:()=>assert.fail('unknown dimensions cannot decode')});assert.equal(unknown.previewUnavailable,true);
+ const controller=new AbortController();await assert.rejects(preparePhoto({uri:'original'},cap,{...io,signal:controller.signal,encode:async()=>{controller.abort();return 'cancelled'}}),{name:'AbortError'});assert.ok(discarded.includes('cancelled'));assert.ok(!discarded.includes('original'));
+});

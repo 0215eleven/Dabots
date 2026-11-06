@@ -1,5 +1,7 @@
 export { mentionSpans, nameProblem } from './mentions.js';
 import {uploadFile} from './upload-file.js';
+import {readAttachmentData,AttachmentPayloadError} from './attachment-data.js';
+export {previewBase64,previewMime} from './attachment-data.js';
 export const protocolVersion = 1;
 
 export class MobileError extends Error {
@@ -320,8 +322,9 @@ export class MobileClient {
     if (session) headers.Authorization = `Bearer ${session.accessToken}`;
     if (json !== undefined) headers['Content-Type'] = 'application/json';
     else if (mediaType) headers['Content-Type'] = mediaType;
+    let response;
     try {
-      const response = await this.#fetch(`${this.baseUrl}/mobile/v1${path}`, {
+      response = await this.#fetch(`${this.baseUrl}/mobile/v1${path}`, {
         method, headers, body: json !== undefined ? JSON.stringify(json) : body,
         signal: controller.signal, redirect: 'error', credentials: 'omit',
       });
@@ -332,7 +335,7 @@ export class MobileClient {
         return await this.#request(path, { method, json, body, mediaType, auth, retry: false, binary, timeoutMs, signal }, generation);
       }
       if (response.ok && binary) {
-        const blob = await response.blob();
+        const blob = binary==='data' ? await readAttachmentData(response,controller.signal) : await response.blob();
         this.#assertCurrent(generation);
         if (signal?.aborted) throw new MobileError('cancelled', 'The request was cancelled.');
         return blob;
@@ -349,12 +352,15 @@ export class MobileClient {
       this.#assertCurrent(generation);
       if (signal?.aborted) throw new MobileError('cancelled', 'The request was cancelled.');
       if (error instanceof MobileError) throw error;
+      if (error instanceof AttachmentPayloadError) throw new MobileError(error.code,error.message);
       if (controller.signal.aborted) throw new MobileError('timeout', 'The server did not respond in time. Check the request status before retrying a submission.');
       throw new MobileError('network_error', 'Could not reach the server. Check your connection and server address.');
     } finally {
       clearTimeout(timeout);
       signal?.removeEventListener('abort', abort);
       this.#controllers.delete(controller);
+      // A native response may already own a private file even if headers/session validation refused it.
+      try { await response?.releaseAttachment?.(); } catch {}
     }
   }
 
@@ -478,6 +484,13 @@ export class MobileClient {
       query.set('seq', String(options.seq));
     }
     return this.#request(`/attachments/${encodeURIComponent(attachmentId)}?${query}`, { binary: true, signal: options.signal });
+  }
+  attachmentData(conversationId,sessionId,attachmentId,options={}) {
+    for(const [key,value] of Object.entries({conversationId,sessionId,attachmentId}))requireString(value,key);
+    const query=new URLSearchParams({conversationId,sessionId});
+    if(!Number.isSafeInteger(options.seq)||options.seq<0)throw new MobileError('invalid_sequence','An exact message sequence is required.');
+    query.set('seq',String(options.seq));
+    return this.#request(`/attachments/${encodeURIComponent(attachmentId)}?${query}`,{binary:'data',signal:options.signal});
   }
 
   download(path) {

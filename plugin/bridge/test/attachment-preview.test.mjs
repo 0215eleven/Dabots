@@ -5,12 +5,12 @@ import {createHash} from 'node:crypto'
 
 const id='sha256:'+'a'.repeat(64),other='sha256:'+'b'.repeat(64)
 const input={conversationId:'chief',sessionId:'chat',seq:7,attachmentId:id}
-async function fixture(t,{ref={},read}={}){
+async function fixture(t,{ref={},read,page}={}){
  const image={attachmentId:id,name:'synthetic.png',mediaType:'image/png',bytes:80,width:40,height:30,...ref}
  const state={revision:1,bots:[{id:'chief',name:'Chief',sessionId:'chat',parts:[]}],rooms:[],agents:[]},calls=[]
  const record={event:{type:'user/message',seq:7,data:{source:{kind:'user',rpcId:'synthetic_request'},content:[{type:'image',attachment:image}]}}}
  const adapter=createAdapter({fixtureText:true,connection:{createSharedFetchHandler:()=>({fetch:async request=>{const {endpoint,payload}=await request.json();return Response.json({ok:true,value:endpoint==='state'?state:endpoint==='bridge.redact'?{texts:payload.texts}:{version:1,redactedText:true}})}})},
-  sessionController:{page:async args=>{calls.push(args);return {records:[record]}}},
+  sessionController:{page:async args=>{calls.push(args);return page?page(args):{records:[record]}}},
   attachmentStore:{readImageRequest:async(...args)=>{calls.push('read');return read?read(...args):{data:new Uint8Array([1,2,3]),mediaType:'image/png',bytes:3,width:40,height:30}}}})
  t.after(()=>adapter.dispose());await adapter.initialize();return {adapter,calls,state,record}
 }
@@ -27,6 +27,13 @@ test('foreign Session, message, hash and unsafe identifiers never read stored by
   await assert.rejects(adapter.attachment(value,AbortSignal.timeout(3000)),{code})
  }
  assert.equal(calls.includes('read'),false)
+})
+
+test('a future message sequence is a safe unavailable response, without concealing storage failures',async t=>{
+ const invalid=await fixture(t,{page:()=>{throw Object.assign(Error('session page past cursor'),{code:'gateway/bad-request'})}})
+ await assert.rejects(invalid.adapter.attachment(input,AbortSignal.timeout(3000)),{status:404,code:'PREVIEW_UNAVAILABLE'});assert.equal(invalid.calls.includes('read'),false)
+ const broken=await fixture(t,{page:()=>{throw Object.assign(Error('synthetic storage fault'),{code:'gateway/internal'})}})
+ await assert.rejects(broken.adapter.attachment(input,AbortSignal.timeout(3000)),{code:'gateway/internal'})
 })
 test('large originals and excessive image dimensions never enter the preview decoder',async t=>{
  for(const ref of [{bytes:100000000},{width:8192,height:8192}]){

@@ -4,6 +4,7 @@ export type PhotoSelection={uri:string;fileName?:string|null;mimeType?:string|nu
 export type PhotoPreview={uri:string;name:string;mimeType:string;size:number;width:number;height:number};
 export type PreparedPhoto={uri:string;name:string;mimeType:string;size:number;preview?:PhotoPreview;previewUnavailable?:boolean;discard?:()=>void};
 export interface PhotoIO {
+ signal?:AbortSignal;
  inspect:(uri:string)=>Promise<{header:Uint8Array;size:number;width?:number;height?:number}>;
  encode:(uri:string,options:{format:'png'|'jpeg';maxEdge:number;quality:number})=>Promise<string>;
  discard:(uri:string)=>void;
@@ -28,6 +29,7 @@ function photoName(asset:PhotoSelection,format:string){
 }
 /** Original bytes are never transformed. A separately named bounded model preview is optional. */
 export async function preparePhoto(asset:PhotoSelection,maxBytes:number,io:PhotoIO):Promise<PreparedPhoto>{
+ io.signal?.throwIfAborted();
  const source=await io.inspect(asset.uri),format=imageFormat(source.header);
  const name=asset.fileName??'photo';
  if(!format)throw new UploadSelectionError('type',name);
@@ -42,16 +44,18 @@ export async function preparePhoto(asset:PhotoSelection,maxBytes:number,io:Photo
  // PNG/WebP preview alpha is retained. HEIC/HEIF and JPEG previews are genuinely encoded JPEG.
  const outputFormat=format==='png'||format==='webp'?'png':'jpeg';
  for(const [maxEdge,quality] of [[2048,0.9],[1536,0.8],[1024,0.7],[768,0.6]] as const){
+  io.signal?.throwIfAborted();
   let uri:string;
-  try{uri=await io.encode(asset.uri,{format:outputFormat,maxEdge,quality});}catch{return {...original,previewUnavailable:true};}
+  try{uri=await io.encode(asset.uri,{format:outputFormat,maxEdge,quality});}catch{io.signal?.throwIfAborted();continue;}
   let kept=false;
   try{
    const output=await io.inspect(uri);
-   if(imageFormat(output.header)!==outputFormat)return {...original,previewUnavailable:true};
+   io.signal?.throwIfAborted();
+   if(imageFormat(output.header)!==outputFormat)continue;
    if(Number.isSafeInteger(output.size)&&output.size>0&&output.size<=2097152&&output.width&&output.height&&output.width*output.height<=4194304&&Math.max(output.width,output.height)<=2048){
-    kept=true;return {...original,preview:{uri,name:previewName(outputFormat),mimeType:`image/${outputFormat}`,size:output.size,width:output.width,height:output.height},discard:()=>io.discard(uri)};
+    kept=true;return {...original,preview:{uri,name:previewName(outputFormat),mimeType:`image/${outputFormat}`,size:output.size,width:output.width,height:output.height},discard:()=>{if(uri!==asset.uri)io.discard(uri)}};
    }
-  }finally{if(!kept)io.discard(uri);}
+  }finally{if(!kept&&uri!==asset.uri)io.discard(uri);}
  }
  return {...original,previewUnavailable:true};
 }

@@ -17,6 +17,35 @@ class LocalTLSModule : Module() {
   private val sockets = ConcurrentHashMap<String, WebSocket>()
   private val clients = ConcurrentHashMap<String, OkHttpClient>()
   private val files = ConcurrentHashMap<String, File>()
+  private val pendingResponseRemovals = mutableSetOf<String>()
+  private fun removeResponse(id: String): Boolean = synchronized(files) {
+    val file = files[id] ?: return@synchronized true
+    try {
+      android.system.Os.unlink(file.absolutePath)
+      files.remove(id); pendingResponseRemovals.remove(id); true
+    } catch (error: Exception) {
+      if (error is android.system.ErrnoException && error.errno == android.system.OsConstants.ENOENT) { files.remove(id); pendingResponseRemovals.remove(id); true }
+      else { pendingResponseRemovals.add(id); false }
+    }
+  }
+  private fun retryResponseRemovals() = synchronized(files) {
+    pendingResponseRemovals.toList().forEach { removeResponse(it) }
+  }
+  private val previewFiles = ConcurrentHashMap<String, File>()
+  private val pendingPreviewRemovals = mutableSetOf<String>()
+  private fun removePreview(id: String): Boolean = synchronized(previewFiles) {
+    val file = previewFiles[id] ?: return@synchronized true
+    try {
+      android.system.Os.unlink(file.absolutePath)
+      previewFiles.remove(id); pendingPreviewRemovals.remove(id); true
+    } catch (error: Exception) {
+      if (error is android.system.ErrnoException && error.errno == android.system.OsConstants.ENOENT) { previewFiles.remove(id); pendingPreviewRemovals.remove(id); true }
+      else { pendingPreviewRemovals.add(id); false }
+    }
+  }
+  private fun retryPreviewRemovals() = synchronized(previewFiles) {
+    pendingPreviewRemovals.toList().forEach { removePreview(it) }
+  }
   @Volatile private var destroyed = false
   private fun client(origin: String, pin: String): OkHttpClient {
     check(!destroyed) { "The connection closed" }
@@ -30,6 +59,32 @@ class LocalTLSModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("DSBotLocalTLS")
     Events("socket")
+    OnCreate {
+      synchronized(previewFiles) {
+        appContext.reactContext?.cacheDir?.listFiles()?.filter { it.name.matches(Regex("^dsbot-preview-[A-Fa-f0-9-]{36}\\.(png|jpg|webp)$")) }?.forEach { previewFiles[it.name] = it; pendingPreviewRemovals.add(it.name) }
+        retryPreviewRemovals()
+      }
+      synchronized(files) {
+        appContext.reactContext?.cacheDir?.listFiles()?.filter { it.name.matches(Regex("^dsbot-response-[A-Fa-f0-9-]{36}$")) }?.forEach { files[it.name] = it; pendingResponseRemovals.add(it.name) }
+        retryResponseRemovals()
+      }
+    }
+    AsyncFunction("createPreviewFile") { input: Map<String, String> -> synchronized(previewFiles) {
+      retryPreviewRemovals()
+      check(!destroyed && previewFiles.size < 16) { "Preview unavailable" }
+      val mime = input["mimeType"]; check(mime in listOf("image/png", "image/jpeg", "image/webp")) { "Preview unavailable" }
+      val encoded = input["base64"] ?: error("Preview unavailable")
+      check(encoded.isNotEmpty() && encoded.length <= 1398104) { "Preview unavailable" }
+      val bytes = Base64.decode(encoded, Base64.NO_WRAP); check(bytes.isNotEmpty() && bytes.size <= 1048576) { "Preview unavailable" }
+      val ext = if (mime == "image/jpeg") "jpg" else mime!!.removePrefix("image/")
+      val name = "dsbot-preview-" + UUID.randomUUID() + "." + ext
+      val folder = appContext.reactContext?.cacheDir ?: error("Preview unavailable")
+      val file = File(folder, name)
+      previewFiles[name] = file
+      try { file.writeBytes(bytes) } catch (error: Exception) { removePreview(name); throw error }
+      mapOf("id" to name, "uri" to android.net.Uri.fromFile(file).toString())
+    } }
+    AsyncFunction("removePreviewFile") { id: String -> removePreview(id) }
     AsyncFunction("request") { data: Map<String, Any?>, promise: Promise ->
       try {
         val origin = data["origin"] as String; val pin = data["pin"] as String
@@ -72,11 +127,13 @@ class LocalTLSModule : Module() {
                   val file = File(context.cacheDir, "dsbot-response-" + UUID.randomUUID())
                   synchronized(files) {
                     check(!destroyed && !call.isCanceled())
-                    files.values.filter { System.currentTimeMillis() - it.lastModified() > 60000 }.forEach { old -> old.delete(); files.remove(old.name) }
+                      retryResponseRemovals()
+                      files.values.filter { System.currentTimeMillis() - it.lastModified() > 60000 }.forEach { old -> removeResponse(old.name) }
                     check(files.size < 16)
-                    file.writeBytes(bytes); files[file.name] = file
+                      files[file.name] = file
+                      try { file.writeBytes(bytes) } catch (error: Exception) { removeResponse(file.name); throw error }
                   }
-                  result["bodyFile"] = file.toURI().toString(); result["fileId"] = file.name
+                  result["bodyFile"] = android.net.Uri.fromFile(file).toString(); result["fileId"] = file.name
                 } else result["bodyText"] = bytes.toString(Charsets.UTF_8)
                 if (!destroyed && !call.isCanceled()) promise.resolve(result)
                 else promise.reject("CANCELLED", "The request was cancelled.", null)
@@ -88,7 +145,7 @@ class LocalTLSModule : Module() {
       } catch (_: Exception) { promise.reject("LOCAL_TLS_FAILED", "The local HTTPS request is invalid or unavailable.", null) }
     }
     AsyncFunction("cancel") { id: String -> calls.remove(id)?.cancel() }
-    AsyncFunction("removeResponseFile") { id: String -> synchronized(files) { files.remove(id)?.delete() }; true }
+    AsyncFunction("removeResponseFile") { id: String -> removeResponse(id) }
     AsyncFunction("connect") { origin: String, pin: String, id: String, url: String ->
       LocalTLS.validate(origin, url, true)
       check(sockets.size < 16) { "Too many streams" }
@@ -108,7 +165,8 @@ class LocalTLSModule : Module() {
       calls.values.forEach { it.cancel() }; calls.clear()
       sockets.values.forEach { it.cancel() }; sockets.clear()
       clients.values.forEach { it.connectionPool.evictAll(); it.dispatcher.executorService.shutdown() }; clients.clear()
-      synchronized(files) { files.values.forEach { it.delete() }; files.clear() }
+      synchronized(files) { files.keys.toList().forEach { removeResponse(it) } }
+      synchronized(previewFiles) { previewFiles.keys.toList().forEach { removePreview(it) } }
     }
   }
 }

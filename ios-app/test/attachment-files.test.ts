@@ -59,3 +59,11 @@ test('preview reads and inspection cannot escape private cache folders or fetch 
  await assert.rejects(api.inspectPhotoFile('https://example.invalid/private.png'));
  assert.equal(f.handles.length,0);
 });
+
+test('missing or unsupported picker names are inspected after an owned copy and actual bytes determine the name',async()=>{
+ const f=fixture(),api=f.load('src/ds/prepare-photo.ts'),uri='file:///ImagePicker/no-extension';f.files.set(uri,png);
+ for(const fileName of [undefined,'photo.bin','stale.HEIC']){
+  const selected=await api.prepareSelectedPhoto({uri,fileName,mimeType:'image/heic'},100000000);assert.match(selected.name,/\.png$/);assert.deepEqual(f.files.get(selected.localFile.uri),png);selected.discard();
+ }
+ assert.deepEqual([...f.files.keys()],[uri]);assert.ok(f.handles.every(handle=>handle.closed));
+});

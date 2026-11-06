@@ -2,9 +2,8 @@ import {Directory,File,FileMode,Paths} from 'expo-file-system';
 import {getRandomBytes} from 'expo-crypto';
 import {Platform} from 'react-native';
 import {sha256} from '@noble/hashes/sha2.js';
-import {encode} from '@stablelib/base64';
 import {attachmentMimeTypeForName} from '@openbot/contracts/attachment-files';
-import {imageDimensions} from '@/features/chat/model/image-dimensions';
+import {readImageHeader} from '../logic/image-header';
 import {UploadSelectionError,uploadKind} from '../logic/upload-attachments';
 import type {LocalUpload} from './upload-types';
 
@@ -24,8 +23,8 @@ export function discardDraftUpload(file:LocalUpload){
 }
 export function safeUploadName(name:string){const clean=name.replace(/[\p{Cc}\p{Zl}\p{Zp}/\\:]/gu,'_').replace(/^\.+/u,'').trim(),dot=clean.lastIndexOf('.');return (dot>0?clean.slice(0,dot).slice(0,240)+clean.slice(dot):clean.slice(0,255))||'attachment';}
 /** Copy a granted selection before a share-provider deletes its temporary original. */
-export async function copyDraftUpload(uri:string,name:string,maximum:number,signal?:AbortSignal):Promise<LocalUpload>{
- name=safeUploadName(name);const kind=uploadKind(name);if(!kind)throw new UploadSelectionError('type',name);
+export async function copyDraftUpload(uri:string,name:string,maximum:number,signal?:AbortSignal,hint?:'photo'):Promise<LocalUpload>{
+ name=safeUploadName(name);const kind=hint??uploadKind(name);if(!kind)throw new UploadSelectionError('type',name);
  const clientId=createUploadId(),hash=sha256.create();let copiedUri:string|undefined;
  try{
   let size:number;
@@ -42,7 +41,8 @@ export async function copyDraftUpload(uri:string,name:string,maximum:number,sign
    const directory=new Directory(Paths.cache,folder);directory.create({idempotent:true,intermediates:true});
    // Selections are memory-only; after process restart, these private UUID copies are orphaned.
    if(!swept){for(const file of directory.list())if(file instanceof File&&/^[a-f0-9]{32}\.[a-z0-9]+$/u.test(file.name)&&!cached.has(file.uri))file.delete();swept=true;}
-   const destination=new File(directory,`${clientId}.${name.split('.').at(-1)}`);copiedUri=destination.uri;reserve(copiedUri,size);destination.create();
+   const suffix=name.split('.').at(-1)??'',extension=/^[a-z0-9]{1,8}$/iu.test(suffix)?suffix:'bin';
+   const destination=new File(directory,`${clientId}.${extension}`);copiedUri=destination.uri;reserve(copiedUri,size);destination.create();
    const input=source.open(FileMode.ReadOnly);let output:ReturnType<File['open']>|undefined;
    try{output=destination.open(FileMode.WriteOnly);for(let offset=0;offset<size;){signal?.throwIfAborted();const bytes=await input.readBytes(Math.min(262144,size-offset));
     if(!bytes.length)throw new UploadSelectionError('damaged',name);hash.update(bytes);await output.writeBytes(bytes);offset+=bytes.length;
@@ -64,9 +64,14 @@ export async function readCachedChunk(uri:string,size:number,offset:number,lengt
  const file=new File(uri);if(file.size!==size)throw new UploadSelectionError('damaged');const handle=file.open(FileMode.ReadOnly);
  try{handle.offset=offset;return await handle.readBytes(length);}finally{handle.close();}
 }
-export async function inspectPhotoFile(uri:string){
- let size:number,header:Uint8Array;
- if(Platform.OS==='web'){if(!uri.startsWith('blob:')&&!uri.startsWith('data:'))throw new UploadSelectionError('type');const blob=await(await fetch(uri)).blob();size=blob.size;header=new Uint8Array(await blob.slice(0,65536).arrayBuffer());}
- else{if(!readable(uri))throw new UploadSelectionError('type');const file=new File(uri);size=file.size;const handle=file.open(FileMode.ReadOnly);try{header=await handle.readBytes(65536);}finally{handle.close();}}
- return {size,header,...imageDimensions(encode(header))};
+export async function inspectPhotoFile(uri:string,signal?:AbortSignal){
+ signal?.throwIfAborted();
+ if(Platform.OS==='web'){
+  if(!uri.startsWith('blob:')&&!uri.startsWith('data:'))throw new UploadSelectionError('type');const blob=await(await fetch(uri)).blob(),size=blob.size;
+  const header=new Uint8Array(await blob.slice(0,32).arrayBuffer()),shape=await readImageHeader(size,async(offset,length)=>offset===0&&length<=header.length?header.subarray(0,length):new Uint8Array(await blob.slice(offset,offset+length).arrayBuffer()),signal);
+  return {size,header,...shape};
+ }
+ if(!readable(uri))throw new UploadSelectionError('type');const file=new File(uri),size=file.size,handle=file.open(FileMode.ReadOnly);
+ try{const header=await handle.readBytes(Math.min(size,32)),shape=await readImageHeader(size,async(offset,length)=>{if(offset===0&&length<=header.length)return header.subarray(0,length);handle.offset=offset;return handle.readBytes(length);},signal);return {size,header,...shape};}
+ finally{handle.close();}
 }

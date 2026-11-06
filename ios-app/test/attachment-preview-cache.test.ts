@@ -7,14 +7,15 @@ function fixture(config:{permission?:()=>Promise<any>;available?:()=>Promise<boo
  const mocks:any={react:{useMemo:(fn:any,deps:any[])=>{const n=cursor++;if(!equal(slots[n]?.deps,deps))slots[n]={deps,value:fn()};return slots[n].value},useState:(value:any)=>[value,()=>{}],useEffect:(effect:any,deps:any[])=>{const n=cursor++;if(!equal(slots[n]?.deps,deps)){slots[n]?.cleanup?.();slots[n]={deps,cleanup:effect()}}}},'react-native':{View:'View'},expo:{},'expo-modules-core':{},'expo-image':{Image:'Image'},
   'expo-sharing':{isAvailableAsync:config.available??(async()=>true),shareAsync:async()=>{exports++}},'expo-media-library':{requestPermissionsAsync:config.permission??(async()=>({granted:true})),Asset:{create:async()=>{exports++}}},
   'expo-file-system':{Paths:{cache:'file:///cache'},File:class{exists=false;uri='file:///synthetic-preview';writeSync(){writes++}delete(){}}},
-  '@openbot/team-client/remote-peer':{MOBILE_ATTACHMENT_BYTES:10485760},'@tanstack/react-query':{useQuery:(value:any)=>{options=value;return {data:config.cached?cached:undefined};}},'heroui-native/hooks':{useThemeColor:()=>''},'lucide-react-native/icons/file-text':{},
+  '@openbot/team-client/remote-peer':{MOBILE_ATTACHMENT_BYTES:10485760},'@tanstack/react-query':{useQueryClient:()=>({getQueryCache:()=>({subscribe(){}})}),useQuery:(value:any)=>{options=value;return {data:config.cached?cached:undefined};}},'heroui-native/hooks':{useThemeColor:()=>''},'lucide-react-native/icons/file-text':{},
+  '@ds/preview-file':{createPreviewFile:async()=>null},
   '@/features/analytics/failure-reports':{showFailureAlert(){}},'@/shared/lib/haptics':{haptics:{notification(){}}},'@/shared/lib/text':{useText:()=>({t:(x:string)=>x,sourceText:(x:string)=>x}),currentText:(x:string)=>x},
   '@/features/workspace/context/mobile-workspace-context':{useMobileWorkspaceActions:()=>({downloadAttachment:async(_server:string,_id:string,request:any)=>{lastSignal=request?.signal;if(config.denied)throw Error('revoked');return cached;}})},
   '@/features/workspace/model/query-keys':{queryKeys:{chatAttachment:(server:string,id:string)=>['chat-attachment',server,id]}},'./use-media-file':{mediaFile:()=>file},
  };
- const result=buildSync({absWorkingDir:root,entryPoints:['openbot/mobile/src/features/chat/components/attachment-preview.tsx'],bundle:true,write:false,platform:'node',format:'cjs',supported:{'dynamic-import':false},external:Object.keys(mocks),jsx:'automatic',jsxImportSource:'react',logLevel:'silent'}),module={exports:{} as any};
+ const result=buildSync({absWorkingDir:root,entryPoints:['openbot/mobile/src/features/chat/components/attachment-preview.tsx'],bundle:true,write:false,platform:'node',format:'cjs',alias:{'@ds/preview-resource':root+'src/ds/preview-resource.ts'},supported:{'dynamic-import':false},external:Object.keys(mocks),jsx:'automatic',jsxImportSource:'react',logLevel:'silent'}),module={exports:{} as any};
  new Function('require','module','exports',result.outputFiles[0].text)((name:string)=>Object.hasOwn(mocks,name)?mocks[name]:require(name),module,module.exports);
- return{use:(...args:any[])=>{cursor=0;return module.exports.useAttachmentFile(...args)},get options(){return options},get writes(){return writes},get exports(){return exports},get signal(){return lastSignal},unmount(){slots.forEach(slot=>slot.cleanup?.())}};
+ return{remember:module.exports.rememberImageDimensions,known:module.exports.knownImageDimensions,use:(...args:any[])=>{cursor=0;return module.exports.useAttachmentFile(...args)},get options(){return options},get writes(){return writes},get exports(){return exports},get signal(){return lastSignal},unmount(){slots.forEach(slot=>slot.cleanup?.())}};
 }
 const attachment={id:'scoped-message-preview',name:'original.png',size:70,kind:'image',mimeType:'image/png',previewKind:'image',previewUrl:null};
 test('scoped previews are memory-only, cancel with their query and leave no retained cache entry',async()=>{
@@ -43,4 +44,8 @@ test('an ordinary provider rerender does not cancel export when the scoped image
 test('an unavailable attachment never enables its read query and ordinary upstream images retain their policy',async()=>{
  const f=fixture();f.use('server',{...attachment,downloadMode:'unavailable'},true);assert.equal(f.options.enabled,false);
  const g=fixture();g.use('server',attachment,true);assert.equal(g.options.gcTime,300000);await g.options.queryFn({signal:new AbortController().signal});assert.equal(g.writes,1);
+});
+
+test('scoped preview identifiers and dimensions never enter the persistent dimension cache',t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const f=fixture(),id='ds-preview-v1:scoped-synthetic-message';f.remember(id,{width:480,height:800});t.mock.timers.tick(1001);assert.equal(f.writes,0);assert.equal(f.known(id),null);
 });

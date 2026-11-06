@@ -25,6 +25,7 @@
     "index.d.ts",
     "mentions.js",
     "upload-file.js",
+    "attachment-data.js",
     "relay-crypto.js",
     "relay-crypto.d.ts",
     "vendor",

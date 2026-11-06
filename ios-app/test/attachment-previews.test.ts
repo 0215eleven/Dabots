@@ -24,6 +24,20 @@ test('preview identities bind computer, connection, conversation, Session and ex
  assert.throws(()=>decodePreviewId('https://outside.example/image.png'));
 });
 const png=Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64'));
+
+test('preview header validation does not require a browser atob global',async t=>{
+ const previous=globalThis.atob;globalThis.atob=undefined as any;t.after(()=>{globalThis.atob=previous});
+ const {readPreview}=await import('../src/ds/attachment-preview.ts'),[row]=screenMessages([message([photo])],s=>s,{previews:true,epoch:'epoch-A'} as any);
+ const result=await readPreview({attachment:async()=>new Blob([png],{type:'image/png'})} as any,'computer','epoch-A',row.attachments![0].id,{current:()=>true});assert.equal(result.mimeType,'image/png');
+});
+
+test('a bounded JPEG header scan accepts progressive SOF after multiple large metadata segments',async()=>{
+ const app=Buffer.alloc(60004,0);app[0]=255;app[1]=225;app.writeUInt16BE(60002,2);
+ const sof=Buffer.from([255,194,0,17,8,6,0,2,192,3,1,17,0,2,17,0,3,17,0,255,218,0,2]);
+ const jpeg=Buffer.concat([Buffer.from([255,216]),app,app,sof]);
+ const {readPreview}=await import('../src/ds/attachment-preview.ts'),[row]=screenMessages([message([photo])],s=>s,{previews:true,epoch:'epoch-A'} as any);
+ const result=await readPreview({attachment:async()=>new Blob([jpeg],{type:'image/jpeg'})} as any,'computer','epoch-A',row.attachments![0].id,{current:()=>true});assert.equal(result.mimeType,'image/jpeg');
+});
 test('preview loader carries exact message authorization and refuses oversized or non-image responses',async()=>{
  const {readPreview}=await import('../src/ds/attachment-preview.ts');const [row]=screenMessages([message([photo])],s=>s,{previews:true,epoch:'epoch-A'} as any);let calls=0;
  const client={attachment:async(...args:any[])=>{calls++;assert.deepEqual(args.slice(0,3),['chief','chat',preview]);assert.equal(args[3].seq,7);return new Blob([png],{type:'image/png'});}} as any;
@@ -49,4 +63,13 @@ test('multiple visible photos respect the desktop read quota and a queued cancel
  await new Promise(resolve=>setImmediate(resolve));assert.equal(active,2);controller.abort();
  gates.splice(0).forEach(release=>release());await new Promise(resolve=>setImmediate(resolve));gates.splice(0).forEach(release=>release());
  const results=await settled;assert.equal(results.filter(r=>r.status==='fulfilled').length,3);assert.equal(results[2].status,'rejected');assert.equal(peak,2);assert.equal(calls,3);
+});
+
+test('plain payloads reserve validated dimensions and distinguish safe failure stages without raw host errors',async()=>{
+ const {readPreview}=await import('../src/ds/attachment-preview.ts'),[row]=screenMessages([message([photo])],s=>s,{previews:true,epoch:'epoch-A'} as any),id=row.attachments![0].id;
+ const read=(client:any)=>readPreview(client,'computer','epoch-A',id,{current:()=>true});
+ const data={mimeType:'Image/PNG; charset=binary',base64:Buffer.from(png).toString('base64')};
+ const result=await read({attachmentData:async()=>data,attachment:()=>assert.fail('plain native value must not round-trip through Blob')});assert.deepEqual(result.dimensions,{width:1,height:1});
+ for(const [value,code] of [[{...data,base64:'bad payload'},'PREVIEW_ENCODING'],[{...data,mimeType:'image/jpeg'},'PREVIEW_FORMAT'],[{...data,mimeType:'text/html'},'PREVIEW_MIME'],[{...data,base64:''},'PREVIEW_EMPTY']])await assert.rejects(read({attachmentData:async()=>value}),{code});
+ for(const [failure,code] of [[{status:403},'PREVIEW_AUTH'],[{code:'session_changed'},'PREVIEW_AUTH'],[{code:'preview_size'},'PREVIEW_SIZE'],[{status:404},'PREVIEW_UNAVAILABLE'],[{},'PREVIEW_NETWORK']])await assert.rejects(read({attachmentData:async()=>{throw Object.assign(Error('secret/path/synthetic'),failure)}}),error=>{assert.ok(!String(error).includes('secret/path'));return(error as any).code===code});
 });

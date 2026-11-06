@@ -1,12 +1,14 @@
 import { requireOptionalNativeModule } from "expo";
-import { Platform } from "react-native";
-import { ClientOptions, MobileClient, validateServerUrl, validateTlsPin } from "@ds-bot/mobile-sdk";
+import { Platform,AppState } from "react-native";
+import { ClientOptions, MobileClient, validateServerUrl, validateTlsPin,previewBase64,previewMime } from "@ds-bot/mobile-sdk";
+import {File} from 'expo-file-system';
 import { createRelayTransport, type RelayHost } from "@ds-bot/mobile-sdk/relay-transport";
 import * as Crypto from "expo-crypto";
 import { relayPhoneKey } from "../storage/relay-key";
 import { signPhoneConnection } from "../logic/relay-access";
 import { relayOrigin } from "../logic/pairing";
 import { officialRelay } from "../logic/hosts";
+import {createResponseRemover} from '../ds/preview-cleanup';
 interface NativeResponse { status:number; headers:Record<string,string>; bodyText?:string; bodyFile?:string; fileId?:string }
 interface SocketEvent { id:string; type:string; data?:string; code?:number; reason?:string }
 interface Transport {
@@ -19,6 +21,8 @@ interface Transport {
   addListener(name:"socket",listener:(event:SocketEvent)=>void):{remove():void};
 }
 const native = requireOptionalNativeModule<Transport>("DSBotLocalTLS");
+const responseCleanup=native?createResponseRemover({removePreviewFile:id=>native.removeResponseFile(id)}):null;
+if(responseCleanup)AppState?.addEventListener('change',state=>{if(state==='active')void responseCleanup.retryPending();});
 let sequence=0;
 const requestId=()=>`local-${Date.now()}-${++sequence}`;
 function base64(bytes:Uint8Array) {
@@ -47,7 +51,11 @@ function createRelayClient(options:Omit<ClientOptions,"baseUrl"|"tlsPin">,relay:
     const response=await transport.fetch(input,init) as Response;
     if(Platform.OS==="web")return response;
     // React Native cannot build a Blob from bytes; go through a data URI instead.
-    return Object.assign(response,{blob:async()=>{
+    return Object.assign(response,{attachmentData:async({signal}:{maximum:number;signal?:AbortSignal})=>{
+      signal?.throwIfAborted();const mimeType=previewMime(response.headers.get('content-type'));
+      const bytes=new Uint8Array(await response.arrayBuffer());signal?.throwIfAborted();
+      return {mimeType,base64:previewBase64(bytes)};
+    },blob:async()=>{
       const type=response.headers.get("content-type")||"application/octet-stream";
       const file=await fetch(`data:${type};base64,${base64(new Uint8Array(await response.arrayBuffer()))}`);
       return file.blob();
@@ -74,10 +82,21 @@ export function createMobileClient(options:ClientOptions&{relay?:RelayHost&{requ
     init.signal?.addEventListener("abort",abort,{once:true});
     try {
       const response=await transport.request({origin,pin,id,url:String(input),method:init.method??"GET",headers,body:encodeBody(init.body)});
-      if(init.signal?.aborted){if(response.fileId)await transport.removeResponseFile(response.fileId);throw new Error("The request was cancelled.");}
+      if(init.signal?.aborted){if(response.fileId)await responseCleanup?.remove(response.fileId);throw new Error("The request was cancelled.");}
       const text=response.bodyText??"";
       const responseHeaders=new Headers(response.headers);
-      return {status:response.status,ok:response.status>=200&&response.status<300,headers:responseHeaders,text:async()=>text,json:async()=>JSON.parse(text),
+      let released=false;const releaseAttachment=async()=>{if(released||!response.fileId)return;released=await responseCleanup!.remove(response.fileId);};
+      return {status:response.status,ok:response.status>=200&&response.status<300,headers:responseHeaders,text:async()=>text,json:async()=>JSON.parse(text),releaseAttachment,
+        attachmentData:async({maximum,signal}:{maximum:number;signal?:AbortSignal})=>{
+          try{
+            signal?.throwIfAborted();
+            let location:URL;try{location=new URL(response.bodyFile??'invalid:');}catch{throw Object.assign(new Error('This image preview is unavailable.'),{code:'preview_read'});}
+            if(location.protocol!=='file:'||location.hostname||location.search||location.hash||!response.fileId)throw Object.assign(new Error('This image preview is unavailable.'),{code:'preview_read'});
+            const file=new File(location.href);
+            if(!Number.isSafeInteger(file.size)||file.size<=0||file.size>maximum)throw Object.assign(new Error('This image preview is unavailable.'),{code:file.size>maximum?'preview_size':'preview_empty'});
+            const value={mimeType:previewMime(responseHeaders.get('content-type')),base64:await file.base64()};signal?.throwIfAborted();return value;
+          }finally{await releaseAttachment();}
+        },
         blob:async()=>{
           if(!response.bodyFile || !response.fileId)throw new Error("The host did not return a downloadable attachment.");
           try {
@@ -85,7 +104,7 @@ export function createMobileClient(options:ClientOptions&{relay?:RelayHost&{requ
             const type=responseHeaders.get("content-type")?.split(";")[0].trim();
             return type ? blob.slice(0,blob.size,type) : blob;
           }
-          finally {await transport.removeResponseFile(response.fileId);}
+          finally {await releaseAttachment();}
         },
       } as Response;
     } finally {init.signal?.removeEventListener("abort",abort);}

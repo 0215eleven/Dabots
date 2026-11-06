@@ -1,4 +1,6 @@
 export const protocolVersion: 1;
+export function previewBase64(bytes:Uint8Array):string;
+export function previewMime(value:unknown):'image/png'|'image/jpeg'|'image/webp';
 export interface Session {
   accessToken: string;
   refreshToken: string;
@@ -296,6 +298,7 @@ export class MobileClient {
   revokeDevice(deviceId: string): Promise<Record<string, unknown>>;
   markRead(conversationId: string, seq: number): Promise<Record<string, unknown>>;
   attachment(conversationId: string, sessionId: string, attachmentId: string, options?: { seq?: number; signal?: AbortSignal }): Promise<Blob>;
+  attachmentData(conversationId:string,sessionId:string,attachmentId:string,options:{seq:number;signal?:AbortSignal}):Promise<{name:string;mimeType:string;base64:string}>;
   download(path: string): Promise<Blob>;
   getCachedMessages(conversationId: string): Promise<Message[]>;
   /** Discards queued cache updates before clearing this server's cached messages and drafts. */

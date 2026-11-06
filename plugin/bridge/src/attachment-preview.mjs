@@ -16,7 +16,9 @@ export function createPreviewReader({authorize,project,sessionController,attachm
   if(!input||!id(input.attachmentId)||!Number.isSafeInteger(input.seq)||input.seq<0)throw new BridgeError(400,'INVALID_PREVIEW','Choose an image from an exact conversation message.')
   signal.throwIfAborted()
   const item=await authorize(input,signal,access)
-  const page=await sessionController.page({address:{kind:'session',sessionId:input.sessionId},throughSeq:input.seq,maxMessages:1},signal)
+  let page
+  try{page=await sessionController.page({address:{kind:'session',sessionId:input.sessionId},throughSeq:input.seq,maxMessages:1},signal)}
+  catch(error){signal.throwIfAborted();if(error?.code==='gateway/bad-request')denied();throw error}
   const records=page.records??[]
   const visible=async target=>{
    const rows=await project(records,target,input.sessionId,signal)

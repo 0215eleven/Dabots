@@ -34,8 +34,8 @@ export function useAttachments(conversationId?:string){
  async function photo(asset:Parameters<typeof prepareSelectedPhoto>[0]){
   try{assertScope(scope);const result=await prepareSelectedPhoto(asset,limits.maxBytes,selection.current.signal);remember(result.localFile,scope);return result;}catch(error){return selectionFailure(error);}
  }
- async function file(uri:string,name:string){
-  try{assertScope(scope);if(uploadKind(name)==='photo')return (await photo({uri,fileName:name})).localFile;return remember(await copyDraftUpload(uri,name,limits.maxBytes,selection.current.signal),scope);}catch(error){return selectionFailure(error);}
+ async function file(uri:string,name:string,info?:{mimeType?:string|null}){
+  try{assertScope(scope);if(uploadKind(name)==='photo'||info?.mimeType?.toLowerCase().startsWith('image/'))return (await photo({uri,fileName:name,mimeType:info?.mimeType})).localFile;return remember(await copyDraftUpload(uri,name,limits.maxBytes,selection.current.signal),scope);}catch(error){return selectionFailure(error);}
  }
  const attachments=useChatAttachments([],async items=>{try{if(items.length){assertScope(scope);draftScope.current=scope;}validateSelectedUploads(items,limits);}catch(error){selectionFailure(error);}},()=>({eml:false,media:false,zip:false,mp4:false}),{
   bytes:limits.maxBytes,count:limits.maxFiles,...(large?{file,photo,discardFile:discard}:{}),

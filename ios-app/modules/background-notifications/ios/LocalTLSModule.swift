@@ -28,11 +28,69 @@ public class LocalTLSModule: Module {
   private var requests: [String: URLSessionDataTask] = [:]
   private var sockets: [String: (URLSession, URLSessionWebSocketTask)] = [:]
   private var files: [String: URL] = [:]
+  private var pendingResponseRemovals = Set<String>()
+  private func removeResponse(_ id: String) -> Bool {
+    guard let file = files[id] else { return true }
+    do {
+      try FileManager.default.removeItem(at: file)
+      files.removeValue(forKey: id); pendingResponseRemovals.remove(id); return true
+    } catch {
+      let failure = error as NSError
+      if failure.domain == NSCocoaErrorDomain && [NSFileNoSuchFileError, NSFileReadNoSuchFileError].contains(failure.code) { files.removeValue(forKey: id); pendingResponseRemovals.remove(id); return true }
+      pendingResponseRemovals.insert(id); return false
+    }
+  }
+  private func retryResponseRemovals() {
+    for id in Array(pendingResponseRemovals) { _ = removeResponse(id) }
+  }
+  private var previewFiles: [String: URL] = [:]
+  private var pendingPreviewRemovals = Set<String>()
+  private func removePreview(_ id: String) -> Bool {
+    guard let file = previewFiles[id] else { return true }
+    do {
+      try FileManager.default.removeItem(at: file)
+      previewFiles.removeValue(forKey: id); pendingPreviewRemovals.remove(id); return true
+    } catch {
+      let failure = error as NSError
+      if failure.domain == NSCocoaErrorDomain && [NSFileNoSuchFileError, NSFileReadNoSuchFileError].contains(failure.code) { previewFiles.removeValue(forKey: id); pendingPreviewRemovals.remove(id); return true }
+      pendingPreviewRemovals.insert(id); return false
+    }
+  }
+  private func retryPreviewRemovals() {
+    for id in Array(pendingPreviewRemovals) { _ = removePreview(id) }
+  }
   private var destroyed = false
   private func invalid() -> NSError { NSError(domain: "DSBotLocalTLS", code: 1, userInfo: [NSLocalizedDescriptionKey: "The local HTTPS connection could not be verified or completed."]) }
   public func definition() -> ModuleDefinition {
     Name("DSBotLocalTLS")
     Events("socket")
+    OnCreate {
+      // Only orphaned files owned by this feature; never arbitrary paths or user originals.
+      let folder = FileManager.default.temporaryDirectory
+      for file in (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [] {
+        if file.lastPathComponent.range(of: "^dsbot-preview-[A-Fa-f0-9-]{36}\\.(png|jpg|webp)$", options: .regularExpression) != nil { self.previewFiles[file.lastPathComponent] = file; self.pendingPreviewRemovals.insert(file.lastPathComponent) }
+        else if file.lastPathComponent.range(of: "^dsbot-response-[A-Fa-f0-9-]{36}$", options: .regularExpression) != nil { self.files[file.lastPathComponent] = file; self.pendingResponseRemovals.insert(file.lastPathComponent) }
+      }
+      self.retryPreviewRemovals()
+      self.retryResponseRemovals()
+    }
+    AsyncFunction("createPreviewFile") { (input: [String: String]) -> [String: String] in
+      self.retryPreviewRemovals()
+      guard !self.destroyed, self.previewFiles.count < 16,
+        let mime = input["mimeType"], ["image/png", "image/jpeg", "image/webp"].contains(mime),
+        let encoded = input["base64"], !encoded.isEmpty, encoded.utf8.count <= 1398104,
+        let bytes = Data(base64Encoded: encoded), !bytes.isEmpty, bytes.count <= 1048576 else { throw self.invalid() }
+      let ext = mime == "image/jpeg" ? "jpg" : String(mime.dropFirst(6))
+      let name = "dsbot-preview-" + UUID().uuidString + "." + ext
+      let file = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+      self.previewFiles[name] = file
+      do { try bytes.write(to: file, options: [.atomic, .completeFileProtection]) }
+      catch { _ = self.removePreview(name); throw self.invalid() }
+      return ["id": name, "uri": file.absoluteString]
+    }.runOnQueue(.main)
+    AsyncFunction("removePreviewFile") { (id: String) -> Bool in
+      return self.removePreview(id)
+    }.runOnQueue(.main)
     AsyncFunction("request") { (input: [String: Any], promise: Promise) in
       guard !self.destroyed, self.requests.count < 32, let origin = input["origin"] as? String, let pin = input["pin"] as? String, validLocalPin(pin),
         let id = input["id"] as? String, let address = input["url"] as? String, validateLocalURL(origin, address), let url = URL(string: address),
@@ -52,12 +110,14 @@ public class LocalTLSModule: Module {
         guard !self.destroyed, error == nil, let data = data, let response = response, !(300..<400).contains(response.statusCode) else { promise.reject(self.invalid()); return }
         var value: [String: Any] = ["status": response.statusCode, "headers": response.allHeaderFields.reduce(into: [String: String]()) { result, field in result[String(describing: field.key)] = String(describing: field.value) }]
         if (200..<300).contains(response.statusCode) && method == "GET" && url.path.hasPrefix("/mobile/v1/attachments/") {
-          self.files.filter { pair in ((try? pair.value.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)?.timeIntervalSinceNow ?? 0) < -60 }.forEach { pair in try? FileManager.default.removeItem(at: pair.value); self.files.removeValue(forKey: pair.key) }
+          self.retryResponseRemovals()
+          self.files.filter { pair in ((try? pair.value.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)?.timeIntervalSinceNow ?? 0) < -60 }.forEach { pair in _ = self.removeResponse(pair.key) }
           guard self.files.count < 16 else { promise.reject(self.invalid()); return }
           let name = "dsbot-response-" + UUID().uuidString
           let file = FileManager.default.temporaryDirectory.appendingPathComponent(name)
-          do { try data.write(to: file, options: [.atomic, .completeFileProtection]); self.files[name] = file }
-          catch { promise.reject(self.invalid()); return }
+          self.files[name] = file
+          do { try data.write(to: file, options: [.atomic, .completeFileProtection]) }
+          catch { _ = self.removeResponse(name); promise.reject(self.invalid()); return }
           value["bodyFile"] = file.absoluteString; value["fileId"] = name
         } else { value["bodyText"] = String(data: data, encoding: .utf8) ?? "" }
         promise.resolve(value)
@@ -67,7 +127,7 @@ public class LocalTLSModule: Module {
       let task = session.dataTask(with: request); self.requests[id] = task; task.resume()
     }.runOnQueue(.main)
     AsyncFunction("cancel") { (id: String) in self.requests.removeValue(forKey: id)?.cancel() }.runOnQueue(.main)
-    AsyncFunction("removeResponseFile") { (id: String) -> Bool in if let file = self.files.removeValue(forKey: id) { try? FileManager.default.removeItem(at: file) }; return true }.runOnQueue(.main)
+    AsyncFunction("removeResponseFile") { (id: String) -> Bool in self.removeResponse(id) }.runOnQueue(.main)
     AsyncFunction("connect") { (origin: String, pin: String, id: String, address: String) in
       guard !self.destroyed, self.sockets.count < 16, validLocalPin(pin), validateLocalURL(origin, address, socket: true), let url = URL(string: address) else { throw self.invalid() }
       let delegate = LocalSocket(origin: origin, pin: pin) { [weak self] type, value in self?.emit(id, type, value) }
@@ -86,7 +146,8 @@ public class LocalTLSModule: Module {
         self.destroyed = true
         self.requests.values.forEach { $0.cancel() }; self.requests.removeAll()
         self.sockets.values.forEach { $0.1.cancel(with: .goingAway, reason: nil); $0.0.invalidateAndCancel() }; self.sockets.removeAll()
-        self.files.values.forEach { try? FileManager.default.removeItem(at: $0) }; self.files.removeAll()
+        for id in Array(self.files.keys) { _ = self.removeResponse(id) }
+        for id in Array(self.previewFiles.keys) { _ = self.removePreview(id) }
       }
     }
   }
